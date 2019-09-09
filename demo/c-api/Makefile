@@ -1,19 +1,27 @@
-SRC=c-api-demo.c
-TGT=c-api-demo
+SRC=debug_cudf_xgboost_demo.cpp
+TGT=debug_cudf_xgboost
 
-cc=cc
-CFLAGS ?=-O3
+cc=g++
+
+CFLAGS ?=-O0 -g -DXGBOOST_USE_CUDF
+
 XGBOOST_ROOT ?=../..
-INCLUDE_DIR=-I$(XGBOOST_ROOT)/include -I$(XGBOOST_ROOT)/dmlc-core/include -I$(XGBOOST_ROOT)/rabit/include
-LIB_DIR=-L$(XGBOOST_ROOT)/lib
+INCLUDE_DIR=-I$(XGBOOST_ROOT)/include -I$(XGBOOST_ROOT)/dmlc-core/include -I$(XGBOOST_ROOT)/rabit/include -I/home/bobwang/anaconda3/envs/cudf_dev/include
+LIB_DIR=-L$(XGBOOST_ROOT)/lib -L/home/bobwang/anaconda3/envs/cudf_dev/lib
 
 build: $(TGT)
 
 $(TGT): $(SRC) Makefile
-	$(cc) $(CFLAGS) $(INCLUDE_DIR) $(LIB_DIR) -o $(TGT) $(SRC) -lxgboost
+	$(cc) $(CFLAGS) $(INCLUDE_DIR) $(LIB_DIR) -o $(TGT) $(SRC) -lxgboost -lcudf -lNVStrings -lNVCategory -lrmm
 
 run: $(TGT)
-	LD_LIBRARY_PATH=$(XGBOOST_ROOT)/lib ./$(TGT)
+	LD_LIBRARY_PATH=$(XGBOOST_ROOT)/lib:/home/bobwang/anaconda3/envs/cudf_dev/lib  ./$(TGT)
+
+debug: $(TGT)
+	LD_LIBRARY_PATH=$(XGBOOST_ROOT)/lib:/home/bobwang/anaconda3/envs/cudf_dev/lib  gdbserver :1234 ./$(TGT)
+
+remote_debug:
+	LD_LIBRARY_PATH=$(XGBOOST_ROOT)/lib:/home/bobwang/anaconda3/envs/cudf_dev/lib  gdbserver 10.19.226.111:1234 ./$(TGT)
 
 clean:
 	rm -f $(TGT)
