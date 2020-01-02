@@ -28,3 +28,8 @@ target_link_libraries(api-demo xgboost)
 
 # make
 You can start by modifying the makefile in this directory to fit your need.
+
+
+compile xgboost with debug info
+
+cmake .. -DCMAKE_BUILD_TYPE=Debug -DUSE_CUDA=ON -DUSE_OPENMP=OFF

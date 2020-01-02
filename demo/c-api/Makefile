@@ -21,7 +21,10 @@ debug: $(TGT)
 	LD_LIBRARY_PATH=$(XGBOOST_ROOT)/lib:/home/bobwang/anaconda3/envs/cudf_dev/lib  gdbserver :1234 ./$(TGT)
 
 remote_debug:
-	LD_LIBRARY_PATH=$(XGBOOST_ROOT)/lib:/home/bobwang/anaconda3/envs/cudf_dev/lib  gdbserver 10.19.226.111:1234 ./$(TGT)
+	LD_LIBRARY_PATH=$(XGBOOST_ROOT)/lib:/home/bobwang/anaconda3/envs/cudf_dev/lib  gdbserver 10.19.183.93:1234 ./$(TGT)
+
+iris_debug:
+	LD_LIBRARY_PATH=$(XGBOOST_ROOT)/lib:/home/bobwang/anaconda3/envs/cudf_dev/lib  gdbserver :1234 ../../xgboost iris.conf
 
 clean:
 	rm -f $(TGT)
