@@ -19,12 +19,17 @@ package ml.dmlc.xgboost4j.scala.spark
 import ml.dmlc.xgboost4j.java.XGBoostError
 import org.apache.spark.ml.feature.VectorAssembler
 import org.apache.spark.ml.linalg.Vectors
-import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.scalatest.FunSuite
 
 import scala.util.Random
 
 class MissingValueHandlingSuite extends FunSuite with PerTest {
+
+  override protected def sparkSessionBuilder: SparkSession.Builder = {
+    super.sparkSessionBuilder.config("spark.default.parallelism", 1)
+  }
+
   test("dense vectors containing missing value") {
     def buildDenseDataFrame(): DataFrame = {
       val numRows = 100
