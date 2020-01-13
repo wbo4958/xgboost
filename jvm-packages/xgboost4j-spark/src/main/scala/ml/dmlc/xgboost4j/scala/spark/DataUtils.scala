@@ -68,9 +68,9 @@ object DataUtils extends Serializable {
      */
     def asXGB: XGBLabeledPoint = v match {
       case v: DenseVector =>
-        XGBLabeledPoint(0.0f, null, v.values.map(_.toFloat))
+        XGBLabeledPoint(0.0f, v.size, null, v.values.map(_.toFloat))
       case v: SparseVector =>
-        XGBLabeledPoint(0.0f, v.indices, v.values.map(_.toFloat))
+        XGBLabeledPoint(0.0f, v.size, v.indices, v.values.map(_.toFloat))
     }
   }
 
@@ -162,18 +162,18 @@ object DataUtils extends Serializable {
       df => df.select(selectedColumns: _*).rdd.map {
         case row @ Row(label: Float, features: Vector, weight: Float, group: Int,
           baseMargin: Float) =>
-          val (indices, values) = features match {
-            case v: SparseVector => (v.indices, v.values.map(_.toFloat))
-            case v: DenseVector => (null, v.values.map(_.toFloat))
+          val (size, indices, values) = features match {
+            case v: SparseVector => (v.size, v.indices, v.values.map(_.toFloat))
+            case v: DenseVector => (v.size, null, v.values.map(_.toFloat))
           }
-          val xgbLp = XGBLabeledPoint(label, indices, values, weight, group, baseMargin)
+          val xgbLp = XGBLabeledPoint(label, size, indices, values, weight, group, baseMargin)
           attachPartitionKey(row, deterministicPartition, numWorkers, xgbLp)
         case row @ Row(label: Float, features: Vector, weight: Float, baseMargin: Float) =>
-          val (indices, values) = features match {
-            case v: SparseVector => (v.indices, v.values.map(_.toFloat))
-            case v: DenseVector => (null, v.values.map(_.toFloat))
+          val (size, indices, values) = features match {
+            case v: SparseVector => (v.size, v.indices, v.values.map(_.toFloat))
+            case v: DenseVector => (v.size, null, v.values.map(_.toFloat))
           }
-          val xgbLp = XGBLabeledPoint(label, indices, values, weight, baseMargin = baseMargin)
+          val xgbLp = XGBLabeledPoint(label, size, indices, values, weight, baseMargin = baseMargin)
           attachPartitionKey(row, deterministicPartition, numWorkers, xgbLp)
       }
     }
