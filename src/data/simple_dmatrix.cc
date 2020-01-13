@@ -137,12 +137,16 @@ SimpleDMatrix::SimpleDMatrix(AdapterT* adapter, float missing, int nthread) {
     }
   }
 
+  printf("SimpleDMatrix adapter->NumColumns: %d kAdapterUnknownSize:%d\n", adapter->NumColumns(), kAdapterUnknownSize);
   // Deal with empty rows/columns if necessary
   if (adapter->NumColumns() == kAdapterUnknownSize) {
     mat.info.num_col_ = inferred_num_columns;
   } else {
     mat.info.num_col_ = adapter->NumColumns();
   }
+
+  printf("SimpleDMatrix mat.info.num_col_: %d\n", mat.info.num_col_);
+
   // Synchronise worker columns
   rabit::Allreduce<rabit::op::Max>(&mat.info.num_col_, 1);
 

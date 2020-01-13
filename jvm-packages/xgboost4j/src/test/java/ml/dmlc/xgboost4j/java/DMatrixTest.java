@@ -41,11 +41,11 @@ public class DMatrixTest {
     //create DMatrix from DataIterator
 
     java.util.ArrayList<Float> labelall = new java.util.ArrayList<Float>();
-    int nrep = 3000;
+    int nrep = 3;
     java.util.List<LabeledPoint> blist = new java.util.LinkedList<LabeledPoint>();
     for (int i = 0; i < nrep; ++i) {
       LabeledPoint p = new LabeledPoint(
-              0.1f + i, new int[]{0, 2, 3}, new float[]{3, 4, 5});
+              0.1f + i, 4, new int[]{0, 2, 3}, new float[]{3, 4, 5});
       blist.add(p);
       labelall.add(p.label());
     }

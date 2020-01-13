@@ -88,6 +88,8 @@ XGB_DLL int XGDMatrixCreateFromDataIter(
     scache = cache_info;
   }
   xgboost::data::IteratorAdapter adapter(data_handle, callback);
+  std::cout << " XGDMatrixCreateFromDataIter cols " << adapter.NumColumns() << std::endl;
+  printf("--- XGDMatrixCreateFromDataIter cols: %d\n" + adapter.NumColumns());
   *out = new std::shared_ptr<DMatrix> {
     DMatrix::Create(
         &adapter, std::numeric_limits<float>::quiet_NaN(),
