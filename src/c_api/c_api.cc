@@ -96,6 +96,8 @@ class NativeDataIter : public dmlc::Parser<uint32_t> {
     block_.field = nullptr;
     block_.index = dmlc::BeginPtr(index_);
     block_.value = dmlc::BeginPtr(value_);
+    block_.num_columns = batch.num_columns;
+    printf("NativeDataIter setData:%d\n", block_.num_columns);
     bytes_read_ += offset_.size() * sizeof(size_t) +
         label_.size() * sizeof(dmlc::real_t) +
         weight_.size() * sizeof(dmlc::real_t) +
@@ -198,7 +200,7 @@ int XGDMatrixCreateFromDataIter(
     scache = cache_info;
   }
   NativeDataIter parser(data_handle, callback);
-  data::FileAdapter adapter(&parser);
+  data::FileWithRowsColsAdapter adapter(&parser);
   *out = new std::shared_ptr<DMatrix>(DMatrix::Create(
       &adapter, std::numeric_limits<float>::quiet_NaN(), 1, scache));
   API_END();

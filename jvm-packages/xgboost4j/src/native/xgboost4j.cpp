@@ -81,6 +81,8 @@ XGB_EXTERN_C int XGBoost4jCallbackDataIterNext(
           batch, jenv->GetFieldID(batchClass, "featureIndex", "[I"));
       jfloatArray jvalue = (jfloatArray)jenv->GetObjectField(
         batch, jenv->GetFieldID(batchClass, "featureValue", "[F"));
+      jint jcols = jenv->GetIntField(
+          batch, jenv->GetFieldID(batchClass, "featureCols", "I"));
       XGBoostBatchCSR cbatch;
       cbatch.size = jenv->GetArrayLength(joffset) - 1;
       cbatch.offset = reinterpret_cast<jlong *>(
@@ -102,6 +104,8 @@ XGB_EXTERN_C int XGBoost4jCallbackDataIterNext(
       long max_elem = cbatch.offset[cbatch.size];
       cbatch.index = (int*) jenv->GetIntArrayElements(jindex, 0);
       cbatch.value = jenv->GetFloatArrayElements(jvalue, 0);
+      cbatch.num_columns = jcols;
+      printf("in jni --- num_columns:%d\n", jcols);
 
       CHECK_EQ(jenv->GetArrayLength(jindex), max_elem)
           << "batch.index.length must equal batch.offset.back()";

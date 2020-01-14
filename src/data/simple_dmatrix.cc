@@ -132,6 +132,7 @@ SimpleDMatrix::SimpleDMatrix(AdapterT* adapter, float missing, int nthread) {
   }
 
   // Deal with empty rows/columns if necessary
+  printf("SimpleDMatrix: NumColumns: %d\n", adapter->NumColumns());
   if (adapter->NumColumns() == kAdapterUnknownSize) {
     mat.info.num_col_ = inferred_num_columns;
   } else {
@@ -166,5 +167,7 @@ template SimpleDMatrix::SimpleDMatrix(DataTableAdapter* adapter, float missing,
                                      int nthread);
 template SimpleDMatrix::SimpleDMatrix(FileAdapter* adapter, float missing,
                                      int nthread);
+template SimpleDMatrix::SimpleDMatrix(FileWithRowsColsAdapter* adapter, float missing,
+                                        int nthread);
 }  // namespace data
 }  // namespace xgboost

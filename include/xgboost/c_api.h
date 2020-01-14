@@ -56,6 +56,8 @@ typedef struct {  // NOLINT(*)
   int* index;
   /*! \brief feature values */
   float* value;
+  /*! \brief feature columns */
+  size_t num_columns;
 } XGBoostBatchCSR;
 
 /*!

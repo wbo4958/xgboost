@@ -449,6 +449,10 @@ class FileAdapterBatch {
 
   size_t Size() const { return block->size; }
 
+  // Indicates a number of rows/columns must be inferred
+  virtual size_t NumRows() const { return kAdapterUnknownSize; }
+  virtual size_t NumColumns() const { return kAdapterUnknownSize; }
+
  private:
   const dmlc::RowBlock<uint32_t>* block;
   size_t row_offset;
@@ -473,12 +477,95 @@ class FileAdapter : dmlc::DataIter<FileAdapterBatch> {
     return next;
   }
   // Indicates a number of rows/columns must be inferred
-  size_t NumRows() const { return kAdapterUnknownSize; }
-  size_t NumColumns() const { return kAdapterUnknownSize; }
+  size_t NumRows() const { return batch->NumRows(); }
+  size_t NumColumns() const { return batch->NumColumns(); }
 
  private:
   size_t row_offset{0};
   std::unique_ptr<FileAdapterBatch> batch;
+  dmlc::Parser<uint32_t>* parser;
+};
+
+//class FileWithRowsColsAdapterBatch : FileAdapterBatch {
+//public:
+//  FileWithRowsColsAdapterBatch(const dmlc::RowBlock<uint32_t> *block, size_t rowOffset)
+//      : FileAdapterBatch(block, rowOffset) {this->block = block;}
+//
+//  size_t NumColumns() const override {return block->num_columns;}
+//
+//private:
+//  const dmlc::RowBlock<uint32_t>* block;
+//};
+
+    class FileWithRowsColsAdapterBatch {
+    public:
+      class Line {
+      public:
+        Line(size_t row_idx, const uint32_t* feature_idx, const float* value,
+             size_t size)
+            : row_idx(row_idx),
+              feature_idx(feature_idx),
+              value(value),
+              size(size) {}
+
+        size_t Size() { return size; }
+        COOTuple GetElement(size_t idx) {
+          float fvalue = value == nullptr ? 1.0f : value[idx];
+          return COOTuple(row_idx, feature_idx[idx], fvalue);
+        }
+
+      private:
+        size_t row_idx;
+        const uint32_t* feature_idx;
+        const float* value;
+        size_t size;
+      };
+      FileWithRowsColsAdapterBatch(const dmlc::RowBlock<uint32_t>* block, size_t row_offset)
+          : block(block), row_offset(row_offset) {}
+      Line GetLine(size_t idx) const {
+        auto begin = block->offset[idx];
+        auto end = block->offset[idx + 1];
+        return Line(idx + row_offset, &block->index[begin], &block->value[begin],
+                    end - begin);
+      }
+      const float* Labels() const { return block->label; }
+      const float* Weights() const { return block->weight; }
+      const uint64_t* Qid() const { return block->qid; }
+
+      size_t Size() const { return block->size; }
+
+      // Indicates a number of rows/columns must be inferred
+      virtual size_t NumRows() const { return block->size; }
+      virtual size_t NumColumns() const { return block->num_columns; }
+
+    private:
+      const dmlc::RowBlock<uint32_t>* block;
+      size_t row_offset;
+    };
+
+class FileWithRowsColsAdapter : dmlc::DataIter<FileWithRowsColsAdapterBatch> {
+public:
+  explicit FileWithRowsColsAdapter(dmlc::Parser<uint32_t>* parser) : parser(parser) {}
+
+  const FileWithRowsColsAdapterBatch& Value() const override { return *batch.get(); }
+  void BeforeFirst() override {
+    batch.reset();
+    parser->BeforeFirst();
+    row_offset = 0;
+  }
+  bool Next() override {
+    bool next = parser->Next();
+    batch.reset(new FileWithRowsColsAdapterBatch(&parser->Value(), row_offset));
+    row_offset += parser->Value().size;
+    return next;
+  }
+  // Indicates a number of columns must be inferred
+  size_t NumColumns() const { return batch->NumColumns(); }
+  size_t NumRows() const { return batch->NumRows(); }
+
+private:
+  size_t row_offset{0};
+  std::unique_ptr<FileWithRowsColsAdapterBatch> batch;
   dmlc::Parser<uint32_t>* parser;
 };
 };  // namespace data

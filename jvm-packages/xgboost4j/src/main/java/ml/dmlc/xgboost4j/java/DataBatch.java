@@ -68,7 +68,7 @@ class DataBatch {
           } else if (numCol != labeledPoint.size()) {
             throw new RuntimeException("Feature size is not the same");
           }
-          System.out.println("cols:" + numCol);
+          System.out.println("DataBatch cols:" + numCol);
           batch.add(labeledPoint);
           numElem += labeledPoint.values().length;
           numRows++;
