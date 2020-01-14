@@ -4,12 +4,17 @@
  */
 #ifndef XGBOOST_DATA_ADAPTER_H_
 #define XGBOOST_DATA_ADAPTER_H_
+
 #include <dmlc/data.h>
 #include <limits>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
+
+#include "xgboost/base.h"
+#include "xgboost/data.h"
+#include "xgboost/span.h"
 
 namespace xgboost {
 namespace data {
@@ -76,17 +81,17 @@ namespace detail {
 template <typename DType>
 class SingleBatchDataIter : dmlc::DataIter<DType> {
  public:
-  void BeforeFirst() override { counter = 0; }
+  void BeforeFirst() override { counter_ = 0; }
   bool Next() override {
-    if (counter == 0) {
-      counter++;
+    if (counter_ == 0) {
+      counter_++;
       return true;
     }
     return false;
   }
 
  private:
-  int counter{0};
+  int counter_{0};
 };
 
 /** \brief Indicates this data source cannot contain meta-info such as labels,
@@ -168,10 +173,10 @@ class DenseAdapterBatch : public detail::NoMetaInfo {
  public:
   DenseAdapterBatch(const float* values, size_t num_rows, size_t num_elements,
                     size_t num_features)
-      : num_features(num_features),
-        num_rows(num_rows),
+      : values(values),
         num_elements(num_elements),
-        values(values) {}
+        num_rows(num_rows),
+        num_features(num_features) {}
 
  private:
   class Line {
@@ -374,7 +379,7 @@ class DataTableAdapterBatch : public detail::NoMetaInfo {
 
     size_t Size() const { return size; }
     COOTuple GetElement(size_t idx) const {
-      return COOTuple(idx, column_idx, DTGetValue(column, type, idx));
+      return {idx, column_idx, DTGetValue(column, type, idx)};
     }
 
    private:
@@ -462,28 +467,32 @@ class FileAdapterBatch {
  * common interface. */
 class FileAdapter : dmlc::DataIter<FileAdapterBatch> {
  public:
-  explicit FileAdapter(dmlc::Parser<uint32_t>* parser) : parser(parser) {}
+  explicit FileAdapter(dmlc::Parser<uint32_t>* parser,
+                       bst_row_t columns) :
+      columns_{columns},
+      parser_(parser) {}
 
-  const FileAdapterBatch& Value() const override { return *batch.get(); }
+  const FileAdapterBatch& Value() const override { return *batch_.get(); }
   void BeforeFirst() override {
-    batch.reset();
-    parser->BeforeFirst();
-    row_offset = 0;
+    batch_.reset();
+    parser_->BeforeFirst();
+    row_offset_ = 0;
   }
   bool Next() override {
-    bool next = parser->Next();
-    batch.reset(new FileAdapterBatch(&parser->Value(), row_offset));
-    row_offset += parser->Value().size;
+    bool next = parser_->Next();
+    batch_.reset(new FileAdapterBatch(&parser_->Value(), row_offset_));
+    row_offset_ += parser_->Value().size;
     return next;
   }
   // Indicates a number of rows/columns must be inferred
   size_t NumRows() const { return kAdapterUnknownSize; }
-  size_t NumColumns() const { return kAdapterUnknownSize; }
+  size_t NumColumns() const { return columns_; }
 
  private:
-  size_t row_offset{0};
-  std::unique_ptr<FileAdapterBatch> batch;
-  dmlc::Parser<uint32_t>* parser;
+  size_t row_offset_{0};
+  size_t columns_;
+  std::unique_ptr<FileAdapterBatch> batch_;
+  dmlc::Parser<uint32_t>* parser_;
 };
 
 class DMatrixSliceAdapterBatch {
@@ -560,8 +569,8 @@ class DMatrixSliceAdapter
  public:
   DMatrixSliceAdapter(DMatrix* dmat, common::Span<const int> ridx_set)
       : dmat(dmat),
-        ridx_set(ridx_set),
-        batch(*dmat->GetBatches<SparsePage>().begin(), dmat, ridx_set) {}
+        batch(*dmat->GetBatches<SparsePage>().begin(), dmat, ridx_set),
+        ridx_set(ridx_set) {}
   const DMatrixSliceAdapterBatch& Value() const override { return batch; }
   // Indicates a number of rows/columns must be inferred
   size_t NumRows() const { return ridx_set.size(); }

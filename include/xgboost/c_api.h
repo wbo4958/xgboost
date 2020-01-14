@@ -40,6 +40,8 @@ typedef void *DataHolderHandle;  // NOLINT(*)
 typedef struct {  // NOLINT(*)
   /*! \brief number of rows in the minibatch */
   size_t size;
+  /* \brief number of columns in the minibatch. */
+  unsigned int columns;
   /*! \brief row pointer to the rows in the data */
 #ifdef __APPLE__
   /* Necessary as Java on MacOS defines jlong as long int

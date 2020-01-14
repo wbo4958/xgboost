@@ -12,6 +12,7 @@
 #include <memory>
 
 
+#include "xgboost/base.h"
 #include "xgboost/data.h"
 #include "xgboost/learner.h"
 #include "xgboost/c_api.h"
@@ -35,7 +36,7 @@ class NativeDataIter : public dmlc::Parser<uint32_t> {
  public:
   NativeDataIter(DataIterHandle data_handle,
                  XGBCallbackDataIterNext* next_callback)
-      :  at_first_(true), bytes_read_(0),
+      :  columns_{data::kAdapterUnknownSize}, at_first_(true), bytes_read_(0),
          data_handle_(data_handle), next_callback_(next_callback) {
   }
 
@@ -89,7 +90,13 @@ class NativeDataIter : public dmlc::Parser<uint32_t> {
         item -= base;
       }
     }
+    CHECK(columns_ == data::kAdapterUnknownSize || columns_ == batch.columns)
+        << "Number of columns between batches changed from " << columns_
+        << " to " << batch.columns;
+
+    columns_ = batch.columns;
     block_.size = batch.size;
+
     block_.offset = dmlc::BeginPtr(offset_);
     block_.label = dmlc::BeginPtr(label_);
     block_.weight = dmlc::BeginPtr(weight_);
@@ -104,7 +111,10 @@ class NativeDataIter : public dmlc::Parser<uint32_t> {
         value_.size() * sizeof(dmlc::real_t);
   }
 
+  size_t NumColumns() const { return columns_; }
+
  private:
+  size_t columns_;
   // at the beinning.
   bool at_first_;
   // bytes that is read.
@@ -199,7 +209,7 @@ int XGDMatrixCreateFromDataIter(
     scache = cache_info;
   }
   NativeDataIter parser(data_handle, callback);
-  data::FileAdapter adapter(&parser);
+  data::FileAdapter adapter(&parser, parser.NumColumns());
   *out = new std::shared_ptr<DMatrix>(DMatrix::Create(
       &adapter, std::numeric_limits<float>::quiet_NaN(), 1, scache));
   API_END();

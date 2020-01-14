@@ -214,15 +214,17 @@ TEST(SparsePageDMatrix, FromCSC) {
 }
 
 TEST(SparsePageDMatrix, FromFile) {
-  std::string filename = "test.libsvm";
-  CreateBigTestData(filename,20);
+  dmlc::TemporaryDirectory tempdir;
+  const std::string filename = tempdir.path + "/simple.libsvm";
+  CreateBigTestData(filename, 20);
   std::unique_ptr<dmlc::Parser<uint32_t>> parser(
     dmlc::Parser<uint32_t>::Create(filename.c_str(), 0, 1, "auto"));
-  data::FileAdapter adapter(parser.get());
-  dmlc::TemporaryDirectory tempdir;
-  const std::string tmp_file = tempdir.path + "/simple.libsvm";
+  // Reading from file with multiple batches have to infer number of columns.
+  data::FileAdapter adapter(parser.get(), data::kAdapterUnknownSize);
+
   data::SparsePageDMatrix dmat(
-      &adapter, std::numeric_limits<float>::quiet_NaN(), -1, tmp_file, 1);
+      &adapter, std::numeric_limits<float>::quiet_NaN(), -1, filename, 1);
+  ASSERT_EQ(dmat.Info().num_col_, 5);
 
   for (auto &batch : dmat.GetBatches<SparsePage>()) {
     std::vector<bst_row_t> expected_offset(batch.Size() + 1);

@@ -5,9 +5,9 @@
 #include "../../../src/data/simple_dmatrix.h"
 #include "../../../src/common/timer.h"
 #include "../helpers.h"
-using namespace xgboost;  // NOLINT
-TEST(adapter, CSRAdapter) {
-  int m = 3;
+#include "xgboost/base.h"
+namespace xgboost {
+TEST(Adapter, CSRAdapter) {
   int n = 2;
   std::vector<float> data = {1, 2, 3, 4, 5};
   std::vector<unsigned> feature_idx = {0, 1, 0, 1, 1};
@@ -29,7 +29,7 @@ TEST(adapter, CSRAdapter) {
   EXPECT_EQ(line2 .GetElement(0).column_idx, 1);
 }
 
-TEST(adapter, CSCAdapterColsMoreThanRows) {
+TEST(Adapter, CSCAdapterColsMoreThanRows) {
   std::vector<float> data = {1, 2, 3, 4, 5, 6, 7, 8};
   std::vector<unsigned> row_idx = {0, 1, 0, 1, 0, 1, 0, 1};
   std::vector<size_t> col_ptr = {0, 2, 4, 6, 8};
@@ -89,3 +89,4 @@ TEST(c_api, DMatrixSliceAdapterFromSimpleDMatrix) {
 
   delete pp_dmat;
 }
+}  // namespace xgboost
