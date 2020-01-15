@@ -5,6 +5,7 @@
 #ifndef XGBOOST_DATA_ADAPTER_H_
 #define XGBOOST_DATA_ADAPTER_H_
 
+#include <cstddef>
 #include <dmlc/data.h>
 #include <limits>
 #include <memory>
@@ -15,6 +16,7 @@
 #include "xgboost/base.h"
 #include "xgboost/data.h"
 #include "xgboost/span.h"
+#include "xgboost/c_api.h"
 
 namespace xgboost {
 namespace data {
@@ -424,23 +426,21 @@ class FileAdapterBatch {
  public:
   class Line {
    public:
-    Line(size_t row_idx, const uint32_t* feature_idx, const float* value,
+    Line(size_t row_idx, const uint32_t *feature_idx, const float *value,
          size_t size)
-        : row_idx(row_idx),
-          feature_idx(feature_idx),
-          value(value),
+        : row_idx_(row_idx), feature_idx(feature_idx), value(value),
           size(size) {}
 
     size_t Size() { return size; }
     COOTuple GetElement(size_t idx) {
       float fvalue = value == nullptr ? 1.0f : value[idx];
-      return COOTuple(row_idx, feature_idx[idx], fvalue);
+      return {row_idx_, feature_idx[idx], fvalue};
     }
 
    private:
-    size_t row_idx;
-    const uint32_t* feature_idx;
-    const float* value;
+    size_t row_idx_;
+    const uint32_t *feature_idx;
+    const float *value;
     size_t size;
   };
   FileAdapterBatch(const dmlc::RowBlock<uint32_t>* block, size_t row_offset)
@@ -493,6 +493,110 @@ class FileAdapter : dmlc::DataIter<FileAdapterBatch> {
   size_t columns_;
   std::unique_ptr<FileAdapterBatch> batch_;
   dmlc::Parser<uint32_t>* parser_;
+};
+
+XGB_EXTERN_C int XGBoostNativeDataIterSetData(
+    void *handle, XGBoostBatchCSR batch);
+
+/*! \brief Native data iterator that takes callback to return data */
+class NativeDataIter : public dmlc::DataIter<FileAdapterBatch> {
+ public:
+  NativeDataIter(DataIterHandle data_handle,
+                 XGBCallbackDataIterNext* next_callback)
+      :  columns_{data::kAdapterUnknownSize}, row_offset_{0},
+         at_first_(true),
+         data_handle_(data_handle), next_callback_(next_callback) {}
+
+  // override functions
+  void BeforeFirst() override {
+    CHECK(at_first_) << "Cannot reset NativeDataIter";
+  }
+
+  bool Next() override {
+    if ((*next_callback_)(data_handle_,
+                          XGBoostNativeDataIterSetData,
+                          this) != 0) {
+      at_first_ = false;
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  const FileAdapterBatch& Value() const override {
+    return *batch_.get();
+  }
+
+  // callback to set the data
+  void SetData(const XGBoostBatchCSR& batch) {
+    offset_.clear();
+    label_.clear();
+    weight_.clear();
+    index_.clear();
+    value_.clear();
+
+    offset_.insert(offset_.end(), batch.offset, batch.offset + batch.size + 1);
+    row_offset_ += offset_.size();
+
+    if (batch.label != nullptr) {
+      label_.insert(label_.end(), batch.label, batch.label + batch.size);
+    }
+    if (batch.weight != nullptr) {
+      weight_.insert(weight_.end(), batch.weight, batch.weight + batch.size);
+    }
+    if (batch.index != nullptr) {
+      index_.insert(index_.end(), batch.index + offset_[0],
+                    batch.index + offset_.back());
+    }
+    if (batch.value != nullptr) {
+      value_.insert(value_.end(), batch.value + offset_[0],
+                    batch.value + offset_.back());
+    }
+    if (offset_[0] != 0) {
+      size_t base = offset_[0];
+      for (size_t &item : offset_) {
+        item -= base;
+      }
+    }
+    CHECK(columns_ == data::kAdapterUnknownSize || columns_ == batch.columns)
+        << "Number of columns between batches changed from " << columns_
+        << " to " << batch.columns;
+
+    columns_ = batch.columns;
+    block_.size = batch.size;
+
+    block_.offset = dmlc::BeginPtr(offset_);
+    block_.label = dmlc::BeginPtr(label_);
+    block_.weight = dmlc::BeginPtr(weight_);
+    block_.qid = nullptr;
+    block_.field = nullptr;
+    block_.index = dmlc::BeginPtr(index_);
+    block_.value = dmlc::BeginPtr(value_);
+
+    batch_.reset(new FileAdapterBatch(&block_, row_offset_));
+  }
+
+  size_t NumColumns() const { return columns_; }
+  size_t NumRows() const { return kAdapterUnknownSize; }
+
+ private:
+  std::vector<size_t> offset_;
+  std::vector<dmlc::real_t> label_;
+  std::vector<dmlc::real_t> weight_;
+  std::vector<uint32_t> index_;
+  std::vector<dmlc::real_t> value_;
+
+  size_t columns_;
+  size_t row_offset_;
+  // at the beinning.
+  bool at_first_;
+  // handle to the iterator,
+  DataIterHandle data_handle_;
+  // call back to get the data.
+  XGBCallbackDataIterNext *next_callback_;
+  // internal Rowblock
+  dmlc::RowBlock<uint32_t> block_;
+  std::unique_ptr<FileAdapterBatch> batch_;
 };
 
 class DMatrixSliceAdapterBatch {
