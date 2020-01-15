@@ -89,11 +89,10 @@ int XGDMatrixCreateFromFile(const char *fname,
   API_END();
 }
 
-int XGDMatrixCreateFromDataIter(
-    void* data_handle,
-    XGBCallbackDataIterNext* callback,
-    const char *cache_info,
-    DMatrixHandle *out) {
+XGB_DLL int XGDMatrixCreateFromDataIter(
+    void *data_handle,                 // a Java interator
+    XGBCallbackDataIterNext *callback, // C++ callback defined in xgboost4j.cpp
+    const char *cache_info, DMatrixHandle *out) {
   API_BEGIN();
 
   std::string scache;
@@ -101,8 +100,12 @@ int XGDMatrixCreateFromDataIter(
     scache = cache_info;
   }
   xgboost::data::NativeDataIter adapter(data_handle, callback);
-  *out = new std::shared_ptr<DMatrix>(DMatrix::Create(
-      &adapter, std::numeric_limits<float>::quiet_NaN(), 1, scache));
+  *out = new std::shared_ptr<DMatrix> {
+    DMatrix::Create(
+        &adapter, std::numeric_limits<float>::quiet_NaN(),
+        1, scache
+    )
+  };
   API_END();
 }
 
