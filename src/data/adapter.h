@@ -1,12 +1,12 @@
 /*!
- *  Copyright (c) 2019 by Contributors
+ *  Copyright (c) 2019~2020 by Contributors
  * \file adapter.h
  */
 #ifndef XGBOOST_DATA_ADAPTER_H_
 #define XGBOOST_DATA_ADAPTER_H_
+#include <dmlc/data.h>
 
 #include <cstddef>
-#include <dmlc/data.h>
 #include <limits>
 #include <memory>
 #include <string>
@@ -121,7 +121,7 @@ class CSRAdapterBatch : public detail::NoMetaInfo {
 
     size_t Size() const { return size; }
     COOTuple GetElement(size_t idx) const {
-      return COOTuple(row_idx, feature_idx[idx], values[idx]);
+      return COOTuple{row_idx, feature_idx[idx], values[idx]};
     }
 
    private:
@@ -246,7 +246,7 @@ class CSCAdapterBatch : public detail::NoMetaInfo {
 
     size_t Size() const { return size; }
     COOTuple GetElement(size_t idx) const {
-      return COOTuple(row_idx[idx], col_idx, values[idx]);
+      return COOTuple{row_idx[idx], col_idx, values[idx]};
     }
 
    private:
@@ -434,7 +434,7 @@ class FileAdapterBatch {
     size_t Size() { return size; }
     COOTuple GetElement(size_t idx) {
       float fvalue = value == nullptr ? 1.0f : value[idx];
-      return {row_idx_, feature_idx[idx], fvalue};
+      return COOTuple{row_idx_, feature_idx[idx], fvalue};
     }
 
    private:
@@ -523,7 +523,7 @@ class NativeDataIter : public dmlc::DataIter<FileAdapterBatch> {
     }
   }
 
-  const FileAdapterBatch& Value() const override {
+  FileAdapterBatch const& Value() const override {
     return *batch_.get();
   }
 
@@ -627,7 +627,7 @@ class DMatrixSliceAdapterBatch {
 
     size_t Size() { return inst.size(); }
     COOTuple GetElement(size_t idx) {
-      return COOTuple(row_idx, inst[idx].index, inst[idx].fvalue);
+      return COOTuple{row_idx, inst[idx].index, inst[idx].fvalue};
     }
 
    private:

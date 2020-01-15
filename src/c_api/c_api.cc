@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2019 by Contributors
+// Copyright (c) 2014-2020 by Contributors
 #include <dmlc/thread_local.h>
 #include <rabit/rabit.h>
 #include <rabit/c_api.h>
@@ -29,7 +29,7 @@
 namespace xgboost {
 // declare the data callback.
 
-int XGBoostNativeDataIterSetData(
+XGB_DLL int XGBoostNativeDataIterSetData(
     void *handle, XGBoostBatchCSR batch) {
   API_BEGIN();
   static_cast<xgboost::data::NativeDataIter*>(handle)->SetData(batch);

@@ -343,6 +343,9 @@ template DMatrix* DMatrix::Create<data::FileAdapter>(
 template DMatrix* DMatrix::Create<data::DMatrixSliceAdapter>(
     data::DMatrixSliceAdapter* adapter, float missing, int nthread,
     const std::string& cache_prefix, size_t page_size);
+template DMatrix* DMatrix::Create<data::NativeDataIter>(
+    data::NativeDataIter* adapter, float missing, int nthread,
+    const std::string& cache_prefix, size_t page_size);
 
 SparsePage SparsePage::GetTranspose(int num_columns) const {
   SparsePage transpose;
