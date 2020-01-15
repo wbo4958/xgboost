@@ -534,9 +534,7 @@ class NativeDataIter : public dmlc::DataIter<FileAdapterBatch> {
     weight_.clear();
     index_.clear();
     value_.clear();
-
     offset_.insert(offset_.end(), batch.offset, batch.offset + batch.size + 1);
-    row_offset_ += offset_.size();
 
     if (batch.label != nullptr) {
       label_.insert(label_.end(), batch.label, batch.label + batch.size);
@@ -574,6 +572,7 @@ class NativeDataIter : public dmlc::DataIter<FileAdapterBatch> {
     block_.value = dmlc::BeginPtr(value_);
 
     batch_.reset(new FileAdapterBatch(&block_, row_offset_));
+    row_offset_ += offset_.size();
   }
 
   size_t NumColumns() const { return columns_; }
