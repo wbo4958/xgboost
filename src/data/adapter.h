@@ -214,16 +214,16 @@ class DenseAdapter : public detail::SingleBatchDataIter<DenseAdapterBatch> {
  public:
   DenseAdapter(const float* values, size_t num_rows, size_t num_elements,
                size_t num_features)
-      : batch(values, num_rows, num_elements, num_features),
+      : batch_(values, num_rows, num_elements, num_features),
         num_rows(num_rows),
         num_columns(num_features) {}
-  const DenseAdapterBatch& Value() const override { return batch; }
+  const DenseAdapterBatch& Value() const override { return batch_; }
 
   size_t NumRows() const { return num_rows; }
   size_t NumColumns() const { return num_columns; }
 
  private:
-  DenseAdapterBatch batch;
+  DenseAdapterBatch batch_;
   size_t num_rows;
   size_t num_columns;
 };
@@ -467,9 +467,7 @@ class FileAdapterBatch {
  * common interface. */
 class FileAdapter : dmlc::DataIter<FileAdapterBatch> {
  public:
-  explicit FileAdapter(dmlc::Parser<uint32_t>* parser,
-                       bst_row_t columns) :
-      columns_{columns},
+  explicit FileAdapter(dmlc::Parser<uint32_t>* parser) :
       parser_(parser) {}
 
   const FileAdapterBatch& Value() const override { return *batch_.get(); }
@@ -486,11 +484,10 @@ class FileAdapter : dmlc::DataIter<FileAdapterBatch> {
   }
   // Indicates a number of rows/columns must be inferred
   size_t NumRows() const { return kAdapterUnknownSize; }
-  size_t NumColumns() const { return columns_; }
+  size_t NumColumns() const { return kAdapterUnknownSize; }
 
  private:
   size_t row_offset_{0};
-  size_t columns_;
   std::unique_ptr<FileAdapterBatch> batch_;
   dmlc::Parser<uint32_t>* parser_;
 };

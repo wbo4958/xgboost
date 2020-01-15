@@ -220,7 +220,7 @@ TEST(SparsePageDMatrix, FromFile) {
   std::unique_ptr<dmlc::Parser<uint32_t>> parser(
     dmlc::Parser<uint32_t>::Create(filename.c_str(), 0, 1, "auto"));
   // Reading from file with multiple batches have to infer number of columns.
-  data::FileAdapter adapter(parser.get(), data::kAdapterUnknownSize);
+  data::FileAdapter adapter(parser.get());
 
   data::SparsePageDMatrix dmat(
       &adapter, std::numeric_limits<float>::quiet_NaN(), -1, filename, 1);

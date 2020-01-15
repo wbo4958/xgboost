@@ -208,27 +208,15 @@ TEST(SimpleDMatrix, FromFile) {
       }
     }
   };
+
   constexpr bst_feature_t kCols = 5;
-  {
-    data::FileAdapter adapter(parser.get(), data::kAdapterUnknownSize);
-    data::SimpleDMatrix dmat(&adapter, std::numeric_limits<float>::quiet_NaN(),
-                             1);
-    ASSERT_EQ(dmat.Info().num_col_, 5);
+  data::FileAdapter adapter(parser.get());
+  data::SimpleDMatrix dmat(&adapter, std::numeric_limits<float>::quiet_NaN(),
+                           1);
+  ASSERT_EQ(dmat.Info().num_col_, kCols);
 
-    for (auto &batch : dmat.GetBatches<SparsePage>()) {
-      verify_batch(batch);
-    }
-  }
-  {
-    // Having more columns than presented in file.  This is useful when data is sparse.
-    data::FileAdapter adapter(parser.get(), kCols * 2);
-    data::SimpleDMatrix dmat(&adapter, std::numeric_limits<float>::quiet_NaN(),
-                             1);
-    for (auto const& batch : dmat.GetBatches<SparsePage>()) {
-      verify_batch(batch);
-    }
-
-    ASSERT_EQ(dmat.Info().num_col_, kCols * 2);
+  for (auto &batch : dmat.GetBatches<SparsePage>()) {
+    verify_batch(batch);
   }
 }
 
