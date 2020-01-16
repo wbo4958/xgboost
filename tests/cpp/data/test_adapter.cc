@@ -1,6 +1,7 @@
 // Copyright (c) 2019 by Contributors
 #include <gtest/gtest.h>
 #include <type_traits>
+#include <utility>
 #include <xgboost/data.h>
 #include "../../../src/data/adapter.h"
 #include "../../../src/data/simple_dmatrix.h"
@@ -94,11 +95,11 @@ TEST(c_api, DMatrixSliceAdapterFromSimpleDMatrix) {
 }
 
 class DataIterForTest {
-  std::vector<float> data_ = {1, 2, 3, 4, 5};
-  std::vector<std::remove_pointer<typeof(XGBoostBatchCSR::index)>::type>
-      feature_idx_ = {0, 1, 0, 1, 1};
-  std::vector<std::remove_pointer<typeof(XGBoostBatchCSR::offset)>::type>
-      row_ptr_ = {0, 2, 4, 5};
+  std::vector<float> data_ {1, 2, 3, 4, 5};
+  std::vector<std::remove_pointer<typeof(std::declval<XGBoostBatchCSR>().index)>::type>
+      feature_idx_ {0, 1, 0, 1, 1};
+  std::vector<std::remove_pointer<typeof(std::declval<XGBoostBatchCSR>().offset)>::type>
+      row_ptr_ {0, 2, 4, 5};
   size_t iter_ {0};
 
  public:
