@@ -496,9 +496,9 @@ XGB_EXTERN_C int XGBoostNativeDataIterSetData(
     void *handle, XGBoostBatchCSR batch);
 
 /*! \brief Native data iterator that takes callback to return data */
-class NativeDataIter : public dmlc::DataIter<FileAdapterBatch> {
+class IteratorAdapter : public dmlc::DataIter<FileAdapterBatch> {
  public:
-  NativeDataIter(DataIterHandle data_handle,
+  IteratorAdapter(DataIterHandle data_handle,
                  XGBCallbackDataIterNext* next_callback)
       :  columns_{data::kAdapterUnknownSize}, row_offset_{0},
          at_first_(true),
@@ -506,7 +506,7 @@ class NativeDataIter : public dmlc::DataIter<FileAdapterBatch> {
 
   // override functions
   void BeforeFirst() override {
-    CHECK(at_first_) << "Cannot reset NativeDataIter";
+    CHECK(at_first_) << "Cannot reset IteratorAdapter";
   }
 
   bool Next() override {

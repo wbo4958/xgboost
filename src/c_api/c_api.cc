@@ -32,7 +32,7 @@ namespace xgboost {
 XGB_DLL int XGBoostNativeDataIterSetData(
     void *handle, XGBoostBatchCSR batch) {
   API_BEGIN();
-  static_cast<xgboost::data::NativeDataIter*>(handle)->SetData(batch);
+  static_cast<xgboost::data::IteratorAdapter*>(handle)->SetData(batch);
   API_END();
 }
 }  // namespace xgboost
@@ -99,7 +99,7 @@ XGB_DLL int XGDMatrixCreateFromDataIter(
   if (cache_info != nullptr) {
     scache = cache_info;
   }
-  xgboost::data::NativeDataIter adapter(data_handle, callback);
+  xgboost::data::IteratorAdapter adapter(data_handle, callback);
   *out = new std::shared_ptr<DMatrix> {
     DMatrix::Create(
         &adapter, std::numeric_limits<float>::quiet_NaN(),

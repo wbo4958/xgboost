@@ -174,7 +174,7 @@ template SimpleDMatrix::SimpleDMatrix(FileAdapter* adapter, float missing,
                                      int nthread);
 template SimpleDMatrix::SimpleDMatrix(DMatrixSliceAdapter* adapter, float missing,
                                      int nthread);
-template SimpleDMatrix::SimpleDMatrix(NativeDataIter* adapter, float missing,
+template SimpleDMatrix::SimpleDMatrix(IteratorAdapter* adapter, float missing,
                                      int nthread);
 }  // namespace data
 }  // namespace xgboost

@@ -144,7 +144,7 @@ int SetDataNextForTest(DataIterHandle data_handle,
 
 TEST(Adapter, IteratorAdaper) {
   DataIterForTest iter;
-  data::NativeDataIter adapter{&iter, SetDataNextForTest};
+  data::IteratorAdapter adapter{&iter, SetDataNextForTest};
   constexpr size_t kRows { 6 };
 
   std::unique_ptr<DMatrix> data {
