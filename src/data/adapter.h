@@ -7,16 +7,20 @@
 #include <dmlc/data.h>
 
 #include <cstddef>
+#include <functional>
 #include <limits>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include "xgboost/logging.h"
 #include "xgboost/base.h"
 #include "xgboost/data.h"
 #include "xgboost/span.h"
 #include "xgboost/c_api.h"
+
+#include "../c_api/c_api_error.h"
 
 namespace xgboost {
 namespace data {
@@ -492,14 +496,12 @@ class FileAdapter : dmlc::DataIter<FileAdapterBatch> {
   dmlc::Parser<uint32_t>* parser_;
 };
 
-XGB_EXTERN_C int XGBoostNativeDataIterSetData(
-    void *handle, XGBoostBatchCSR batch);
-
-/*! \brief Native data iterator that takes callback to return data */
+/*! \brief Data iterator that takes callback to return data, used in JVM package for
+ *  accepting data iterator. */
 class IteratorAdapter : public dmlc::DataIter<FileAdapterBatch> {
  public:
   IteratorAdapter(DataIterHandle data_handle,
-                 XGBCallbackDataIterNext* next_callback)
+                  XGBCallbackDataIterNext* next_callback)
       :  columns_{data::kAdapterUnknownSize}, row_offset_{0},
          at_first_(true),
          data_handle_(data_handle), next_callback_(next_callback) {}
@@ -510,9 +512,14 @@ class IteratorAdapter : public dmlc::DataIter<FileAdapterBatch> {
   }
 
   bool Next() override {
-    if ((*next_callback_)(data_handle_,
-                          XGBoostNativeDataIterSetData,
-                          this) != 0) {
+    if ((*next_callback_)(
+            data_handle_,
+            [](void *handle, XGBoostBatchCSR batch) -> int {
+              API_BEGIN();
+              static_cast<IteratorAdapter *>(handle)->SetData(batch);
+              API_END();
+            },
+            this) != 0) {
       at_first_ = false;
       return true;
     } else {

@@ -94,11 +94,12 @@ TEST(c_api, DMatrixSliceAdapterFromSimpleDMatrix) {
   delete pp_dmat;
 }
 
+// A mock for JVM data iterator.
 class DataIterForTest {
   std::vector<float> data_ {1, 2, 3, 4, 5};
-  std::vector<std::remove_pointer<typeof(std::declval<XGBoostBatchCSR>().index)>::type>
+  std::vector<std::remove_pointer<decltype(std::declval<XGBoostBatchCSR>().index)>::type>
       feature_idx_ {0, 1, 0, 1, 1};
-  std::vector<std::remove_pointer<typeof(std::declval<XGBoostBatchCSR>().offset)>::type>
+  std::vector<std::remove_pointer<decltype(std::declval<XGBoostBatchCSR>().offset)>::type>
       row_ptr_ {0, 2, 4, 5};
   size_t iter_ {0};
 
@@ -152,7 +153,6 @@ TEST(Adapter, IteratorAdaper) {
     DMatrix::Create(&adapter, std::numeric_limits<float>::quiet_NaN(), 1)
   };
   ASSERT_EQ(data->Info().num_col_, DataIterForTest::kCols);
-  // There is an empty line created by concatenating 2 CSR batches
   ASSERT_EQ(data->Info().num_row_, kRows);
 }
 

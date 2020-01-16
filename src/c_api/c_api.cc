@@ -11,7 +11,6 @@
 #include <string>
 #include <memory>
 
-
 #include "xgboost/base.h"
 #include "xgboost/data.h"
 #include "xgboost/learner.h"
@@ -25,17 +24,6 @@
 #include "../common/io.h"
 #include "../data/adapter.h"
 #include "../data/simple_dmatrix.h"
-
-namespace xgboost {
-// declare the data callback.
-
-XGB_DLL int XGBoostNativeDataIterSetData(
-    void *handle, XGBoostBatchCSR batch) {
-  API_BEGIN();
-  static_cast<xgboost::data::IteratorAdapter*>(handle)->SetData(batch);
-  API_END();
-}
-}  // namespace xgboost
 
 using namespace xgboost; // NOLINT(*);
 
