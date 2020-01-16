@@ -428,39 +428,39 @@ class FileAdapterBatch {
    public:
     Line(size_t row_idx, const uint32_t *feature_idx, const float *value,
          size_t size)
-        : row_idx_(row_idx), feature_idx(feature_idx), value(value),
-          size(size) {}
+        : row_idx_(row_idx), feature_idx_(feature_idx), value_(value),
+          size_(size) {}
 
-    size_t Size() { return size; }
+    size_t Size() { return size_; }
     COOTuple GetElement(size_t idx) {
-      float fvalue = value == nullptr ? 1.0f : value[idx];
-      return COOTuple{row_idx_, feature_idx[idx], fvalue};
+      float fvalue = value_ == nullptr ? 1.0f : value_[idx];
+      return COOTuple{row_idx_, feature_idx_[idx], fvalue};
     }
 
    private:
     size_t row_idx_;
-    const uint32_t *feature_idx;
-    const float *value;
-    size_t size;
+    const uint32_t *feature_idx_;
+    const float *value_;
+    size_t size_;
   };
   FileAdapterBatch(const dmlc::RowBlock<uint32_t>* block, size_t row_offset)
-      : block(block), row_offset(row_offset) {}
+      : block_(block), row_offset_(row_offset) {}
   Line GetLine(size_t idx) const {
-    auto begin = block->offset[idx];
-    auto end = block->offset[idx + 1];
-    return Line(idx + row_offset, &block->index[begin], &block->value[begin],
-                end - begin);
+    auto begin = block_->offset[idx];
+    auto end = block_->offset[idx + 1];
+    return Line{idx + row_offset_, &block_->index[begin], &block_->value[begin],
+                end - begin};
   }
-  const float* Labels() const { return block->label; }
-  const float* Weights() const { return block->weight; }
-  const uint64_t* Qid() const { return block->qid; }
+  const float* Labels() const { return block_->label; }
+  const float* Weights() const { return block_->weight; }
+  const uint64_t* Qid() const { return block_->qid; }
   const float* BaseMargin() const { return nullptr; }
 
-  size_t Size() const { return block->size; }
+  size_t Size() const { return block_->size; }
 
  private:
-  const dmlc::RowBlock<uint32_t>* block;
-  size_t row_offset;
+  const dmlc::RowBlock<uint32_t>* block_;
+  size_t row_offset_;
 };
 
 /** \brief FileAdapter wraps dmlc::parser to read files and provide access in a
@@ -569,7 +569,7 @@ class NativeDataIter : public dmlc::DataIter<FileAdapterBatch> {
     block_.value = dmlc::BeginPtr(value_);
 
     batch_.reset(new FileAdapterBatch(&block_, row_offset_));
-    row_offset_ += offset_.size();
+    row_offset_ += offset_.size() - 1;
   }
 
   size_t NumColumns() const { return columns_; }

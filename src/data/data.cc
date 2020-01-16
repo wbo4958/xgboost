@@ -431,11 +431,11 @@ uint64_t SparsePage::Push(const AdapterBatchT& batch, float missing, int nthread
       max_columns =
           std::max(max_columns, static_cast<uint64_t>(element.column_idx + 1));
       if (!common::CheckNAN(element.value) && element.value != missing) {
-        size_t key = element.row_idx -
-                     base_rowid;  // Adapter row index is absolute, here we want
-                                  // it relative to current page
+        size_t key = element.row_idx - base_rowid;
+        // Adapter row index is absolute, here we want it relative to
+        // current page
         CHECK_GE(key,  builder_base_row_offset);
-        builder.AddBudget(element.row_idx - base_rowid, tid);
+        builder.AddBudget(key, tid);
       }
     }
   }
