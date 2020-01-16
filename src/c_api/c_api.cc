@@ -90,8 +90,8 @@ int XGDMatrixCreateFromFile(const char *fname,
 }
 
 XGB_DLL int XGDMatrixCreateFromDataIter(
-    void *data_handle,                 // a Java interator
-    XGBCallbackDataIterNext *callback, // C++ callback defined in xgboost4j.cpp
+    void *data_handle,                  // a Java interator
+    XGBCallbackDataIterNext *callback,  // C++ callback defined in xgboost4j.cpp
     const char *cache_info, DMatrixHandle *out) {
   API_BEGIN();
 
