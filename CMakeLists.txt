@@ -37,8 +37,10 @@ option(USE_NVTX "Build with cuda profiling annotations. Developers only." OFF)
 set(NVTX_HEADER_DIR "" CACHE PATH "Path to the stand-alone nvtx header")
 option(RABIT_MOCK "Build rabit with mock" OFF)
 ## CUDA
-option(USE_CUDA  "Build with GPU acceleration" OFF)
-option(USE_NCCL  "Build with NCCL to enable distributed GPU support." OFF)
+#add_compile_definitions(__CUDACC__)
+set(CMAKE_CUDA_COMPILER /usr/local/cuda/bin/nvcc)
+option(USE_CUDA  "Build with GPU acceleration" ON)
+option(USE_NCCL  "Build with NCCL to enable distributed GPU support." ON)
 option(BUILD_WITH_SHARED_NCCL "Build with shared NCCL library." OFF)
 set(GPU_COMPUTE_VER "" CACHE STRING
   "Semicolon separated list of compute versions to be built against, e.g. '35;61'")
