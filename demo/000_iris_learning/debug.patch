@@ -1,0 +1,243 @@
+diff --git a/dmlc-core b/dmlc-core
+--- a/dmlc-core
++++ b/dmlc-core
+@@ -1 +1 @@
+-Subproject commit 552f7de748fbff34f2708b03f930a47ded45d78e
++Subproject commit 552f7de748fbff34f2708b03f930a47ded45d78e-dirty
+diff --git a/src/data/ellpack_page.cu b/src/data/ellpack_page.cu
+index 760d47b0..c17391fe 100644
+--- a/src/data/ellpack_page.cu
++++ b/src/data/ellpack_page.cu
+@@ -293,6 +293,27 @@ void EllpackPageImpl::CreateHistIndices(int device,
+         batch_nrows,
+         row_stride,
+         null_gidx_value);
++
++    int size = gidx_buffer.size();
++    common::CompressedByteT *gidx_buffer_host = new common::CompressedByteT[size];
++    cudaMemcpy(gidx_buffer_host, gidx_buffer.data(), size, cudaMemcpyDeviceToHost);
++    for (int i = 0; i < size; i++) {
++      printf("gidx_buffer raw index:%d v:%d\n", i, gidx_buffer_host[i]);
++    }
++    common::CompressedIterator<uint32_t> symbols = common::CompressedIterator<uint32_t>(gidx_buffer_host, matrix.info.n_bins);
++    int real_size = std::ceil(size * 8 / common::detail::SymbolBits(matrix.info.n_bins));
++//    for (int i = 0; i < real_size; i++) {
++//      printf("gidx_buffer readable instance:%d belong to bin: %d\n", i, symbols[i]);
++//    }
++    for (int i = 0; i < matrix.info.n_bins; i++) {
++      printf("gidx_buffer instances belong to bin %d\n", i);
++      for (int j = 0; j < matrix.n_rows; j++) {
++        if (i == symbols[j]) {
++          printf("%d ", j);
++        }
++      }
++      printf("\n");
++    }
+   }
+ }
+ 
+diff --git a/src/gbm/gbtree.cc b/src/gbm/gbtree.cc
+index abd2b9fa..70a3c28b 100644
+--- a/src/gbm/gbtree.cc
++++ b/src/gbm/gbtree.cc
+@@ -203,6 +203,7 @@ void GBTree::DoBoost(DMatrix* p_fmat,
+     const auto& gpair_h = in_gpair->ConstHostVector();
+     auto nsize = static_cast<bst_omp_uint>(tmp.Size());
+     for (int gid = 0; gid < ngroup; ++gid) {
++      printf("DoBoost for gid: %d\n", gid);
+       std::vector<GradientPair>& tmp_h = tmp.HostVector();
+ #pragma omp parallel for schedule(static)
+       for (bst_omp_uint i = 0; i < nsize; ++i) {
+diff --git a/src/tree/gpu_hist/row_partitioner.cu b/src/tree/gpu_hist/row_partitioner.cu
+index 176740f1..98c43db1 100644
+--- a/src/tree/gpu_hist/row_partitioner.cu
++++ b/src/tree/gpu_hist/row_partitioner.cu
+@@ -61,8 +61,36 @@ void RowPartitioner::SortPosition(common::Span<bst_node_t> position,
+   cub::DeviceScan::ExclusiveSum(nullptr, temp_storage_bytes, in_itr, out_itr,
+                                 position.size(), stream);
+   dh::caching_device_vector<uint8_t> temp_storage(temp_storage_bytes);
++
++  int size = position.size();
++  bst_node_t *prev_position_in_host = new bst_node_t[size];
++  cudaMemcpy(prev_position_in_host, position.data(), size*sizeof(bst_node_t), cudaMemcpyDeviceToHost);
++  RowIndexT *prev_rdix_in_host = new RowIndexT[size];
++  cudaMemcpy(prev_rdix_in_host, ridx.data(), size*sizeof(RowIndexT), cudaMemcpyDeviceToHost);
++
+   cub::DeviceScan::ExclusiveSum(temp_storage.data().get(), temp_storage_bytes,
+-                                in_itr, out_itr, position.size(), stream);
++                              in_itr, out_itr, position.size(), stream);
++  bst_node_t *after_position_in_host = new bst_node_t[size];
++  cudaMemcpy(after_position_in_host, position_out.data(), size*sizeof(bst_node_t), cudaMemcpyDeviceToHost);
++  RowIndexT *after_rdix_in_host = new RowIndexT[size];
++  cudaMemcpy(after_rdix_in_host, ridx_out.data(), size*sizeof(RowIndexT), cudaMemcpyDeviceToHost);
++
++  for (int i = 0; i < size; i++) {
++    if (prev_rdix_in_host[i] == after_rdix_in_host[i] && prev_position_in_host[i] == after_position_in_host[i] ) {
++      printf("rdix index:%4d rdix not change [%4d] Node not change [%4d]\n",
++             i, prev_rdix_in_host[i], after_position_in_host[i]);
++    } else if (prev_rdix_in_host[i] == after_rdix_in_host[i] && prev_position_in_host[i] != after_position_in_host[i] ) {
++      printf("rdix index:%4d rdix not change [%4d] Node change [%4d -----> %4d]\n",
++             i, prev_rdix_in_host[i], prev_position_in_host[i], after_position_in_host[i]);
++    } else if (prev_rdix_in_host[i] != after_rdix_in_host[i] && prev_position_in_host[i] == after_position_in_host[i] ) {
++      printf("rdix index:%4d rdix change [%4d -----> %4d] Node not change [%4d]\n",
++             i, prev_rdix_in_host[i], after_rdix_in_host[i], prev_position_in_host[i]);
++    } else {
++      printf("rdix index:%4d rdix change [%4d -----> %4d] Node change [%4d -----> %4d]\n",
++             i, prev_rdix_in_host[i], after_rdix_in_host[i], prev_position_in_host[i],
++             after_position_in_host[i]);
++    }
++  }
+ }
+ RowPartitioner::RowPartitioner(int device_idx, size_t num_rows)
+     : device_idx(device_idx) {
+diff --git a/src/tree/gpu_hist/row_partitioner.cuh b/src/tree/gpu_hist/row_partitioner.cuh
+index 4818d71a..7c177bed 100644
+--- a/src/tree/gpu_hist/row_partitioner.cuh
++++ b/src/tree/gpu_hist/row_partitioner.cuh
+@@ -118,6 +118,10 @@ class RowPartitioner {
+     }
+     // Now we divide the row segment into left and right node.
+ 
++    int size = d_position.size();
++    bst_node_t *prev_position_in_host = new bst_node_t[size];
++    cudaMemcpy(prev_position_in_host, d_position.data(), size*sizeof(bst_node_t), cudaMemcpyDeviceToHost);
++
+     int64_t* d_left_count = left_counts.data().get() + nidx;
+     // Launch 1 thread for each row
+     dh::LaunchN<1, 128>(device_idx, segment.Size(), [=] __device__(size_t idx) {
+@@ -133,6 +137,16 @@ class RowPartitioner {
+     int64_t left_count;
+     dh::safe_cuda(cudaMemcpyAsync(&left_count, d_left_count, sizeof(int64_t),
+                                   cudaMemcpyDeviceToHost, streams[0]));
++    size = d_position.size();
++    bst_node_t * after_position_in_host = new bst_node_t[size];
++    cudaMemcpy(after_position_in_host, d_position.data(), size*sizeof(bst_node_t), cudaMemcpyDeviceToHost);
++    for (int i = 0; i < size; i++) {
++      if (prev_position_in_host[i] == after_position_in_host[i]) {
++        printf("UpdatePosition index:%4d node not change %4d\n", i, prev_position_in_host[i]);
++      } else {
++        printf("UpdatePosition index:%4d node change %4d ----> %4d\n", i, prev_position_in_host[i], after_position_in_host[i]);
++      }
++    }
+ 
+     SortPositionAndCopy(segment, left_nidx, right_nidx, d_left_count,
+                         streams[1]);
+@@ -161,6 +175,12 @@ class RowPartitioner {
+   void FinalisePosition(FinalisePositionOpT op) {
+     auto d_position = position.Current();
+     const auto d_ridx = ridx.Current();
++
++    auto d_position_print = position.CurrentSpan();
++    int size = d_position_print.size();
++    bst_node_t *prev_position_in_host = new bst_node_t[size];
++    cudaMemcpy(prev_position_in_host, d_position_print.data(), size*sizeof(bst_node_t), cudaMemcpyDeviceToHost);
++
+     dh::LaunchN(device_idx, position.Size(), [=] __device__(size_t idx) {
+       auto position = d_position[idx];
+       RowIndexT ridx = d_ridx[idx];
+@@ -168,6 +188,16 @@ class RowPartitioner {
+       if (new_position == kIgnoredTreePosition) return;
+       d_position[idx] = new_position;
+     });
++
++    bst_node_t *after_position_in_host = new bst_node_t[size];
++    cudaMemcpy(after_position_in_host, d_position_print.data(), size*sizeof(bst_node_t), cudaMemcpyDeviceToHost);
++    for (int i = 0; i < size; i++) {
++      if (prev_position_in_host[i] == after_position_in_host[i]) {
++        printf("FinalisePosition index:%4d node not change: %4d\n", i, prev_position_in_host[i]);
++      } else {
++        printf("FinalisePosition index:%4d node change:%4d ----> %4d\n", i, prev_position_in_host[i], after_position_in_host[i]);
++      }
++    }
+   }
+ 
+   /**
+diff --git a/src/tree/updater_gpu_hist.cu b/src/tree/updater_gpu_hist.cu
+index eafa227b..af41aa14 100644
+--- a/src/tree/updater_gpu_hist.cu
++++ b/src/tree/updater_gpu_hist.cu
+@@ -216,6 +216,13 @@ __device__ void EvaluateFeature(
+ 
+     __syncthreads();
+ 
++    if (thread_active) {
++      printf("Node idx:%d EvaluateFeature idx:%d bin_gain:%f root_gain:%f parent:[%f, %f] bin:[%f, %f] missing:[%f, %f]\n",
++             node.idx, threadIdx.x, gain, node.root_gain, parent_sum.GetGrad(),
++             parent_sum.GetHess(), bin.GetGrad(), bin.GetHess(),
++             missing.GetGrad(), missing.GetHess());
++    }
++
+     // Find thread with best gain
+     cub::KeyValuePair<int, float> tuple(threadIdx.x, gain);
+     cub::KeyValuePair<int, float> best =
+@@ -241,6 +248,9 @@ __device__ void EvaluateFeature(
+       GradientSumT right = parent_sum - left;
+       best_split->Update(gain, missing_left ? kLeftDir : kRightDir, fvalue,
+                          fidx, GradientPair(left), GradientPair(right), param);
++      printf("===>Node idx:%d BestSplit feature idx:%d, split_gidx:%d, fvalue:%f parent:[%f, %f] bin:[%f, %f] missing:[%f, %f]\n",
++             node.idx, fidx, split_gidx, fvalue, parent_sum.GetGrad(), parent_sum.GetHess(),
++             bin.GetGrad(), bin.GetHess(), missing.GetGrad(), missing.GetHess());
+     }
+     __syncthreads();
+   }
+@@ -431,6 +441,7 @@ __global__ void SharedMemHistKernel(xgboost::EllpackMatrix matrix,
+     // Write shared memory back to global memory
+     __syncthreads();
+     for (auto i : dh::BlockStrideRange(static_cast<size_t>(0), matrix.info.n_bins)) {
++      printf("SharedMemHistKernel d_node_hist idx:%d [%f, %f]\n", i, smem_arr[i].GetGrad(), smem_arr[i].GetHess());
+       dh::AtomicAddGpair(d_node_hist + i, smem_arr[i]);
+     }
+   }
+@@ -601,6 +612,7 @@ struct GPUHistMakerDevice {
+           d_split_candidates_all.subspan(i * num_columns, d_feature_set.size());
+ 
+       DeviceNodeStats node(node_sum_gradients[nidx], nidx, param);
++      printf("EvaluateSplits for Node idx:%d root_gain:%f\n", nidx, node.root_gain);
+ 
+       auto d_result = d_result_all.subspan(i, 1);
+       if (d_feature_set.empty()) {
+@@ -635,6 +647,7 @@ struct GPUHistMakerDevice {
+     dh::safe_cuda(cudaMemcpy(result_all.data(), d_result_all.data(),
+                              sizeof(DeviceSplitCandidate) * d_result_all.size(),
+                              cudaMemcpyDeviceToHost));
++    printf("EvaluateSplits ---- finished\n");
+     return std::vector<DeviceSplitCandidate>(result_all.begin(), result_all.end());
+   }
+ 
+@@ -654,6 +667,7 @@ struct GPUHistMakerDevice {
+     uint32_t block_threads = 256;
+     auto grid_size = static_cast<uint32_t>(
+         common::DivRoundUp(n_elements, items_per_thread * block_threads));
++    printf("BuildHist for nidx:%d\n", nidx);
+     dh::LaunchKernel {grid_size, block_threads, smem_size} (
+         SharedMemHistKernel<GradientSumT>,
+         page->matrix, d_ridx, d_node_hist.data(), d_gpair, n_elements,
+@@ -666,10 +680,20 @@ struct GPUHistMakerDevice {
+     auto d_node_hist_histogram = hist.GetNodeHistogram(nidx_histogram);
+     auto d_node_hist_subtraction = hist.GetNodeHistogram(nidx_subtraction);
+ 
++    printf("SubtractionTrick for nidx:%d\n", nidx_subtraction);
+     dh::LaunchN(device_id, page->matrix.info.n_bins, [=] __device__(size_t idx) {
+       d_node_hist_subtraction[idx] =
+           d_node_hist_parent[idx] - d_node_hist_histogram[idx];
+     });
++
++    int size = page->matrix.info.n_bins;
++    GradientSumT* d_node_hist_subtraction_host = new GradientSumT[size];
++    cudaMemcpy(d_node_hist_subtraction_host, d_node_hist_subtraction.data(), size * sizeof(GradientSumT),
++               cudaMemcpyDeviceToHost);
++    for (int i = 0; i < page->matrix.info.n_bins; i++) {
++      printf("SubtractionTrick index:%d GradientSum [%f, %f]\n", i,
++             d_node_hist_subtraction_host[i].GetGrad(), d_node_hist_subtraction_host[i].GetHess());
++    }
+   }
+ 
+   bool CanDoSubtractionTrick(int nidx_parent, int nidx_histogram,
+@@ -954,6 +978,7 @@ struct GPUHistMakerDevice {
+     monitor.StartCuda("FinalisePosition");
+     this->FinalisePosition(p_tree, p_fmat);
+     monitor.StopCuda("FinalisePosition");
++    printf("UpdateTree ----- finished\n");
+   }
+ };
+ 
