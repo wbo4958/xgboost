@@ -30,13 +30,13 @@ target_link_libraries(api-demo xgboost)
 You can start by modifying the makefile in this directory to fit your need.
 
 # How to debug
-compile xgboost with debug info
+1. compile xgboost with debug info
 
 ``` shell
 cmake .. -DCMAKE_BUILD_TYPE=Debug -DUSE_CUDA=ON -DUSE_OPENMP=OFF
 ```
 
-add debug conf for CLION
+1. add debug conf for CLION
 
 ```
 Edit Configurations -> Add new Configuration -> GDB Remote Debug
@@ -45,3 +45,10 @@ Edit Configurations -> Add new Configuration -> GDB Remote Debug
 Symbol file: /home/bobwang/work.d/nvspark/30/dmlc.xgboost/xgboost
 Sysroot: /home/bobwang/work.d/nvspark/30/dmlc.xgboost/lib
 ```
+
+1. run gdbserver command
+```
+make iris_debug
+```
+
+1. press debug button in clion
