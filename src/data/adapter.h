@@ -565,7 +565,6 @@ class IteratorAdapter : public dmlc::DataIter<FileAdapterBatch> {
         << " to " << batch.columns;
 
     columns_ = batch.columns;
-    printf("SetData columns: %d\n", columns_);
     block_.size = batch.size;
 
     block_.offset = dmlc::BeginPtr(offset_);
