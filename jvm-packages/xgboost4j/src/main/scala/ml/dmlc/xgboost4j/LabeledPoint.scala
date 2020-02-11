@@ -20,7 +20,7 @@ package ml.dmlc.xgboost4j
  * Labeled training data point.
  *
  * @param label Label of this point.
- * @param size Feature size
+ * @param size Feature dimensionality
  * @param indices Feature indices of this point or `null` if the data is dense.
  * @param values Feature values of this point.
  * @param weight Weight of this point.
@@ -38,7 +38,8 @@ case class LabeledPoint(
   require(indices == null || indices.length == values.length,
     "indices and values must have the same number of elements")
 
-  require(size >= indices.length, "feature size must be greater equal size of indices")
+  require(indices == null || size >= indices.length,
+    "feature dimensionality must be greater equal than size of indices")
 
   def this(label: Float, size: Int, indices: Array[Int], values: Array[Float]) = {
     // [[weight]] default duplicated to disambiguate the constructor call.

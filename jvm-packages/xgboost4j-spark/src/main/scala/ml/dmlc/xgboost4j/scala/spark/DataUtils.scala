@@ -46,7 +46,7 @@ object DataUtils extends Serializable {
     def features: Vector = if (labeledPoint.indices == null) {
       Vectors.dense(labeledPoint.values.map(_.toDouble))
     } else {
-      Vectors.sparse(Int.MaxValue, labeledPoint.indices, labeledPoint.values.map(_.toDouble))
+      Vectors.sparse(labeledPoint.size, labeledPoint.indices, labeledPoint.values.map(_.toDouble))
     }
   }
 
