@@ -100,7 +100,6 @@ class DataBatch {
         }
 
         rowOffset[batch.size()] = offset;
-        System.out.println("DataBatch num cols:" + numCol);
         return new DataBatch(rowOffset, weight, label, featureIndex, featureValue, numCol);
       } catch (RuntimeException runtimeError) {
         logger.error(runtimeError);

@@ -38,10 +38,6 @@ object DataUtils extends Serializable {
 
     /**
      * Returns feature of the point as [[org.apache.spark.ml.linalg.Vector]].
-     *
-     * If the point is sparse, the dimensionality of the resulting sparse
-     * vector would be [[Int.MaxValue]]. This is the only safe value, since
-     * XGBoost does not store the dimensionality explicitly.
      */
     def features: Vector = if (labeledPoint.indices == null) {
       Vectors.dense(labeledPoint.values.map(_.toDouble))
