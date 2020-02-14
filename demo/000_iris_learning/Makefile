@@ -26,5 +26,13 @@ remote_debug:
 iris_debug:
 	LD_LIBRARY_PATH=$(XGBOOST_ROOT)/lib gdbserver :1234 ../../xgboost iris.conf
 
+run_iris_debug:
+	LD_LIBRARY_PATH=$(XGBOOST_ROOT)/lib ../../xgboost iris.conf
+
+sketch_iris_debug:
+	LD_LIBRARY_PATH=$(XGBOOST_ROOT)/lib gdbserver :1234 ../../xgboost iris_sketch.conf
+
+run_sketch_iris_debug:
+	LD_LIBRARY_PATH=$(XGBOOST_ROOT)/lib ../../xgboost iris_sketch.conf
 clean:
 	rm -f $(TGT)
