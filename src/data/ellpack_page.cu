@@ -61,6 +61,7 @@ __global__ void CompressBinEllpackKernel(
     bin += cut_rows[feature];
   }
   // Write to gidx buffer.
+  int offset = (irow + base_row) * row_stride + ifeature;
   wr.AtomicWriteSymbol(buffer, bin, (irow + base_row) * row_stride + ifeature);
 }
 
@@ -293,6 +294,15 @@ void EllpackPageImpl::CreateHistIndices(int device,
         batch_nrows,
         row_stride,
         null_gidx_value);
+
+    int size = gidx_buffer.size();
+    common::CompressedByteT *gidx_buffer_host = new common::CompressedByteT[size];
+    cudaMemcpy(gidx_buffer_host, gidx_buffer.data(), size, cudaMemcpyDeviceToHost);
+
+    for (int i = 0; i < size; i++) {
+      printf("i:%d v:%d\n", i, gidx_buffer_host[i]);
+    }
+
   }
 }
 

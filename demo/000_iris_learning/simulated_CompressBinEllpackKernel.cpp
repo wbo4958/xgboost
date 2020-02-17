@@ -19,7 +19,10 @@ using CompressedByteT = unsigned char;
 void AtomicOrByte(unsigned int *buffer, size_t ibyte, unsigned char b)
 {
   size_t index = ibyte / sizeof(unsigned int);
-  buffer[index] = buffer[index] | (unsigned int)b << (ibyte % (sizeof(unsigned int)) * 8);
+  int v = (unsigned int)b << (ibyte % (sizeof(unsigned int)) * 8);
+  int pre = buffer[index];
+  buffer[index] = buffer[index] | v;
+  printf("%d prev:%d now:%d\n", index, pre, buffer[index]);
   //atomicOr(&buffer[ibyte / sizeof(unsigned int)], (unsigned int)b << (ibyte % (sizeof(unsigned int)) * 8));
 }
 
@@ -40,6 +43,16 @@ void AtomicWriteSymbol(CompressedByteT *buffer, uint64_t symbol, size_t offset)
   }
 }
 
+int upper_boundSQ(const float* s, int size, float val)
+{
+  for (int i = 0; i < size; i++) {
+    if (val <= *(s + i)) {
+      return i;
+    }
+  }
+  return size-1;
+}
+
 static size_t CalculateBufferSize(size_t num_elements, size_t num_symbols)
 {
   const int bits_per_byte = 8;
@@ -49,32 +62,13 @@ static size_t CalculateBufferSize(size_t num_elements, size_t num_symbols)
   return compressed_size + detail::kPadding;
 }
 
-int upper_bound(float *array, int size, float key)
-{
-  int len = size - 1;
-  int half, middle;
-  while (len > 0)
-  {
-    half = len >> 1;
-    middle = first + half;
-    if (array[middle] > key) //中位数大于key,在包含last的左半边序列中查找。
-      len = half;
-    else
-    {
-      first = middle + 1; //中位数小于等于key,在右半边序列中查找。
-      len = len - half - 1;
-    }
-  }
-  return first;
-}
-
 // Bin each input data entry, store the bin indices in compressed form.
 void CompressBinEllpackKernel(
-    CompressedByteT *__restrict__ buffer,  // gidx_buffer
-    const size_t *__restrict__ row_ptrs,   // row offset of input data
-    const Entry *__restrict__ entries,     // One batch of input data
-    const float *__restrict__ cuts,        // HistogramCuts::cut
-    const uint32_t *__restrict__ cut_rows, // HistogramCuts::row_ptrs
+    CompressedByteT * buffer,  // gidx_buffer
+    const size_t * row_ptrs,   // row offset of input data
+    const float * entries,     // One batch of input data
+    const float * cuts,        // HistogramCuts::cut
+    const uint32_t * cut_rows, // HistogramCuts::row_ptrs
     size_t base_row,                       // batch_row_begin
     size_t n_rows,
     size_t row_stride,
@@ -82,7 +76,7 @@ void CompressBinEllpackKernel(
 {
 
   int ifeature = 0;
-  for (size_t irow = 0; i < n_rows; irow++)
+  for (size_t irow = 0; irow < n_rows; irow++)
   {
     int row_length = static_cast<int>(row_ptrs[irow + 1] - row_ptrs[irow]);
     unsigned int bin = null_gidx_value;
@@ -96,7 +90,7 @@ void CompressBinEllpackKernel(
       int ncuts = cut_rows[feature + 1] - cut_rows[feature];
       // Assigning the bin in current entry.
       // S.t.: fvalue < feature_cuts[bin]
-      bin = dh::UpperBound(feature_cuts, ncuts, fvalue);
+      bin = upper_boundSQ(feature_cuts, ncuts, fvalue);
       if (bin >= ncuts)
       {
         bin = ncuts - 1;
@@ -106,8 +100,8 @@ void CompressBinEllpackKernel(
     }
     // Write to gidx buffer.
     int offset = (irow + base_row) * row_stride + ifeature;
-    printf("symbol:%d irow:%d ifeature:%d offset:%d\n", bin, irow, ifeature, offset);
-    wr.AtomicWriteSymbol(buffer, bin, (irow + base_row) * row_stride + ifeature);
+    //printf("symbol:%d irow:%d ifeature:%d offset:%d\n", bin, irow, ifeature, offset);
+    AtomicWriteSymbol(buffer, bin, (irow + base_row) * row_stride + ifeature);
   }
 }
 
@@ -125,9 +119,12 @@ int main(void)
 
   float *entry = new float[150]{1.4, 1.4, 1.3, 1.5, 1.4, 1.7, 1.4, 1.5, 1.4, 1.5, 1.5, 1.6, 1.4, 1.1, 1.2, 1.5, 1.3, 1.4, 1.7, 1.5, 1.7, 1.5, 1, 1.7, 1.9, 1.6, 1.6, 1.5, 1.4, 1.6, 1.6, 1.5, 1.5, 1.4, 1.5, 1.2, 1.3, 1.5, 1.3, 1.5, 1.3, 1.3, 1.3, 1.6, 1.9, 1.4, 1.6, 1.4, 1.5, 1.4, 4.7, 4.5, 4.9, 4, 4.6, 4.5, 4.7, 3.3, 4.6, 3.9, 3.5, 4.2, 4, 4.7, 3.6, 4.4, 4.5, 4.1, 4.5, 3.9, 4.8, 4, 4.9, 4.7, 4.3, 4.4, 4.8, 5, 4.5, 3.5, 3.8, 3.7, 3.9, 5.1, 4.5, 4.5, 4.7, 4.4, 4.1, 4, 4.4, 4.6, 4, 3.3, 4.2, 4.2, 4.2, 4.3, 3, 4.1, 6, 5.1, 5.9, 5.6, 5.8, 6.6, 4.5, 6.3, 5.8, 6.1, 5.1, 5.3, 5.5, 5, 5.1, 5.3, 5.5, 6.7, 6.9, 5, 5.7, 4.9, 6.7, 4.9, 5.7, 6, 4.8, 4.9, 5.6, 5.8, 6.1, 6.4, 5.6, 5.1, 5.6, 6.1, 5.6, 5.5, 4.8, 5.4, 5.6, 5.1, 5.1, 5.9, 5.7, 5.2, 5, 5.2, 5.4, 5.1};
 
-  float *cuts = new float[]{1.25, 2.25, 3.7, 4.65, 5.2, 6.2, 13.8};
+  float *cuts = new float[7]{1.25, 2.25, 3.7, 4.65, 5.2, 6.2, 13.8};
 
-  uint32_t *cut_rows = new uint32_t[]{0, 7};
+  //int x = upper_boundSQ(cuts, 7, 14.65);
+  //printf("xx ----- %d\n", x);
+
+  uint32_t *cut_rows = new uint32_t[2]{0, 7};
 
   size_t compressed_size_bytes = CalculateBufferSize(row_stride * num_rows, num_symbols);
 
@@ -136,5 +133,8 @@ int main(void)
   CompressedByteT *gidx_buffer = new unsigned char[compressed_size_bytes];
   memset(gidx_buffer, 0, compressed_size_bytes);
 
-  CompressBinEllpackKernel(gidx_buffer, offset, entry, cuts, cut_rows, 0, 150, 1, 7)
+  CompressBinEllpackKernel(gidx_buffer, offset, entry, cuts, cut_rows, 0, 150, 1, 7);
+  for (int i = 0; i < compressed_size_bytes; i++) {
+    printf("i:%d v:%d\n", i, gidx_buffer[i]);
+  }
 }
