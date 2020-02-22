@@ -61,8 +61,36 @@ void RowPartitioner::SortPosition(common::Span<bst_node_t> position,
   cub::DeviceScan::ExclusiveSum(nullptr, temp_storage_bytes, in_itr, out_itr,
                                 position.size(), stream);
   dh::caching_device_vector<uint8_t> temp_storage(temp_storage_bytes);
+
+  int size = position.size();
+  bst_node_t *prev_position_in_host = new bst_node_t[size];
+  cudaMemcpy(prev_position_in_host, position.data(), size*sizeof(bst_node_t), cudaMemcpyDeviceToHost);
+  RowIndexT *prev_rdix_in_host = new RowIndexT[size];
+  cudaMemcpy(prev_rdix_in_host, ridx.data(), size*sizeof(RowIndexT), cudaMemcpyDeviceToHost);
+
   cub::DeviceScan::ExclusiveSum(temp_storage.data().get(), temp_storage_bytes,
-                                in_itr, out_itr, position.size(), stream);
+                              in_itr, out_itr, position.size(), stream);
+  bst_node_t *after_position_in_host = new bst_node_t[size];
+  cudaMemcpy(after_position_in_host, position_out.data(), size*sizeof(bst_node_t), cudaMemcpyDeviceToHost);
+  RowIndexT *after_rdix_in_host = new RowIndexT[size];
+  cudaMemcpy(after_rdix_in_host, ridx_out.data(), size*sizeof(RowIndexT), cudaMemcpyDeviceToHost);
+
+  for (int i = 0; i < size; i++) {
+    if (prev_rdix_in_host[i] == after_rdix_in_host[i] && prev_position_in_host[i] == after_position_in_host[i] ) {
+      printf("rdix index:%4d rdix not change [%4d] Node not change [%4d]\n",
+             i, prev_rdix_in_host[i], after_position_in_host[i]);
+    } else if (prev_rdix_in_host[i] == after_rdix_in_host[i] && prev_position_in_host[i] != after_position_in_host[i] ) {
+      printf("rdix index:%4d rdix not change [%4d] Node change [%4d -----> %4d]\n",
+             i, prev_rdix_in_host[i], prev_position_in_host[i], after_position_in_host[i]);
+    } else if (prev_rdix_in_host[i] != after_rdix_in_host[i] && prev_position_in_host[i] == after_position_in_host[i] ) {
+      printf("rdix index:%4d rdix change [%4d -----> %4d] Node not change [%4d]\n",
+             i, prev_rdix_in_host[i], after_rdix_in_host[i], prev_position_in_host[i]);
+    } else {
+      printf("rdix index:%4d rdix change [%4d -----> %4d] Node change [%4d -----> %4d]\n",
+             i, prev_rdix_in_host[i], after_rdix_in_host[i], prev_position_in_host[i],
+             after_position_in_host[i]);
+    }
+  }
 }
 RowPartitioner::RowPartitioner(int device_idx, size_t num_rows)
     : device_idx(device_idx) {

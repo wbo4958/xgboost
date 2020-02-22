@@ -293,6 +293,48 @@ void EllpackPageImpl::CreateHistIndices(int device,
         batch_nrows,
         row_stride,
         null_gidx_value);
+
+    int size = gidx_buffer.size();
+    common::CompressedByteT *gidx_buffer_host = new common::CompressedByteT[size];
+    cudaMemcpy(gidx_buffer_host, gidx_buffer.data(), size, cudaMemcpyDeviceToHost);
+    for (int i = 0; i < size; i++) {
+      printf("gidx_buffer raw index:%d v:%d\n", i, gidx_buffer_host[i]);
+    }
+    common::CompressedIterator<uint32_t> symbols = common::CompressedIterator<uint32_t>(gidx_buffer_host, matrix.info.n_bins);
+    int real_size = std::ceil(size * 8 / common::detail::SymbolBits(matrix.info.n_bins));
+//    for (int i = 0; i < real_size; i++) {
+//      printf("gidx_buffer readable instance:%d belong to bin: %d\n", i, symbols[i]);
+//    }
+//    printf("dmatrix belong to bin\n");
+//    for (int i = 0; i < matrix.n_rows; i++) {
+//      printf("%d,%d\n", symbols[i*row_stride], symbols[i*row_stride + 1]);
+//    }
+    uint32_t* feature_segments_host = new uint32_t[matrix.info.feature_segments.size()];
+    cudaMemcpy(feature_segments_host, matrix.info.feature_segments.data(),
+               sizeof(uint32_t) * matrix.info.feature_segments.size(), cudaMemcpyDeviceToHost);
+    for (int featureIdx = 0; featureIdx < row_stride; featureIdx++) {
+      printf("Processing feature id:%d\n", featureIdx);
+      int ncuts = feature_segments_host[featureIdx+1] - feature_segments_host[featureIdx];
+      for (int cutIdx = 0; cutIdx < ncuts; cutIdx++) {
+        int bin = cutIdx + feature_segments_host[featureIdx];
+        printf("rows belong to bin: %d\n", bin);
+        for (int irow = 0; irow < matrix.n_rows; irow++) {
+          if (bin == symbols[irow*row_stride + featureIdx]) {
+            printf("%d ", irow);
+          }
+        }
+        printf("\n");
+      }
+    }
+//    for (int i = 0; i < matrix.info.n_bins; i++) {
+//      printf("gidx_buffer instances belong to bin %d\n", i);
+//      for (int j = 0; j < matrix.n_rows; j++) {
+//        if (i == symbols[j]) {
+//          printf("%d ", j);
+//        }
+//      }
+//      printf("\n");
+//    }
   }
 }
 
