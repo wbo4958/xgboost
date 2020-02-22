@@ -118,6 +118,10 @@ class RowPartitioner {
     }
     // Now we divide the row segment into left and right node.
 
+    int size = d_position.size();
+    bst_node_t *prev_position_in_host = new bst_node_t[size];
+    cudaMemcpy(prev_position_in_host, d_position.data(), size*sizeof(bst_node_t), cudaMemcpyDeviceToHost);
+
     int64_t* d_left_count = left_counts.data().get() + nidx;
     // Launch 1 thread for each row
     dh::LaunchN<1, 128>(device_idx, segment.Size(), [=] __device__(size_t idx) {
@@ -133,6 +137,16 @@ class RowPartitioner {
     int64_t left_count;
     dh::safe_cuda(cudaMemcpyAsync(&left_count, d_left_count, sizeof(int64_t),
                                   cudaMemcpyDeviceToHost, streams[0]));
+    size = d_position.size();
+    bst_node_t * after_position_in_host = new bst_node_t[size];
+    cudaMemcpy(after_position_in_host, d_position.data(), size*sizeof(bst_node_t), cudaMemcpyDeviceToHost);
+    for (int i = 0; i < size; i++) {
+      if (prev_position_in_host[i] == after_position_in_host[i]) {
+        printf("UpdatePosition index:%4d node not change %4d\n", i, prev_position_in_host[i]);
+      } else {
+        printf("UpdatePosition index:%4d node change %4d ----> %4d\n", i, prev_position_in_host[i], after_position_in_host[i]);
+      }
+    }
 
     SortPositionAndCopy(segment, left_nidx, right_nidx, d_left_count,
                         streams[1]);
@@ -161,6 +175,12 @@ class RowPartitioner {
   void FinalisePosition(FinalisePositionOpT op) {
     auto d_position = position.Current();
     const auto d_ridx = ridx.Current();
+
+    auto d_position_print = position.CurrentSpan();
+    int size = d_position_print.size();
+    bst_node_t *prev_position_in_host = new bst_node_t[size];
+    cudaMemcpy(prev_position_in_host, d_position_print.data(), size*sizeof(bst_node_t), cudaMemcpyDeviceToHost);
+
     dh::LaunchN(device_idx, position.Size(), [=] __device__(size_t idx) {
       auto position = d_position[idx];
       RowIndexT ridx = d_ridx[idx];
@@ -168,6 +188,16 @@ class RowPartitioner {
       if (new_position == kIgnoredTreePosition) return;
       d_position[idx] = new_position;
     });
+
+    bst_node_t *after_position_in_host = new bst_node_t[size];
+    cudaMemcpy(after_position_in_host, d_position_print.data(), size*sizeof(bst_node_t), cudaMemcpyDeviceToHost);
+    for (int i = 0; i < size; i++) {
+      if (prev_position_in_host[i] == after_position_in_host[i]) {
+        printf("FinalisePosition index:%4d node not change: %4d\n", i, prev_position_in_host[i]);
+      } else {
+        printf("FinalisePosition index:%4d node change:%4d ----> %4d\n", i, prev_position_in_host[i], after_position_in_host[i]);
+      }
+    }
   }
 
   /**

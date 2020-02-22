@@ -203,6 +203,7 @@ void GBTree::DoBoost(DMatrix* p_fmat,
     const auto& gpair_h = in_gpair->ConstHostVector();
     auto nsize = static_cast<bst_omp_uint>(tmp.Size());
     for (int gid = 0; gid < ngroup; ++gid) {
+      printf("DoBoost for gid: %d\n", gid);
       std::vector<GradientPair>& tmp_h = tmp.HostVector();
 #pragma omp parallel for schedule(static)
       for (bst_omp_uint i = 0; i < nsize; ++i) {

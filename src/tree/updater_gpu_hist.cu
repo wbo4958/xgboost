@@ -216,6 +216,13 @@ __device__ void EvaluateFeature(
 
     __syncthreads();
 
+    if (thread_active) {
+      printf("Node idx:%d EvaluateFeature idx:%d bin_gain:%f root_gain:%f parent:[%f, %f] bin:[%f, %f] missing:[%f, %f]\n",
+             node.idx, threadIdx.x, gain, node.root_gain, parent_sum.GetGrad(),
+             parent_sum.GetHess(), bin.GetGrad(), bin.GetHess(),
+             missing.GetGrad(), missing.GetHess());
+    }
+
     // Find thread with best gain
     cub::KeyValuePair<int, float> tuple(threadIdx.x, gain);
     cub::KeyValuePair<int, float> best =
@@ -241,6 +248,9 @@ __device__ void EvaluateFeature(
       GradientSumT right = parent_sum - left;
       best_split->Update(gain, missing_left ? kLeftDir : kRightDir, fvalue,
                          fidx, GradientPair(left), GradientPair(right), param);
+      printf("===>Node idx:%d BestSplit feature idx:%d, split_gidx:%d, fvalue:%f parent:[%f, %f] bin:[%f, %f] missing:[%f, %f]\n",
+             node.idx, fidx, split_gidx, fvalue, parent_sum.GetGrad(), parent_sum.GetHess(),
+             bin.GetGrad(), bin.GetHess(), missing.GetGrad(), missing.GetHess());
     }
     __syncthreads();
   }
@@ -431,6 +441,7 @@ __global__ void SharedMemHistKernel(xgboost::EllpackMatrix matrix,
     // Write shared memory back to global memory
     __syncthreads();
     for (auto i : dh::BlockStrideRange(static_cast<size_t>(0), matrix.info.n_bins)) {
+      printf("SharedMemHistKernel d_node_hist idx:%d [%f, %f]\n", i, smem_arr[i].GetGrad(), smem_arr[i].GetHess());
       dh::AtomicAddGpair(d_node_hist + i, smem_arr[i]);
     }
   }
@@ -601,6 +612,7 @@ struct GPUHistMakerDevice {
           d_split_candidates_all.subspan(i * num_columns, d_feature_set.size());
 
       DeviceNodeStats node(node_sum_gradients[nidx], nidx, param);
+      printf("EvaluateSplits for Node idx:%d root_gain:%f\n", nidx, node.root_gain);
 
       auto d_result = d_result_all.subspan(i, 1);
       if (d_feature_set.empty()) {
@@ -635,6 +647,7 @@ struct GPUHistMakerDevice {
     dh::safe_cuda(cudaMemcpy(result_all.data(), d_result_all.data(),
                              sizeof(DeviceSplitCandidate) * d_result_all.size(),
                              cudaMemcpyDeviceToHost));
+    printf("EvaluateSplits ---- finished\n");
     return std::vector<DeviceSplitCandidate>(result_all.begin(), result_all.end());
   }
 
@@ -654,6 +667,7 @@ struct GPUHistMakerDevice {
     uint32_t block_threads = 256;
     auto grid_size = static_cast<uint32_t>(
         common::DivRoundUp(n_elements, items_per_thread * block_threads));
+    printf("BuildHist for nidx:%d\n", nidx);
     dh::LaunchKernel {grid_size, block_threads, smem_size} (
         SharedMemHistKernel<GradientSumT>,
         page->matrix, d_ridx, d_node_hist.data(), d_gpair, n_elements,
@@ -666,10 +680,20 @@ struct GPUHistMakerDevice {
     auto d_node_hist_histogram = hist.GetNodeHistogram(nidx_histogram);
     auto d_node_hist_subtraction = hist.GetNodeHistogram(nidx_subtraction);
 
+    printf("SubtractionTrick for nidx:%d\n", nidx_subtraction);
     dh::LaunchN(device_id, page->matrix.info.n_bins, [=] __device__(size_t idx) {
       d_node_hist_subtraction[idx] =
           d_node_hist_parent[idx] - d_node_hist_histogram[idx];
     });
+
+    int size = page->matrix.info.n_bins;
+    GradientSumT* d_node_hist_subtraction_host = new GradientSumT[size];
+    cudaMemcpy(d_node_hist_subtraction_host, d_node_hist_subtraction.data(), size * sizeof(GradientSumT),
+               cudaMemcpyDeviceToHost);
+    for (int i = 0; i < page->matrix.info.n_bins; i++) {
+      printf("SubtractionTrick index:%d GradientSum [%f, %f]\n", i,
+             d_node_hist_subtraction_host[i].GetGrad(), d_node_hist_subtraction_host[i].GetHess());
+    }
   }
 
   bool CanDoSubtractionTrick(int nidx_parent, int nidx_histogram,
@@ -954,6 +978,7 @@ struct GPUHistMakerDevice {
     monitor.StartCuda("FinalisePosition");
     this->FinalisePosition(p_tree, p_fmat);
     monitor.StopCuda("FinalisePosition");
+    printf("UpdateTree ----- finished\n");
   }
 };
 
