@@ -422,8 +422,8 @@ class GPUSketcher {
 
     // add cuts into sketches
     thrust::copy(cuts_d_.begin(), cuts_d_.end(), cuts_h_.begin());
-#pragma omp parallel for default(none) schedule(static) \
-if (num_cols_ > SketchContainer::kOmpNumColsParallelizeLimit) // NOLINT
+//#pragma omp parallel for default(none) schedule(static) \
+//if (num_cols_ > SketchContainer::kOmpNumColsParallelizeLimit) // NOLINT
     for (int icol = 0; icol < num_cols_; ++icol) {
       WXQSketch::SummaryContainer summary;
       summary.Reserve(n_cuts_);

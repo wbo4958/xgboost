@@ -305,15 +305,36 @@ void EllpackPageImpl::CreateHistIndices(int device,
 //    for (int i = 0; i < real_size; i++) {
 //      printf("gidx_buffer readable instance:%d belong to bin: %d\n", i, symbols[i]);
 //    }
-    for (int i = 0; i < matrix.info.n_bins; i++) {
-      printf("gidx_buffer instances belong to bin %d\n", i);
-      for (int j = 0; j < matrix.n_rows; j++) {
-        if (i == symbols[j]) {
-          printf("%d ", j);
+//    printf("dmatrix belong to bin\n");
+//    for (int i = 0; i < matrix.n_rows; i++) {
+//      printf("%d,%d\n", symbols[i*row_stride], symbols[i*row_stride + 1]);
+//    }
+    uint32_t* feature_segments_host = new uint32_t[matrix.info.feature_segments.size()];
+    cudaMemcpy(feature_segments_host, matrix.info.feature_segments.data(),
+               sizeof(uint32_t) * matrix.info.feature_segments.size(), cudaMemcpyDeviceToHost);
+    for (int featureIdx = 0; featureIdx < row_stride; featureIdx++) {
+      printf("Processing feature id:%d\n", featureIdx);
+      int ncuts = feature_segments_host[featureIdx+1] - feature_segments_host[featureIdx];
+      for (int cutIdx = 0; cutIdx < ncuts; cutIdx++) {
+        int bin = cutIdx + feature_segments_host[featureIdx];
+        printf("rows belong to bin: %d\n", bin);
+        for (int irow = 0; irow < matrix.n_rows; irow++) {
+          if (bin == symbols[irow*row_stride + featureIdx]) {
+            printf("%d ", irow);
+          }
         }
+        printf("\n");
       }
-      printf("\n");
     }
+//    for (int i = 0; i < matrix.info.n_bins; i++) {
+//      printf("gidx_buffer instances belong to bin %d\n", i);
+//      for (int j = 0; j < matrix.n_rows; j++) {
+//        if (i == symbols[j]) {
+//          printf("%d ", j);
+//        }
+//      }
+//      printf("\n");
+//    }
   }
 }
 

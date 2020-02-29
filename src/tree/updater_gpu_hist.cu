@@ -217,9 +217,9 @@ __device__ void EvaluateFeature(
     __syncthreads();
 
     if (thread_active) {
-      printf("Node idx:%d EvaluateFeature idx:%d bin_gain:%f root_gain:%f parent:[%f, %f] bin:[%f, %f] missing:[%f, %f]\n",
-             node.idx, threadIdx.x, gain, node.root_gain, parent_sum.GetGrad(),
-             parent_sum.GetHess(), bin.GetGrad(), bin.GetHess(),
+      printf("Node idx:%d EvaluateFeature scan_begin:%d idx:%d bin_gain:%f root_gain:%f parent:[%f, %f] left:%f,%f right:%f,%f missing:[%f, %f]\n",
+             node.idx, scan_begin, threadIdx.x, gain, node.root_gain, parent_sum.GetGrad(),
+             parent_sum.GetHess(), bin.GetGrad(), bin.GetHess(), parent_sum.GetGrad() - bin.GetGrad(), parent_sum.GetHess() - bin.GetHess(),
              missing.GetGrad(), missing.GetHess());
     }
 
@@ -248,8 +248,8 @@ __device__ void EvaluateFeature(
       GradientSumT right = parent_sum - left;
       best_split->Update(gain, missing_left ? kLeftDir : kRightDir, fvalue,
                          fidx, GradientPair(left), GradientPair(right), param);
-      printf("===>Node idx:%d BestSplit feature idx:%d, split_gidx:%d, fvalue:%f parent:[%f, %f] bin:[%f, %f] missing:[%f, %f]\n",
-             node.idx, fidx, split_gidx, fvalue, parent_sum.GetGrad(), parent_sum.GetHess(),
+      printf("===>Node idx:%d BestSplit feature idx:%d, scan_begin:%d split_gidx:%d, fvalue:%f parent:[%f, %f] bin:[%f, %f] missing:[%f, %f]\n",
+             node.idx, fidx, scan_begin, split_gidx, fvalue, parent_sum.GetGrad(), parent_sum.GetHess(),
              bin.GetGrad(), bin.GetHess(), missing.GetGrad(), missing.GetHess());
     }
     __syncthreads();
