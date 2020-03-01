@@ -248,8 +248,8 @@ __device__ void EvaluateFeature(
       GradientSumT right = parent_sum - left;
       best_split->Update(gain, missing_left ? kLeftDir : kRightDir, fvalue,
                          fidx, GradientPair(left), GradientPair(right), param);
-      printf("===>Node idx:%d BestSplit feature idx:%d, scan_begin:%d split_gidx:%d, fvalue:%f parent:[%f, %f] bin:[%f, %f] missing:[%f, %f]\n",
-             node.idx, fidx, scan_begin, split_gidx, fvalue, parent_sum.GetGrad(), parent_sum.GetHess(),
+      printf("===>Node idx:%d BestSplit gain:%f feature idx:%d, scan_begin:%d split_gidx:%d, fvalue:%f parent:[%f, %f] bin:[%f, %f] missing:[%f, %f]\n",
+             node.idx, gain, fidx, scan_begin, split_gidx, fvalue, parent_sum.GetGrad(), parent_sum.GetHess(),
              bin.GetGrad(), bin.GetHess(), missing.GetGrad(), missing.GetHess());
     }
     __syncthreads();
@@ -441,7 +441,7 @@ __global__ void SharedMemHistKernel(xgboost::EllpackMatrix matrix,
     // Write shared memory back to global memory
     __syncthreads();
     for (auto i : dh::BlockStrideRange(static_cast<size_t>(0), matrix.info.n_bins)) {
-      printf("SharedMemHistKernel d_node_hist idx:%d [%f, %f]\n", i, smem_arr[i].GetGrad(), smem_arr[i].GetHess());
+      printf("SharedMemHistKernel d_node_hist idx:%d gradient:%f,%f\n", i, smem_arr[i].GetGrad(), smem_arr[i].GetHess());
       dh::AtomicAddGpair(d_node_hist + i, smem_arr[i]);
     }
   }
