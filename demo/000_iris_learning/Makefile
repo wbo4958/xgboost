@@ -29,6 +29,12 @@ iris_debug:
 run_iris_debug:
 	LD_LIBRARY_PATH=$(XGBOOST_ROOT)/lib ../../xgboost iris.conf
 
+run_iris_debug_pred:
+	LD_LIBRARY_PATH=$(XGBOOST_ROOT)/lib ../../xgboost iris.conf task=pred model_in=0001.model
+
+run_iris_debug_dump:
+	LD_LIBRARY_PATH=$(XGBOOST_ROOT)/lib ../../xgboost iris.conf task=dump model_in=0001.model name_dump=dump.raw.txt
+
 sketch_iris_debug:
 	LD_LIBRARY_PATH=$(XGBOOST_ROOT)/lib gdbserver :1234 ../../xgboost iris_sketch.conf
 
