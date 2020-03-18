@@ -33,24 +33,11 @@ int main(int argc, char **argv) {
   bool isIrisData = true;
 
   std::vector<std::string> iris_files = {
-//      "/home/bobwang/jupyter/data/iris/iris.transformed.csv",
-//    "/home/bobwang/jupyter/data/iris/iris.transformed.csv"
-    "/home/bobwang/jupyter/data/iris/iris.1.column.csv"
+    "iris.1.column.csv"
   };
   std::vector<std::string> mortgage_files = {
       "/home/bobwang/jupyter/data/mortgage/csv/chunk_benchmark/2010_1.csv",
-      "/home/bobwang/jupyter/data/mortgage/csv/chunk_benchmark/2010_2.csv",
-      "/home/bobwang/jupyter/data/mortgage/csv/chunk_benchmark/2010_3.csv",
-      "/home/bobwang/jupyter/data/mortgage/csv/chunk_benchmark/2010_4.csv",
-      "/home/bobwang/jupyter/data/mortgage/csv/chunk_benchmark/2011_1.csv",
-      "/home/bobwang/jupyter/data/mortgage/csv/chunk_benchmark/2011_2.csv",
-      "/home/bobwang/jupyter/data/mortgage/csv/chunk_benchmark/2011_3.csv",
-      "/home/bobwang/jupyter/data/mortgage/csv/chunk_benchmark/2011_4.csv",  //2.8g
-//      "/home/bobwang/jupyter/data/mortgage/csv/chunk_benchmark/2016_1.csv",
-//      "/home/bobwang/jupyter/data/mortgage/csv/chunk_benchmark/2016_2.csv",
-//      "/home/bobwang/jupyter/data/mortgage/csv/chunk_benchmark/2016_3.csv",
-//      "/home/bobwang/jupyter/data/mortgage/csv/chunk_benchmark/2016_4.csv",
-//      "/home/bobwang/jupyter/data/mortgage/csv/chunk_benchmark/2014_1.csv"
+      "/home/bobwang/jupyter/data/mortgage/csv/chunk_benchmark/2010_2.csv"
   };
 
   std::vector<std::string> &files = mortgage_files;
@@ -85,65 +72,56 @@ int main(int argc, char **argv) {
     std::vector<const gdf_column *> feature_cols(df.begin(), df.end() - 1);
     std::vector<const gdf_column *> label_cols(df.end() - 1, df.end());
 
-    if (is_first_file) {
-      XGDMatrixCreateFromCUDF((gdf_column **) (feature_cols.data()), feature_cols.size(), &dhandle,0, missing);
-      XGDMatrixSetCUDFInfo(dhandle, "label", (gdf_column **) (label_cols.data()), label_cols.size(),0);
-      is_first_file = false;
-    } else {
-      XGDMatrixAppendCUDF((gdf_column **)(feature_cols.data()), feature_cols.size(), dhandle, 0, missing);
-      XGDMatrixAppendCUDFInfo(dhandle, "label", (gdf_column **) (label_cols.data()), label_cols.size(),  0);
-    }
-
     df.destroy();
   }
 
   std::cout << "Total rows: " << total_rows << std::endl;
 
-  int use_gpu = 1;
-
-  int silent = 1;
-
-  // create the booster
-  BoosterHandle booster;
-  DMatrixHandle eval_dmats[1] = {dhandle};
-  safe_xgboost(XGBoosterCreate(eval_dmats, 1, &booster));
-
-  safe_xgboost(XGBoosterSetParam(booster, "tree_method", use_gpu ? "gpu_hist" : "hist"));
-  if (use_gpu) {
-    // set the number of GPUs and the first GPU to use;
-    // this is not necessary, but provided here as an illustration
-    safe_xgboost(XGBoosterSetParam(booster, "n_gpus", "1"));
-    safe_xgboost(XGBoosterSetParam(booster, "gpu_id", "0"));
-    safe_xgboost(XGBoosterSetParam(booster, "predictor", "gpu_predictor"));
-  } else {
-    // avoid evaluating objective and metric on a GPU
-    safe_xgboost(XGBoosterSetParam(booster, "n_gpus", "0"));
-  }
-
-  if (isIrisData) {
-    safe_xgboost(XGBoosterSetParam(booster, "objective", "multi:softprob"));
-    safe_xgboost(XGBoosterSetParam(booster, "num_class", "3"));
-    safe_xgboost(XGBoosterSetParam(booster, "eta", "0.1"));
-    safe_xgboost(XGBoosterSetParam(booster, "max_bin", "50"));
-
-
-  } else {
-    safe_xgboost(XGBoosterSetParam(booster, "objective", "binary:logistic"));
-  }
-
-  safe_xgboost(XGBoosterSetParam(booster, "min_child_weight", "1"));
-  safe_xgboost(XGBoosterSetParam(booster, "max_depth", "3"));
-//  safe_xgboost(XGBoosterSetParam(booster, "verbosity", "3"));
-
-  // train and evaluate for 10 iterations
-  int n_trees = 100;
-  for (int i = 0; i < n_trees; ++i) {
-    safe_xgboost(XGBoosterUpdateOneIter(booster, i, dhandle));
-  }
-
-  // free everything
-  safe_xgboost(XGBoosterFree(booster));
-  safe_xgboost(XGDMatrixFree(dhandle));
+//  int use_gpu = 1;
+//
+//  int silent = 1;
+//
+//  // create the booster
+//  BoosterHandle booster;
+//  DMatrixHandle eval_dmats[1] = {dhandle};
+//  safe_xgboost(XGBoosterCreate(eval_dmats, 1, &booster));
+//
+//  safe_xgboost(XGBoosterSetParam(booster, "tree_method", use_gpu ? "gpu_hist" : "hist"));
+//  if (use_gpu) {
+//    // set the number of GPUs and the first GPU to use;
+//    // this is not necessary, but provided here as an illustration
+//    safe_xgboost(XGBoosterSetParam(booster, "n_gpus", "1"));
+//    safe_xgboost(XGBoosterSetParam(booster, "gpu_id", "0"));
+//    safe_xgboost(XGBoosterSetParam(booster, "predictor", "gpu_predictor"));
+//  } else {
+//    // avoid evaluating objective and metric on a GPU
+//    safe_xgboost(XGBoosterSetParam(booster, "n_gpus", "0"));
+//  }
+//
+//  if (isIrisData) {
+//    safe_xgboost(XGBoosterSetParam(booster, "objective", "multi:softprob"));
+//    safe_xgboost(XGBoosterSetParam(booster, "num_class", "3"));
+//    safe_xgboost(XGBoosterSetParam(booster, "eta", "0.1"));
+//    safe_xgboost(XGBoosterSetParam(booster, "max_bin", "50"));
+//
+//
+//  } else {
+//    safe_xgboost(XGBoosterSetParam(booster, "objective", "binary:logistic"));
+//  }
+//
+//  safe_xgboost(XGBoosterSetParam(booster, "min_child_weight", "1"));
+//  safe_xgboost(XGBoosterSetParam(booster, "max_depth", "3"));
+////  safe_xgboost(XGBoosterSetParam(booster, "verbosity", "3"));
+//
+//  // train and evaluate for 10 iterations
+//  int n_trees = 100;
+//  for (int i = 0; i < n_trees; ++i) {
+//    safe_xgboost(XGBoosterUpdateOneIter(booster, i, dhandle));
+//  }
+//
+//  // free everything
+//  safe_xgboost(XGBoosterFree(booster));
+//  safe_xgboost(XGDMatrixFree(dhandle));
 
   return 0;
 }
@@ -184,7 +162,7 @@ std::unique_ptr<DMatrix> CreateSparsePageDMatrix(
   // Loop over the batches and count the records
   int64_t batch_count = 0;
   int64_t row_count = 0;
-  for (const auto &batch : dmat->GetRowBatches()) {
+  for (const auto &batch : dmat->GetBatches<SparsePage>()) {
     batch_count++;
     row_count += batch.Size();
   }
