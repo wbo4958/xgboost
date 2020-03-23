@@ -1,0 +1,66 @@
+#!/usr/local/env groovy
+@Library('shared-libs') _
+
+pipeline {
+    agent any
+
+    triggers { cron('H 3 * * *') }
+
+    parameters {
+        string(name: 'SOURCE_BRANCH', defaultValue: 'master')
+        string(name: 'TARGET_BRANCH', defaultValue: 'nvmain')
+        string(name: 'REF', defaultValue: 'nvmain')
+    }
+
+    stages {
+        stage('Update Branch') {
+            steps {
+                withCredentials([sshUserPrivateKey(credentialsId:'svcngcc_pubpriv', keyFileVariable: 'SSH_KEY_FILE_PATH')]) {
+                    withEnv(["GIT_SSH_COMMAND=ssh -o StrictHostKeyChecking=no -i ${env.SSH_KEY_FILE_PATH}"]) {
+                        script {
+                            List<String> sourceChanged =
+                                sh(returnStdout: true, script: "git diff --name-only origin/${params.SOURCE_BRANCH}..origin/${params.TARGET_BRANCH}").split()
+
+                            if (sourceChanged.size()>0) {
+                                echo "Changed files: ${sourceChanged}"
+                                sh "git checkout ${params.TARGET_BRANCH}"
+                                sh "git merge origin/${params.SOURCE_BRANCH}"
+                                sh "git push origin ${params.TARGET_BRANCH}"
+                            }
+                            else{
+                                echo "${params.TARGET_BRANCH} and ${params.SOURCE_BRANCH} match"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            script {
+                if (currentBuild.currentResult == "SUCCESS") {
+                    updateGitlabCommitStatus(name: 'Jenkins CI', state: "success")
+                    slack("#swrapids-spark-cicd", "Success", color: "#33CC33")
+                } else {
+                    updateGitlabCommitStatus(name: 'Jenkins CI', state: "failed")
+                    slack("#swrapids-spark-cicd", "Failed", color: "#FF0000")
+                }
+            }
+        }
+    }
+}
+
+void slack(Map params = [:], String channel, String message) {
+    Map defaultParams = [
+            color: "#000000",
+            baseUrl: "https://nvidia.slack.com/services/hooks/jenkins-ci/",
+            tokenCredentialId: "slack_token"
+    ]
+
+    params["channel"] = channel
+    params["message"] = "${BUILD_URL}\n" + message
+
+    slackSend(defaultParams << params)
+}
