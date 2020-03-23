@@ -19,7 +19,7 @@ CONFIG = {
     "USE_AZURE": "OFF",
     "USE_S3": "OFF",
 
-    "USE_CUDA": "OFF",
+    "USE_CUDA": "ON",
     "JVM_BINDINGS": "ON"
 }
 

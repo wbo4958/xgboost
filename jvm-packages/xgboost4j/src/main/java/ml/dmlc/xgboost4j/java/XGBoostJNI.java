@@ -133,4 +133,9 @@ class XGBoostJNI {
   // This JNI function does not support the callback function for data preparation yet.
   final static native int RabitAllreduce(ByteBuffer sendrecvbuf, int count,
                                                 int enum_dtype, int enum_op);
+
+  public final static native int XGDMatrixCreateFromArrayInterfaceColumns(String columnJosn,
+      float missing, int nthread, long[] out);
+  public final static native int XGDMatrixSetInfoFromInterface(long handle, String field,
+                                                               String json);
 }

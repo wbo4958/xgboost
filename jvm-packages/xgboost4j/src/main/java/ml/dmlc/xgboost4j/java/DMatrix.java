@@ -37,6 +37,20 @@ public class DMatrix {
   }
 
   /**
+   * Create DMatrix from column array interface
+   * @param json array interface
+   * @param missing missing value
+   * @param nthread threads number
+   * @throws XGBoostError
+   */
+  public DMatrix(String json, float missing, int nthread) throws XGBoostError {
+    long[] out = new long[1];
+    XGBoostJNI.checkCall(XGBoostJNI.XGDMatrixCreateFromArrayInterfaceColumns(
+        json, missing, nthread, out));
+    handle = out[0];
+  }
+
+  /**
    * Create DMatrix from iterator.
    *
    * @param iter The data iterator of mini batch to provide the data.
@@ -173,6 +187,36 @@ public class DMatrix {
     this.handle = handle;
   }
 
+  /**
+   * set label of dmatrix from column array interface
+   *
+   * @param labelJson label column array interface
+   * @throws XGBoostError native error
+   */
+  public void setLabel(String labelJson) throws XGBoostError {
+    XGBoostJNI.checkCall(XGBoostJNI.XGDMatrixSetInfoFromInterface(handle, "label", labelJson));
+  }
+
+  /**
+   * set label of dmatrix from column array interface
+   *
+   * @param weightJson weight column array interface
+   * @throws XGBoostError native error
+   */
+  public void setWeight(String weightJson) throws XGBoostError {
+    XGBoostJNI.checkCall(XGBoostJNI.XGDMatrixSetInfoFromInterface(handle, "weight", weightJson));
+  }
+
+  /**
+   * set label of dmatrix from column array interface
+   *
+   * @param baseMarginJson base margin column array interface
+   * @throws XGBoostError native error
+   */
+  public void setBaseMargin(String baseMarginJson) throws XGBoostError {
+    XGBoostJNI.checkCall(XGBoostJNI.XGDMatrixSetInfoFromInterface(handle, "base_margin",
+        baseMarginJson));
+  }
 
   /**
    * set label of dmatrix
