@@ -6,8 +6,8 @@ cc=g++
 CFLAGS ?=-O0 -g -DXGBOOST_USE_CUDF
 
 XGBOOST_ROOT ?=../..
-INCLUDE_DIR=-I$(XGBOOST_ROOT)/include -I$(XGBOOST_ROOT)/dmlc-core/include -I$(XGBOOST_ROOT)/rabit/include -I/home/bobwang/anaconda3/envs/cudf_dev/include
-LIB_DIR=-L$(XGBOOST_ROOT)/lib -L/home/bobwang/anaconda3/envs/cudf_dev/lib
+INCLUDE_DIR=-I$(XGBOOST_ROOT)/include -I$(XGBOOST_ROOT)/dmlc-core/include -I$(XGBOOST_ROOT)/rabit/include -I/home/bobwang/anaconda3/envs/cudf_dev_30/include
+LIB_DIR=-L$(XGBOOST_ROOT)/lib -L/home/bobwang/anaconda3/envs/cudf_dev_30/lib
 
 build: $(TGT)
 
