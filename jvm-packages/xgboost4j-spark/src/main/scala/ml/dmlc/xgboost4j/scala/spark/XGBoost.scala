@@ -336,7 +336,7 @@ object XGBoost extends Serializable {
   }
 
   private def buildDistributedBooster(
-      watches: Watches,
+      watches: WatchesOld,
       xgbExecutionParam: XGBoostExecutionParams,
       rabitEnv: java.util.Map[String, String],
       obj: ObjectiveTrait,
@@ -448,7 +448,7 @@ object XGBoost extends Serializable {
       evalSetsMap: Map[String, RDD[XGBLabeledPoint]]): RDD[(Booster, Map[String, Array[Float]])] = {
     if (evalSetsMap.isEmpty) {
       trainingData.mapPartitions(labeledPoints => {
-        val watches = Watches.buildWatches(xgbExecutionParams,
+        val watches = WatchesOld.buildWatches(xgbExecutionParams,
           processMissingValues(labeledPoints, xgbExecutionParams.missing,
             xgbExecutionParams.allowNonZeroForMissing),
           getCacheDirName(xgbExecutionParams.useExternalMemory))
@@ -459,7 +459,7 @@ object XGBoost extends Serializable {
       coPartitionNoGroupSets(trainingData, evalSetsMap, xgbExecutionParams.numWorkers).
         mapPartitions {
           nameAndLabeledPointSets =>
-            val watches = Watches.buildWatches(
+            val watches = WatchesOld.buildWatches(
               nameAndLabeledPointSets.map {
                 case (name, iter) => (name, processMissingValues(iter,
                   xgbExecutionParams.missing, xgbExecutionParams.allowNonZeroForMissing))
@@ -479,7 +479,7 @@ object XGBoost extends Serializable {
       evalSetsMap: Map[String, RDD[XGBLabeledPoint]]): RDD[(Booster, Map[String, Array[Float]])] = {
     if (evalSetsMap.isEmpty) {
       trainingData.mapPartitions(labeledPointGroups => {
-        val watches = Watches.buildWatchesWithGroup(xgbExecutionParam,
+        val watches = WatchesOld.buildWatchesWithGroup(xgbExecutionParam,
           processMissingValuesWithGroup(labeledPointGroups, xgbExecutionParam.missing,
             xgbExecutionParam.allowNonZeroForMissing),
           getCacheDirName(xgbExecutionParam.useExternalMemory))
@@ -489,7 +489,7 @@ object XGBoost extends Serializable {
     } else {
       coPartitionGroupSets(trainingData, evalSetsMap, xgbExecutionParam.numWorkers).mapPartitions(
         labeledPointGroupSets => {
-          val watches = Watches.buildWatchesWithGroup(
+          val watches = WatchesOld.buildWatchesWithGroup(
             labeledPointGroupSets.map {
               case (name, iter) => (name, processMissingValuesWithGroup(iter,
                 xgbExecutionParam.missing, xgbExecutionParam.allowNonZeroForMissing))
@@ -700,7 +700,7 @@ object XGBoost extends Serializable {
 
 }
 
-private class Watches private(
+private class WatchesOld private(
     val datasets: Array[DMatrix],
     val names: Array[String],
     val cacheDirName: Option[String]) {
@@ -721,7 +721,7 @@ private class Watches private(
   override def toString: String = toMap.toString
 }
 
-private object Watches {
+private object WatchesOld {
 
   private def fromBaseMarginsToArray(baseMargins: Iterator[Float]): Option[Array[Float]] = {
     val builder = new mutable.ArrayBuilder.ofFloat()
@@ -749,7 +749,7 @@ private object Watches {
 
   def buildWatches(
       nameAndLabeledPointSets: Iterator[(String, Iterator[XGBLabeledPoint])],
-      cachedDirName: Option[String]): Watches = {
+      cachedDirName: Option[String]): WatchesOld = {
     val dms = nameAndLabeledPointSets.map {
       case (name, labeledPoints) =>
         val baseMargins = new mutable.ArrayBuilder.ofFloat
@@ -764,13 +764,13 @@ private object Watches {
         }
         (name, dMatrix)
     }.toArray
-    new Watches(dms.map(_._2), dms.map(_._1), cachedDirName)
+    new WatchesOld(dms.map(_._2), dms.map(_._1), cachedDirName)
   }
 
   def buildWatches(
       xgbExecutionParams: XGBoostExecutionParams,
       labeledPoints: Iterator[XGBLabeledPoint],
-      cacheDirName: Option[String]): Watches = {
+      cacheDirName: Option[String]): WatchesOld = {
     val trainTestRatio = xgbExecutionParams.xgbInputParams.trainTestRatio
     val seed = xgbExecutionParams.xgbInputParams.seed
     val r = new Random(seed)
@@ -795,12 +795,12 @@ private object Watches {
     if (trainMargin.isDefined) trainMatrix.setBaseMargin(trainMargin.get)
     if (testMargin.isDefined) testMatrix.setBaseMargin(testMargin.get)
 
-    new Watches(Array(trainMatrix, testMatrix), Array("train", "test"), cacheDirName)
+    new WatchesOld(Array(trainMatrix, testMatrix), Array("train", "test"), cacheDirName)
   }
 
   def buildWatchesWithGroup(
       nameAndlabeledPointGroupSets: Iterator[(String, Iterator[Array[XGBLabeledPoint]])],
-      cachedDirName: Option[String]): Watches = {
+      cachedDirName: Option[String]): WatchesOld = {
     val dms = nameAndlabeledPointGroupSets.map {
       case (name, labeledPointsGroups) =>
         val baseMargins = new mutable.ArrayBuilder.ofFloat
@@ -834,13 +834,13 @@ private object Watches {
         dMatrix.setWeight(weights.result())
         (name, dMatrix)
     }.toArray
-    new Watches(dms.map(_._2), dms.map(_._1), cachedDirName)
+    new WatchesOld(dms.map(_._2), dms.map(_._1), cachedDirName)
   }
 
   def buildWatchesWithGroup(
       xgbExecutionParams: XGBoostExecutionParams,
       labeledPointGroups: Iterator[Array[XGBLabeledPoint]],
-      cacheDirName: Option[String]): Watches = {
+      cacheDirName: Option[String]): WatchesOld = {
     val trainTestRatio = xgbExecutionParams.xgbInputParams.trainTestRatio
     val seed = xgbExecutionParams.xgbInputParams.seed
     val r = new Random(seed)
@@ -907,7 +907,7 @@ private object Watches {
     if (trainMargin.isDefined) trainMatrix.setBaseMargin(trainMargin.get)
     if (testMargin.isDefined) testMatrix.setBaseMargin(testMargin.get)
 
-    new Watches(Array(trainMatrix, testMatrix), Array("train", "test"), cacheDirName)
+    new WatchesOld(Array(trainMatrix, testMatrix), Array("train", "test"), cacheDirName)
   }
 }
 
