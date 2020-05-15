@@ -139,9 +139,9 @@ private[spark] object TrainManager {
       cacheTrainingSet)
   }
 
-  private[spark] def transform(clsifier: XGBoostClassifier, schema: StructType,
+  private[spark] def transformSchema(clsifier: XGBoostClassifier, schema: StructType,
       logging: Boolean = false): StructType = {
-    trainImpl.transform(clsifier, schema)
+    trainImpl.transformSchema(clsifier, schema, logging)
   }
 
   /**
@@ -152,7 +152,6 @@ private[spark] object TrainManager {
       est: Estimator[_],
       dataset: Dataset[_],
       params: Map[String, Any],
-      rawParams: Map[String, Any],
       hasGroup: Boolean = false,
       evalSetsMap: Map[String, Dataset[_]] = Map.empty): (Booster, Map[String, Array[Float]]) = {
     logger.info(s"Running XGBoost ${spark.VERSION} with parameters:\n${params.mkString("\n")}")
@@ -160,8 +159,7 @@ private[spark] object TrainManager {
     val sc = dataset.sparkSession.sparkContext
     val xgbExecParams = parseParams(params, sc)
 
-    // todo add transformSchema
-    trainImpl.initialize(params, rawParams, hasGroup, evalSetsMap.nonEmpty, sc)
+    trainImpl.initialize(sc, params, hasGroup, evalSetsMap.nonEmpty)
 
     val prevBooster = xgbExecParams.checkpointParam.map { checkpointParam =>
       val checkpointManager = new ExternalCheckpointManager(
@@ -184,9 +182,9 @@ private[spark] object TrainManager {
 
         // we don't care about if it's ranking or non-ranking
         // what we care about is how to convert dataset and how to build Watches
+        val dataRdd = trainImpl.extractRdd(est, params, dataset, evalSetsMap)
 
-        val boostersAndMetrics = trainImpl.convertDatasetToRdd(est, params, dataset, evalSetsMap)
-          .mapPartitions(iter => {
+        val boostersAndMetrics = dataRdd.mapPartitions(iter => {
 
             val watches = trainImpl.buildWatches(iter)
 

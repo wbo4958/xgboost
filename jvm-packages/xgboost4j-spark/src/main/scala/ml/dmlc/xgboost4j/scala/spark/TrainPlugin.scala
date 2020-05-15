@@ -25,37 +25,46 @@ import org.apache.spark.sql.types.StructType
 
 trait TrainPlugin {
 
-  def transform(clsifier: XGBoostClassifier, schema: StructType): StructType = {
+  /**
+   * plugin implements its own transform on schema
+   * @param est
+   * @param schema
+   * @return
+   */
+  def transformSchema(est: Estimator[_], schema: StructType, logging: Boolean = false):
+      StructType = {
     schema
   }
 
   /**
-   * give plugin more control for the parameters
-   *
+   * initialize will be called first
+   * @param sc SparkContext
    * @param params
    * @param hasGroup
+   * @param hasEvalSets
    */
   def initialize(
+      sc: SparkContext,
       params: Map[String, Any],
-      rawParams: Map[String, Any],
       hasGroup: Boolean = false,
-      hasEvals: Boolean,
-      sc: SparkContext)
+      hasEvalSets: Boolean = false): Unit = {}
 
   /**
-   * convert dataset to any kind of RDD
-   *
+   * Convert dataset to any kind of RDD which will be used to build Watches later
+   * @param est
+   * @param params
    * @param dataset
+   * @param evalSetsMap
    * @return
    */
-  def convertDatasetToRdd(
+  def extractRdd(
       est: Estimator[_],
       params: Map[String, Any],
       dataset: Dataset[_],
       evalSetsMap: Map[String, Dataset[_]] = Map.empty): RDD[_]
 
   /**
-   * This method runs on executor side, since iter is the type erasure, you can cast iter into
+   * This method runs on executor side, since iter is the type erasure, you can cast it into
    * any iterator type
    *
    * @param iter
@@ -63,26 +72,50 @@ trait TrainPlugin {
    */
   def buildWatches(iter: Iterator[_]): Watches
 
-  def onPreRabitInit: Unit = {}
-
-  def onPostRabitInit: Unit = {}
-
-  def onPreXGboostTrain: Unit = {}
-
-  def onPostXGBoostTrain: Unit = {}
-
-  def onExecutorError(err: XGBoostError): Unit = {}
-
-  def onExecutorCleanUp: Unit = {}
-
-  def onDriverCleanUp: Unit = {}
-
   /**
-   * give the implementation more control on xgboost params
+   * allow plugin modify the parameters which will be passed into XGBoost lib
    *
    * @param params
    * @return
    */
-  def getFinalXGBoostParam(params: Map[String, Any]): Map[String, Any]
+  def getFinalXGBoostParam(params: Map[String, Any]): Map[String, Any] = {
+    params
+  }
+
+  /**
+   * called before rabit init in executor side
+   */
+  def onPreRabitInit: Unit = {}
+
+  /**
+   * called after rabit init in executor side
+   */
+  def onPostRabitInit: Unit = {}
+
+  /**
+   * called before xgboost lib train in executor side
+   */
+  def onPreXGboostTrain: Unit = {}
+
+  /**
+   * called after xgboost lib train in executor side
+   */
+  def onPostXGBoostTrain: Unit = {}
+
+  /**
+   * Error occurred in executor side
+   * @param err
+   */
+  def onExecutorError(err: XGBoostError): Unit = {}
+
+  /**
+   * clean up in executor side
+   */
+  def onExecutorCleanUp: Unit = {}
+
+  /**
+   * clean up in driver side
+   */
+  def onDriverCleanUp: Unit = {}
 
 }

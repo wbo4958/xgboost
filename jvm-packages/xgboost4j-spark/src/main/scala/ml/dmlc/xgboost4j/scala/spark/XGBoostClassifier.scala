@@ -213,10 +213,11 @@ class XGBoostClassifier (
         "\'num_class\' in xgboost params.")
     }
 
-    val derivedXGBParamMap = MLlib2XGBoostParams
     // All non-null param maps in XGBoostClassifier are in derivedXGBParamMap.
-    val (_booster, _metrics) = TrainManager.trainDistributed(this, dataset, derivedXGBParamMap,
-      xgboostParams, hasGroup = false, getEvalSets(xgboostParams))
+    // The plugin may be interesting in params users defined.
+    val params = xgboostParams ++ MLlib2XGBoostParams
+    val (_booster, _metrics) = TrainManager.trainDistributed(this, dataset, params,
+      hasGroup = false, getEvalSets(xgboostParams))
 
     val model = new XGBoostClassificationModel(uid, _numClasses, _booster)
     val summary = XGBoostTrainingSummary(_metrics)
@@ -227,7 +228,7 @@ class XGBoostClassifier (
   override def copy(extra: ParamMap): XGBoostClassifier = defaultCopy(extra)
 
   override protected def transformSchema(schema: StructType, logging: Boolean): StructType = {
-    TrainManager.transform(this, schema, logging)
+    TrainManager.transformSchema(this, schema, logging)
   }
 }
 

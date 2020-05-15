@@ -24,13 +24,12 @@ import org.apache.spark.sql.{DataFrame, Dataset}
 import ml.dmlc.xgboost4j.{LabeledPoint => XGBLabeledPoint}
 import org.apache.commons.logging.LogFactory
 import org.apache.spark.sql.types.StructType
-import org.apache.spark.{SparkContext, TaskContext}
+import org.apache.spark.{SparkContext}
 
 private[spark] class LabeledPointTrain extends TrainPlugin {
 
   private val logger = LogFactory.getLog("LabeledPointTrain")
 
-  private var isInitialized = false
   private var hasGroup: Boolean = false
 
   private var xgbExecParams: XGBoostExecutionParams = _
@@ -38,47 +37,51 @@ private[spark] class LabeledPointTrain extends TrainPlugin {
   private var labeledPointImpl: LabeledPointImplIntf = _
 
 
-  override def transform(clsifier: XGBoostClassifier, schema: StructType): StructType = {
-    clsifier.transformSchema(schema)
-  }
-
-  override def initialize(
-      params: Map[String, Any],
-      rawParams: Map[String, Any],
-      hasGroup: Boolean,
-      hasEvals: Boolean,
-      sc: SparkContext): Unit = {
-    if (isInitialized) {
-      throw new Exception("Don't allow to initialize twice")
-    }
-    isInitialized = true
-
-    this.hasGroup = hasGroup
-
-    xgbExecParams = new XGBoostExecutionParamsFactory(params, sc).buildXGBRuntimeParams
-
-    labeledPointImpl = getLabeledPointImpl(hasGroup, hasEvals, xgbExecParams)
+  /**
+   * plugin implements its own transform on schema
+   *
+   * @param est
+   * @param schema
+   * @return
+   */
+  override def transformSchema(est: Estimator[_], schema: StructType, logging: Boolean):
+      StructType = {
+    est.transformSchema(schema)
   }
 
   /**
-   * convert dataset to any kind of RDD
+   * initialize will be called first
    *
+   * @param sc SparkContext
+   * @param params
+   * @param hasGroup
+   * @param hasEvalSets
+   */
+  override def initialize(sc: SparkContext, params: Map[String, Any], hasGroup: Boolean,
+      hasEvalSets: Boolean): Unit = {
+    this.hasGroup = hasGroup
+    xgbExecParams = new XGBoostExecutionParamsFactory(params, sc).buildXGBRuntimeParams
+    labeledPointImpl = getLabeledPointImpl(hasGroup, hasEvalSets, xgbExecParams)
+  }
+
+
+  /**
+   * Convert dataset to any kind of RDD which will be used to build Watches later
+   *
+   * @param est
+   * @param params
    * @param dataset
+   * @param evalSetsMap
    * @return
    */
-  override def convertDatasetToRdd(
-      est: Estimator[_],
-      params: Map[String, Any],
-      dataset: Dataset[_],
-      evalSetsMap: Map[String, Dataset[_]] = Map.empty): RDD[_] = {
+  override def extractRdd(est: Estimator[_], params: Map[String, Any], dataset: Dataset[_],
+      evalSetsMap: Map[String, Dataset[_]]): RDD[_] = {
 
-    // TODO Can we get them from params ??
     val numWorkers = xgbExecParams.numWorkers
     val (labelCol, featuresCol, weight, baseMargin, group, deterministicPartition) =
       est match {
         case clsifier: XGBoostClassifier => {
           clsifier.transformSchema(dataset.schema)
-          // Could we directlly leverage params to get below Column ?? I think yes
           val weight = if (!clsifier.isDefined(clsifier.weightCol) ||
             clsifier.getWeightCol.isEmpty) {
             lit(1.0)
@@ -88,6 +91,7 @@ private[spark] class LabeledPointTrain extends TrainPlugin {
             clsifier.getBaseMarginCol.isEmpty) {
             lit(Float.NaN)
           } else col(clsifier.getWeightCol)
+
           (col(clsifier.getLabelCol), col(clsifier.getFeaturesCol), weight, baseMargin,
             None, clsifier.needDeterministicRepartitioning)
         }
