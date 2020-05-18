@@ -327,11 +327,14 @@ class XGBoostClassificationModel private[ml](
     val bBooster = dataset.sparkSession.sparkContext.broadcast(_booster)
     val appName = dataset.sparkSession.sparkContext.appName
 
-    val resultRDD = dataset.asInstanceOf[Dataset[Row]].rdd.mapPartitions { rowIterator =>
+    ModelManager.initialize(dataset.sparkSession.sparkContext, this, appName)
+    val dataRdd = ModelManager.extractRdd(this, dataset)
+
+    val resultRDD = dataRdd.mapPartitions {iter =>
       new AbstractIterator[Row] {
         private var batchCnt = 0
 
-        private val batchIterImpl = rowIterator.grouped($(inferBatchSize)).flatMap { batchRow =>
+        private val batchIterImpl = iter.grouped($(inferBatchSize)).flatMap { batches =>
           if (batchCnt == 0) {
             val rabitEnv = Array(
               "DMLC_TASK_ID" -> TaskContext.getPartitionId().toString,
@@ -339,30 +342,13 @@ class XGBoostClassificationModel private[ml](
             Rabit.init(rabitEnv.asJava)
           }
 
-          val features = batchRow.iterator.map(row => row.getAs[Vector]($(featuresCol)))
+          val (dm, rowIter) = ModelManager.buildDMatrix(batchCnt, batches)
 
-          import DataUtils._
-          val cacheInfo = {
-            if ($(useExternalMemory)) {
-              s"$appName-${TaskContext.get().stageId()}-dtest_cache-" +
-                  s"${TaskContext.getPartitionId()}-batch-$batchCnt"
-            } else {
-              null
-            }
-          }
-
-          val dm = new DMatrix(
-            XGBoost.processMissingValues(
-              features.map(_.asXGB),
-              $(missing),
-              $(allowNonZeroForMissing)
-            ),
-            cacheInfo)
           try {
             val Array(rawPredictionItr, probabilityItr, predLeafItr, predContribItr) =
               producePredictionItrs(bBooster, dm)
-            produceResultIterator(batchRow.iterator,
-              rawPredictionItr, probabilityItr, predLeafItr, predContribItr)
+            produceResultIterator(rowIter, rawPredictionItr, probabilityItr, predLeafItr,
+              predContribItr)
           } finally {
             batchCnt += 1
             dm.delete()

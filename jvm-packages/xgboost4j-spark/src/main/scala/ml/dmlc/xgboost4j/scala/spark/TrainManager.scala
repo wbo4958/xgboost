@@ -16,8 +16,6 @@
 
 package ml.dmlc.xgboost4j.scala.spark
 
-import java.sql.Struct
-
 import ml.dmlc.xgboost4j.scala.{Booster, EvalTrait, ExternalCheckpointManager, ExternalCheckpointParams, ObjectiveTrait, spark, XGBoost => SXGBoost}
 import ml.dmlc.xgboost4j.scala.rabit.RabitTracker
 import ml.dmlc.xgboost4j.java.{IRabitTracker, Rabit, XGBoostError, RabitTracker => PyRabitTracker}
