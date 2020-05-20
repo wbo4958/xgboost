@@ -37,13 +37,13 @@ private[spark] object PluginUtils {
     }
   }
 
-  def loadModelPlugin: ModelPlugin = {
-    val serviceLoader = ServiceLoader.load(classOf[ModelPlugin], getClassLoader)
+  def loadTransformPlugin: TransformPlugin = {
+    val serviceLoader = ServiceLoader.load(classOf[TransformPlugin], getClassLoader)
     val iter = serviceLoader.asScala
 
     if (iter.isEmpty) {
       // default to LabeledPointTrain
-      new ModelImpl
+      new TransformImpl
     } else {
       // only take first plugin
       iter.head

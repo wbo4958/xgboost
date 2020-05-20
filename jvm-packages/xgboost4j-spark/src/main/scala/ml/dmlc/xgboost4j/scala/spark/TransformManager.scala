@@ -23,20 +23,20 @@ import org.apache.spark.ml.Model
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{Dataset, Row}
 
-object ModelManager extends ModelPlugin {
+object TransformManager extends TransformPlugin {
   private val logger = LogFactory.getLog("ModelManager")
 
-  private val modelImpl: ModelPlugin = PluginUtils.loadModelPlugin
+  private val transformImpl: TransformPlugin = PluginUtils.loadTransformPlugin
 
   override def initialize(sc: SparkContext, model: Model[_], appName: String): Unit = {
-    modelImpl.initialize(sc, model, appName)
+    transformImpl.initialize(sc, model, appName)
   }
 
   override def extractRdd(model: Model[_], dataset: Dataset[_]): RDD[_] = {
-    modelImpl.extractRdd(model, dataset)
+    transformImpl.extractRdd(model, dataset)
   }
 
   override def buildDMatrix(batchCnt: Int, batches: Seq[_]): (DMatrix, Iterator[Row]) = {
-    modelImpl.buildDMatrix(batchCnt, batches)
+    transformImpl.buildDMatrix(batchCnt, batches)
   }
 }

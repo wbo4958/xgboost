@@ -22,11 +22,12 @@ import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{Dataset, Row}
 
-private[spark] class ModelImpl extends ModelPlugin {
+private[spark] class TransformImpl extends TransformPlugin {
   var useExternalMemory = false
   var appName = ""
   var missing = Float.NaN
   var allowNonZeroForMissing = false
+  var featuresName = "features"
 
   override def initialize(sc: SparkContext, model: Model[_], appName: String): Unit = {
     this.appName = appName
@@ -34,6 +35,7 @@ private[spark] class ModelImpl extends ModelPlugin {
       case classifierModel: XGBoostClassificationModel =>
         useExternalMemory = classifierModel.getUseExternalMemory
         allowNonZeroForMissing = classifierModel.getAllowNonZeroForMissingValue
+        featuresName = classifierModel.getFeaturesCol
       case _ => throw new IllegalArgumentException("not supported yet")
     }
   }
@@ -44,7 +46,7 @@ private[spark] class ModelImpl extends ModelPlugin {
 
   override def buildDMatrix(batchCnt: Int, batches: Seq[_]): (DMatrix, Iterator[Row]) = {
     val batchRow: Seq[Row] = batches.asInstanceOf[Seq[Row]]
-    val features = batchRow.iterator.map(row => row.getAs[Vector]("features"))
+    val features = batchRow.iterator.map(row => row.getAs[Vector](featuresName))
 
     import DataUtils._
     val cacheInfo = {

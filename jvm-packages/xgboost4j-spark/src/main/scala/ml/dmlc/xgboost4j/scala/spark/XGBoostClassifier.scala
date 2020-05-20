@@ -327,8 +327,8 @@ class XGBoostClassificationModel private[ml](
     val bBooster = dataset.sparkSession.sparkContext.broadcast(_booster)
     val appName = dataset.sparkSession.sparkContext.appName
 
-    ModelManager.initialize(dataset.sparkSession.sparkContext, this, appName)
-    val dataRdd = ModelManager.extractRdd(this, dataset)
+    TransformManager.initialize(dataset.sparkSession.sparkContext, this, appName)
+    val dataRdd = TransformManager.extractRdd(this, dataset)
 
     val resultRDD = dataRdd.mapPartitions {iter =>
       new AbstractIterator[Row] {
@@ -342,7 +342,7 @@ class XGBoostClassificationModel private[ml](
             Rabit.init(rabitEnv.asJava)
           }
 
-          val (dm, rowIter) = ModelManager.buildDMatrix(batchCnt, batches)
+          val (dm, rowIter) = TransformManager.buildDMatrix(batchCnt, batches)
 
           try {
             val Array(rawPredictionItr, probabilityItr, predLeafItr, predContribItr) =

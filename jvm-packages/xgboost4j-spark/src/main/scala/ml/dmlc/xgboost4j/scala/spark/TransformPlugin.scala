@@ -22,7 +22,7 @@ import org.apache.spark.ml.Model
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
-trait ModelPlugin {
+trait TransformPlugin {
 
   def initialize(sc: SparkContext, model: Model[_], appName: String): Unit = {}
 
