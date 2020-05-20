@@ -20,9 +20,14 @@ import ml.dmlc.xgboost4j.scala.DMatrix
 import org.apache.spark.SparkContext
 import org.apache.spark.ml.Model
 import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
 trait TransformPlugin {
+
+  def transformSchema(schema: StructType, logging: Boolean): StructType = {
+    schema
+  }
 
   def initialize(sc: SparkContext, model: Model[_], appName: String): Unit = {}
 

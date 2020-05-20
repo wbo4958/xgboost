@@ -21,12 +21,18 @@ import org.apache.commons.logging.LogFactory
 import org.apache.spark.SparkContext
 import org.apache.spark.ml.Model
 import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{Dataset, Row}
 
 object TransformManager extends TransformPlugin {
   private val logger = LogFactory.getLog("ModelManager")
 
   private val transformImpl: TransformPlugin = PluginUtils.loadTransformPlugin
+
+
+  override def transformSchema(schema: StructType, logging: Boolean): StructType = {
+    transformImpl.transformSchema(schema, logging)
+  }
 
   override def initialize(sc: SparkContext, model: Model[_], appName: String): Unit = {
     transformImpl.initialize(sc, model, appName)
