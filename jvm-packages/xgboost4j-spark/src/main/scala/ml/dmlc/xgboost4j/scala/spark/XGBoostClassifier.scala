@@ -32,7 +32,7 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
-import org.json4s.DefaultFormats
+import org.json4s.{DefaultFormats, Extraction}
 
 import scala.collection.JavaConverters._
 import scala.collection.{AbstractIterator, Iterator, mutable}
@@ -219,7 +219,7 @@ class XGBoostClassifier (
     val (_booster, _metrics) = TrainManager.trainDistributed(this, dataset, params,
       hasGroup = false, getEvalSets(xgboostParams))
 
-    val model = new XGBoostClassificationModel(uid, _numClasses, _booster)
+    val model = new XGBoostClassificationModel(uid, _numClasses, _booster, xgboostParams)
     val summary = XGBoostTrainingSummary(_metrics)
     model.setSummary(summary)
     model
@@ -240,7 +240,8 @@ object XGBoostClassifier extends DefaultParamsReadable[XGBoostClassifier] {
 class XGBoostClassificationModel private[ml](
     override val uid: String,
     override val numClasses: Int,
-    private[spark] val _booster: Booster)
+    private[spark] val _booster: Booster,
+    val extraParams: Map[String, Any] = Map.empty)
   extends ProbabilisticClassificationModel[Vector, XGBoostClassificationModel]
     with XGBoostClassifierParams with InferenceParams
     with MLWritable with Serializable {
@@ -532,7 +533,8 @@ object XGBoostClassificationModel extends MLReadable[XGBoostClassificationModel]
       implicit val format = DefaultFormats
       implicit val sc = super.sparkSession.sparkContext
 
-      DefaultXGBoostParamsWriter.saveMetadata(instance, path, sc)
+      val extraMap = Extraction.decompose(instance.extraParams)
+      DefaultXGBoostParamsWriter.saveMetadata(instance, path, sc, paramMap = Some(extraMap))
       // Save model data
       val dataPath = new Path(path, "data").toString
       val internalPath = new Path(dataPath, "XGBoostClassificationModel")
