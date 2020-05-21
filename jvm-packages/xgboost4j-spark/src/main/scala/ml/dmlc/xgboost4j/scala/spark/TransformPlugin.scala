@@ -16,8 +16,9 @@
 
 package ml.dmlc.xgboost4j.scala.spark
 
-import ml.dmlc.xgboost4j.scala.DMatrix
+import ml.dmlc.xgboost4j.scala.{Booster, DMatrix}
 import org.apache.spark.SparkContext
+import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.ml.Model
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types.StructType
@@ -34,4 +35,20 @@ trait TransformPlugin {
   def extractRdd(model: Model[_], dataset: Dataset[_]): RDD[_]
 
   def buildDMatrix(batchCnt: Int, batches: Seq[_]): (DMatrix, Iterator[Row])
+
+  /**
+   * called before rabit init in executor side
+   */
+  def onPreRabitInit: Unit = {}
+
+  /**
+   * called after rabit init in executor side
+   */
+  def onPostRabitInit: Unit = {}
+
+  def onPreTransform(booster: Broadcast[Booster]): Unit = {}
+
+  def onDriverCleanup: Unit = {}
+
+  def onExecutorCleanup: Unit = {}
 }

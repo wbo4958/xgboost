@@ -318,12 +318,13 @@ class XGBoostClassificationModel private[ml](
 
   // Generate raw prediction and probability prediction.
   private def transformInternal(dataset: Dataset[_]): DataFrame = {
-
     val schema = StructType(dataset.schema.fields ++
       Seq(StructField(name = _rawPredictionCol, dataType =
         ArrayType(FloatType, containsNull = false), nullable = false)) ++
       Seq(StructField(name = _probabilityCol, dataType =
         ArrayType(FloatType, containsNull = false), nullable = false)))
+
+    val transformedSchema = TransformManager.transformSchema(schema, logging = true)
 
     val bBooster = dataset.sparkSession.sparkContext.broadcast(_booster)
     val appName = dataset.sparkSession.sparkContext.appName
@@ -345,14 +346,18 @@ class XGBoostClassificationModel private[ml](
 
           val (dm, rowIter) = TransformManager.buildDMatrix(batchCnt, batches)
 
-          try {
-            val Array(rawPredictionItr, probabilityItr, predLeafItr, predContribItr) =
-              producePredictionItrs(bBooster, dm)
-            produceResultIterator(rowIter, rawPredictionItr, probabilityItr, predLeafItr,
-              predContribItr)
-          } finally {
-            batchCnt += 1
-            dm.delete()
+          if (dm == null) {
+            Iterator.empty
+          } else {
+            try {
+              val Array(rawPredictionItr, probabilityItr, predLeafItr, predContribItr) =
+                producePredictionItrs(bBooster, dm)
+              produceResultIterator(rowIter, rawPredictionItr, probabilityItr, predLeafItr,
+                predContribItr)
+            } finally {
+              batchCnt += 1
+              dm.delete()
+            }
           }
         }
 
@@ -368,8 +373,9 @@ class XGBoostClassificationModel private[ml](
       }
     }
 
+    TransformManager.onDriverCleanup
     bBooster.unpersist(blocking = false)
-    dataset.sparkSession.createDataFrame(resultRDD, generateResultSchema(schema))
+    dataset.sparkSession.createDataFrame(resultRDD, generateResultSchema(transformedSchema))
   }
 
   private def produceResultIterator(
@@ -448,7 +454,6 @@ class XGBoostClassificationModel private[ml](
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    TransformManager.transformSchema(dataset.schema, logging = true)
     if (isDefined(thresholds)) {
       require($(thresholds).length == numClasses, this.getClass.getSimpleName +
         ".transform() called with non-matching numClasses and thresholds.length." +
