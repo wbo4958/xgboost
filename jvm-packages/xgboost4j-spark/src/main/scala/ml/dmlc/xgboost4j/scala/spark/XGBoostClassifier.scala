@@ -32,6 +32,7 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
+import org.json4s.JsonAST.{JField, JObject}
 import org.json4s.{DefaultFormats, Extraction}
 
 import scala.collection.JavaConverters._
@@ -538,8 +539,10 @@ object XGBoostClassificationModel extends MLReadable[XGBoostClassificationModel]
       implicit val format = DefaultFormats
       implicit val sc = super.sparkSession.sparkContext
 
-      val extraMap = Extraction.decompose(instance.extraParams)
-      DefaultXGBoostParamsWriter.saveMetadata(instance, path, sc, paramMap = Some(extraMap))
+      val extraParams = Extraction.decompose(instance.extraParams)
+      val extraParamsJObject = JObject(JField("extraParams", extraParams))
+      DefaultXGBoostParamsWriter.saveMetadata(instance, path, sc,
+        extraMetadata = Some(extraParamsJObject))
       // Save model data
       val dataPath = new Path(path, "data").toString
       val internalPath = new Path(dataPath, "XGBoostClassificationModel")
@@ -558,8 +561,11 @@ object XGBoostClassificationModel extends MLReadable[XGBoostClassificationModel]
     override def load(path: String): XGBoostClassificationModel = {
       implicit val sc = super.sparkSession.sparkContext
 
-
       val metadata = DefaultXGBoostParamsReader.loadMetadata(path, sc, className)
+
+      val extraParams = metadata.metadata \ "extraMetadata"
+      implicit val format = DefaultFormats
+      val extraParamsMap: Map[String, Any] = Extraction.extract[Map[String, Any]](extraParams)
 
       val dataPath = new Path(path, "data").toString
       val internalPath = new Path(dataPath, "XGBoostClassificationModel")
@@ -567,7 +573,7 @@ object XGBoostClassificationModel extends MLReadable[XGBoostClassificationModel]
       val numClasses = dataInStream.readInt()
 
       val booster = SXGBoost.loadModel(dataInStream)
-      val model = new XGBoostClassificationModel(metadata.uid, numClasses, booster)
+      val model = new XGBoostClassificationModel(metadata.uid, numClasses, booster, extraParamsMap)
       DefaultXGBoostParamsReader.getAndSetParams(model, metadata)
       model
     }
