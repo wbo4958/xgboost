@@ -37,7 +37,7 @@ trait TrainPlugin {
   }
 
   /**
-   * initialize will be called first
+   * initialize will be called at first
    * @param sc SparkContext
    * @param params
    * @param hasGroup
@@ -51,8 +51,8 @@ trait TrainPlugin {
 
   /**
    * Convert dataset to any kind of RDD which will be used to build Watches later
-   * @param est
-   * @param params
+   * @param est     Plugin may need to get spe
+   * @param params  the params includes the original one which user inputs
    * @param dataset
    * @param evalSetsMap
    * @return
