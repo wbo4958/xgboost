@@ -138,14 +138,14 @@ object DataUtils extends Serializable {
   }
 
   private[spark] def convertDataFrameToXGBLabeledPointRDDs(
-    labelCol: Column,
-    featuresCol: Column,
-    weight: Column,
-    baseMargin: Column,
-    group: Option[Column],
-    numWorkers: Int,
-    deterministicPartition: Boolean,
-    dataFrames: DataFrame*): Array[RDD[XGBLabeledPoint]] = {
+      labelCol: Column,
+      featuresCol: Column,
+      weight: Column,
+      baseMargin: Column,
+      group: Option[Column],
+      numWorkers: Int,
+      deterministicPartition: Boolean,
+      dataFrames: DataFrame*): Array[RDD[XGBLabeledPoint]] = {
     val dataFrameToRDDParams = DataFrameToRDDParams(labelCol, featuresCol, weight, baseMargin,
       group, numWorkers, deterministicPartition)
     convertDataFrameToXGBLabeledPointRDDs(dataFrameToRDDParams, dataFrames: _*)

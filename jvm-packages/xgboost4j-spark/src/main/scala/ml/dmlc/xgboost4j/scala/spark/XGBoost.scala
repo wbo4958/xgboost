@@ -564,6 +564,7 @@ object XGBoost extends Serializable {
   /**
    * @return A tuple of the booster and the metrics used to build training summary
    */
+  @deprecated("use trainDistributed for Dataset instead of RDD", "1.2.0")
   @throws(classOf[XGBoostError])
   private[spark] def trainDistributed(
       trainingData: RDD[XGBLabeledPoint],
@@ -739,10 +740,9 @@ object XGBoost extends Serializable {
   }
 
   private def chooseLpImpl(hasGroup: Boolean,
-      dsToRddParams: DataFrameToRDDParams,
       xgbExecutionParams: XGBoostExecutionParams,
-      evalData: Map[String, Dataset[_]] = Map.empty): LpTrainPluginWrapper = {
-    new LpTrainPluginWrapper(dsToRddParams, hasGroup, xgbExecutionParams, evalData)
+      evalData: Map[String, Dataset[_]] = Map.empty): TrainWrapper = {
+    TrainWrapper(hasGroup, xgbExecutionParams, evalData)
   }
 
   /**
@@ -770,7 +770,7 @@ object XGBoost extends Serializable {
       checkpointManager.loadCheckpointAsScalaBooster()
     }.orNull
 
-    val trainImpl = chooseLpImpl(hasGroup, dsToRddParams, xgbExecParams, evalData)
+    val trainImpl = chooseLpImpl(hasGroup, xgbExecParams, evalData)
 
     try {
       // Train for every ${savingRound} rounds and save the partially completed booster
@@ -781,10 +781,11 @@ object XGBoost extends Serializable {
           xgbExecParams.numWorkers)
         val rabitEnv = tracker.getWorkerEnvs
 
-        val boostersAndMetrics = trainImpl.datasetToRDD(trainingData).mapPartitions(iter => {
-          val watches = trainImpl.buildWatches(iter)
-          buildDistributedBooster(watches, xgbExecParams, rabitEnv,
-            xgbExecParams.obj, xgbExecParams.eval, prevBooster)
+        val boostersAndMetrics = trainImpl.datasetToRDD(trainingData, dsToRddParams).mapPartitions(
+          iter => {
+            val watches = trainImpl.buildWatches(iter)
+            buildDistributedBooster(watches, xgbExecParams, rabitEnv,
+              xgbExecParams.obj, xgbExecParams.eval, prevBooster)
         }).cache()
 
         val sparkJobThread = new Thread() {
@@ -1086,15 +1087,26 @@ private[spark] class LabeledPointGroupIterator(base: Iterator[XGBLabeledPoint])
   }
 }
 
-private class LpTrainPluginWrapper(dsToRDDParams: DataFrameToRDDParams, hasGroup: Boolean,
+private case class TrainWrapper(hasGroup: Boolean,
     xgbExecutionParams: XGBoostExecutionParams,
     evalDsMap: Map[String, Dataset[_]] = Map.empty) {
 
-  val hasEval = evalDsMap.isEmpty
+  val hasEval = !evalDsMap.isEmpty
 
-  var lpTrainImpl: LpTrait = _
+  val trainImpl: TrainIntf = (hasGroup, hasEval) match {
+    case (true, true) => TrainRankWithEval(xgbExecutionParams)
+    case (true, false) => TrainRankWithoutEval(xgbExecutionParams)
+    case (false, true) => TrainNonRankWithEval(xgbExecutionParams)
+    case (false, false) => TrainNonRankWithoutEval(xgbExecutionParams)
+  }
 
-  def datasetToRDD(dataset: Dataset[_]): RDD[_] = {
+  /**
+   * Convert dataset to RDD
+   * @param dataset
+   * @param dsToRDDParams
+   * @return
+   */
+  def datasetToRDD(dataset: Dataset[_], dsToRDDParams: DataFrameToRDDParams): RDD[_] = {
     val trainRDD: RDD[XGBLabeledPoint] = DataUtils.convertDataFrameToXGBLabeledPointRDDs(
       dsToRDDParams, dataset.asInstanceOf[DataFrame]).head
 
@@ -1104,61 +1116,67 @@ private class LpTrainPluginWrapper(dsToRDDParams: DataFrameToRDDParams, hasGroup
           dataFrame.asInstanceOf[DataFrame]).head)
     }
 
-    lpTrainImpl = (hasGroup, hasEval) match {
-      case (true, true) => new LpTrainWithGroupWithEval(xgbExecutionParams)
-      case (true, false) => new LpTrainWithGroupWithoutEval(xgbExecutionParams)
-      case (false, true) => new LpTrainWithoutGroupWithEval(xgbExecutionParams)
-      case (false, false) => new LpTrainWithouGroupWithoutEval(xgbExecutionParams)
-    }
-
-    lpTrainImpl.rddTransform(trainRDD, evalRDDMap)
+    trainImpl.rddTransform(trainRDD, evalRDDMap)
   }
 
   /**
-   * Running on executor side
+   * This function is running on executor side.
    *
-   * @param iter
+   * @param iter, which can be casted into any type of Iterator[Any] according to type datasetToRDD.
    * @return
    */
   def buildWatches(iter: Iterator[_]): Watches = {
-    lpTrainImpl.buildWatches(iter)
+    trainImpl.buildWatches(iter)
   }
 
+  /**
+   * clean up after building booster.
+   */
   def cleanUpDriver(): Unit = {
-    lpTrainImpl.cleanUpDriver()
+    trainImpl.cleanUpDriver()
   }
 }
 
-private trait LpTrait extends Serializable {
+private trait TrainIntf {
   def xgbExecutionParams: XGBoostExecutionParams
 
+  /**
+   * Do any transforms in this function
+   * @param trainRDD
+   * @param evalSets
+   * @return
+   */
   def rddTransform(trainRDD: RDD[XGBLabeledPoint],
       evalSets: Map[String, RDD[XGBLabeledPoint]] = Map.empty): RDD[_]
 
   /**
-   * Running on executor side
+   * This function is running on executor side.
    *
-   * @param iter
+   * @param iter, which can be casted into any type of Iterator[Any] according to type rddTransform.
    * @return
    */
   def buildWatches(iter: Iterator[_]): Watches
 
-  def cleanUpDriver(): Unit = {
-    // TODO
-  }
+  /**
+   * clean up after building booster.
+   */
+  def cleanUpDriver(): Unit = {}
 }
 
-private class LpTrainWithGroupWithEval(val xgbExecutionParams: XGBoostExecutionParams)
-    extends LpTrait {
+private case class TrainRankWithEval(xgbExecutionParams: XGBoostExecutionParams)
+    extends TrainIntf with Serializable {
+
+  var cachedRdd: RDD[_] = _
 
   override def rddTransform(trainRDD: RDD[XGBLabeledPoint],
       evalSets: Map[String, RDD[XGBLabeledPoint]]): RDD[_] = {
 
     val repartitionedData = repartitionForTrainingGroup(trainRDD, xgbExecutionParams.numWorkers)
-    val cachedRdd = cacheData(xgbExecutionParams.cacheTrainingSet, repartitionedData).
+    cachedRdd = cacheData(xgbExecutionParams.cacheTrainingSet, repartitionedData).
       asInstanceOf[RDD[Array[XGBLabeledPoint]]]
 
-    coPartitionGroupSets(cachedRdd, evalSets, xgbExecutionParams.numWorkers)
+    coPartitionGroupSets(cachedRdd.asInstanceOf[RDD[Array[XGBLabeledPoint]]], evalSets,
+      xgbExecutionParams.numWorkers)
   }
 
   /**
@@ -1177,19 +1195,27 @@ private class LpTrainWithGroupWithEval(val xgbExecutionParams: XGBoostExecutionP
       },
       getCacheDirName(xgbExecutionParams.useExternalMemory))
   }
+
+  override def cleanUpDriver(): Unit = {
+    if (xgbExecutionParams.cacheTrainingSet && cachedRdd != null) {
+      cachedRdd.unpersist()
+    }
+  }
 }
 
-private class LpTrainWithGroupWithoutEval(val xgbExecutionParams: XGBoostExecutionParams)
-    extends LpTrait {
+private case class TrainRankWithoutEval(xgbExecutionParams: XGBoostExecutionParams)
+    extends TrainIntf {
+
+  var cachedRdd: RDD[_] = _
 
   override def rddTransform(trainRDD: RDD[XGBLabeledPoint],
     evalSets: Map[String, RDD[XGBLabeledPoint]] = Map.empty): RDD[_] = {
 
     val repartitionedData = repartitionForTrainingGroup(trainRDD, xgbExecutionParams.numWorkers)
-    cacheData(xgbExecutionParams.cacheTrainingSet, repartitionedData).
+    cachedRdd = cacheData(xgbExecutionParams.cacheTrainingSet, repartitionedData).
       asInstanceOf[RDD[Array[XGBLabeledPoint]]]
+    cachedRdd
   }
-
 
   /**
    * Running on executor side
@@ -1204,16 +1230,26 @@ private class LpTrainWithGroupWithoutEval(val xgbExecutionParams: XGBoostExecuti
         xgbExecutionParams.allowNonZeroForMissing),
       getCacheDirName(xgbExecutionParams.useExternalMemory))
   }
+
+  override def cleanUpDriver(): Unit = {
+    if (xgbExecutionParams.cacheTrainingSet && cachedRdd != null) {
+      cachedRdd.unpersist()
+    }
+  }
 }
 
-private class LpTrainWithoutGroupWithEval(val xgbExecutionParams: XGBoostExecutionParams)
-    extends LpTrait {
+private case class TrainNonRankWithEval(xgbExecutionParams: XGBoostExecutionParams)
+    extends TrainIntf {
+
+  var cachedRdd: RDD[_] = _
 
   override def rddTransform(trainRDD: RDD[XGBLabeledPoint],
     evalSets: Map[String, RDD[XGBLabeledPoint]]): RDD[_] = {
 
-    cacheData(xgbExecutionParams.cacheTrainingSet, trainRDD).asInstanceOf[RDD[XGBLabeledPoint]]
-    coPartitionNoGroupSets(trainRDD, evalSets, xgbExecutionParams.numWorkers)
+    cachedRdd = cacheData(xgbExecutionParams.cacheTrainingSet, trainRDD)
+      .asInstanceOf[RDD[XGBLabeledPoint]]
+    coPartitionNoGroupSets(cachedRdd.asInstanceOf[RDD[XGBLabeledPoint]], evalSets,
+      xgbExecutionParams.numWorkers)
   }
 
   /**
@@ -1232,14 +1268,24 @@ private class LpTrainWithoutGroupWithEval(val xgbExecutionParams: XGBoostExecuti
       },
       getCacheDirName(xgbExecutionParams.useExternalMemory))
   }
+
+  override def cleanUpDriver(): Unit = {
+    if (xgbExecutionParams.cacheTrainingSet && cachedRdd != null) {
+      cachedRdd.unpersist()
+    }
+  }
 }
 
-private class LpTrainWithouGroupWithoutEval(val xgbExecutionParams: XGBoostExecutionParams)
-    extends LpTrait {
+private case class TrainNonRankWithoutEval(xgbExecutionParams: XGBoostExecutionParams)
+    extends TrainIntf {
+
+  var cachedRdd: RDD[_] = _
 
   override def rddTransform(trainRDD: RDD[XGBLabeledPoint],
       evalSets: Map[String, RDD[XGBLabeledPoint]]): RDD[_] = {
-    cacheData(xgbExecutionParams.cacheTrainingSet, trainRDD).asInstanceOf[RDD[XGBLabeledPoint]]
+    cachedRdd = cacheData(xgbExecutionParams.cacheTrainingSet, trainRDD)
+      .asInstanceOf[RDD[XGBLabeledPoint]]
+    cachedRdd
   }
 
   /**
@@ -1255,5 +1301,10 @@ private class LpTrainWithouGroupWithoutEval(val xgbExecutionParams: XGBoostExecu
         xgbExecutionParams.allowNonZeroForMissing),
       getCacheDirName(xgbExecutionParams.useExternalMemory))
   }
-}
 
+  override def cleanUpDriver(): Unit = {
+    if (xgbExecutionParams.cacheTrainingSet && cachedRdd != null) {
+      cachedRdd.unpersist()
+    }
+  }
+}
