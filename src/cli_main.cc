@@ -508,7 +508,7 @@ class CLI {
   }
 
   ~CLI() {
-    rabit::Finalize();
+    rabit::Finalize(false);
   }
 };
 }  // namespace xgboost

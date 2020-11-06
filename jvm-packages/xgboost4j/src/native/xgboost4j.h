@@ -290,10 +290,10 @@ JNIEXPORT jint JNICALL Java_ml_dmlc_xgboost4j_java_XGBoostJNI_RabitInit
 /*
  * Class:     ml_dmlc_xgboost4j_java_XGBoostJNI
  * Method:    RabitFinalize
- * Signature: ()I
+ * Signature: (Z)I
  */
 JNIEXPORT jint JNICALL Java_ml_dmlc_xgboost4j_java_XGBoostJNI_RabitFinalize
-  (JNIEnv *, jclass);
+  (JNIEnv *, jclass, jboolean);
 
 /*
  * Class:     ml_dmlc_xgboost4j_java_XGBoostJNI

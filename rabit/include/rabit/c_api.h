@@ -39,9 +39,10 @@ RABIT_DLL bool RabitInit(int argc, char *argv[]);
 /*!
  * \brief finalize the rabit engine,
  * call this function after you finished all jobs.
+ * \param with_exception notify tracker exception happened
  * \return true if rabit is initialized successfully otherwise false
  */
-RABIT_DLL int RabitFinalize(void);
+RABIT_DLL int RabitFinalize(bool with_exception);
 
 /*!
  * \brief get rank of previous process in ring topology

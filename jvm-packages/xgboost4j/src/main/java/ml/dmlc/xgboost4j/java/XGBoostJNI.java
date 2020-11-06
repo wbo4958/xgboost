@@ -124,7 +124,7 @@ class XGBoostJNI {
 
   // rabit functions
   public final static native int RabitInit(String[] args);
-  public final static native int RabitFinalize();
+  public final static native int RabitFinalize(boolean with_exception);
   public final static native int RabitTrackerPrint(String msg);
   public final static native int RabitGetRank(int[] out);
   public final static native int RabitGetWorldSize(int[] out);

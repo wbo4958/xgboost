@@ -70,5 +70,6 @@ class FeatureSizeValidatingSuite extends FunSuite with PerTest {
     intercept[Exception] {
       xgb.fit(repartitioned)
     }
+    waitSparkContextTotallyStopped
   }
 }

@@ -120,7 +120,7 @@ bool AllreduceBase::Init(int argc, char* argv[]) {
   return this->ReConnectLinks();
 }
 
-bool AllreduceBase::Shutdown() {
+bool AllreduceBase::Shutdown(bool with_exception) {
   try {
     for (auto & all_link : all_links) {
       if (!all_link.sock.IsClosed()) {
@@ -133,7 +133,11 @@ bool AllreduceBase::Shutdown() {
     if (tracker_uri == "NULL") return true;
     // notify tracker rank i have shutdown
     utils::TCPSocket tracker = this->ConnectTracker();
-    tracker.SendStr(std::string("shutdown"));
+    if (with_exception) {
+      tracker.SendStr(std::string("shutdown_with_exception"));
+    } else {
+      tracker.SendStr(std::string("shutdown"));
+    }
     tracker.Close();
     utils::TCPSocket::Finalize();
     return true;

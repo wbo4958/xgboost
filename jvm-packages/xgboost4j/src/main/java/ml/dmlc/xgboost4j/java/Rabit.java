@@ -80,7 +80,15 @@ public class Rabit {
    * @throws XGBoostError
    */
   public static void shutdown() throws XGBoostError {
-    checkCall(XGBoostJNI.RabitFinalize());
+    shutdown(false);
+  }
+
+  /**
+   * Shutdown the rabit engine in current working thread, equals to finalize.
+   * @throws XGBoostError
+   */
+  public static void shutdown(boolean with_exception) throws XGBoostError {
+    checkCall(XGBoostJNI.RabitFinalize(with_exception));
   }
 
   /**

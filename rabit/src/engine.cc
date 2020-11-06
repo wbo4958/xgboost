@@ -52,10 +52,10 @@ bool Init(int argc, char *argv[]) {
 }
 
 /*! \brief finalize syncrhonization module */
-bool Finalize() {
+bool Finalize(bool with_exception) {
   ThreadLocalEntry* e = EngineThreadLocal::Get();
   if (e->engine.get() != nullptr) {
-    if (e->engine->Shutdown()) {
+    if (e->engine->Shutdown(with_exception)) {
       e->engine.reset(nullptr);
       e->initialized = false;
       return true;

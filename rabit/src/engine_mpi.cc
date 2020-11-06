@@ -114,7 +114,7 @@ bool Init(int argc, char *argv[]) {
   }
 }
 /*! \brief finalize syncrhonization module */
-bool Finalize(void) {
+bool Finalize(bool with_exception) {
   try {
     MPI::Finalize();
     return true;

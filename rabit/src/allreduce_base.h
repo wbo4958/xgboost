@@ -49,7 +49,7 @@ class AllreduceBase : public IEngine {
   // initialize the manager
   virtual bool Init(int argc, char* argv[]);
   // shutdown the engine
-  virtual bool Shutdown();
+  virtual bool Shutdown(bool with_exception);
   /*!
    * \brief set parameters to the engine
    * \param name parameter name

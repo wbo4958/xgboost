@@ -67,7 +67,7 @@ inline bool Init(int argc, char *argv[]);
  * \brief finalizes the rabit engine, call this function after you finished with all the jobs
  * \return true if finalized successfully, otherwise false
  */
-inline bool Finalize();
+inline bool Finalize(bool with_exception);
 /*! \brief gets rank of the current process
  * \return rank number of worker*/
 inline int GetRank();

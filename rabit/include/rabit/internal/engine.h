@@ -177,7 +177,7 @@ class IEngine {
 /*! \brief initializes the engine module */
 bool Init(int argc, char *argv[]);
 /*! \brief finalizes the engine module */
-bool Finalize();
+bool Finalize(bool with_exception);
 /*! \brief singleton method to get engine */
 IEngine *GetEngine();
 

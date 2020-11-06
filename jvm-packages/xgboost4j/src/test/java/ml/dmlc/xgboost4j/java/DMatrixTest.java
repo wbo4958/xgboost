@@ -348,7 +348,7 @@ public class DMatrixTest {
       else if (data0 != null) {
         data0.dispose();
       }
-      Rabit.shutdown();
+      Rabit.shutdown(false);
     }
   }
 

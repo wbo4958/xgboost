@@ -896,11 +896,11 @@ JNIEXPORT jint JNICALL Java_ml_dmlc_xgboost4j_java_XGBoostJNI_RabitInit
 /*
  * Class:     ml_dmlc_xgboost4j_java_XGBoostJNI
  * Method:    RabitFinalize
- * Signature: ()I
+ * Signature: (Z)I
  */
 JNIEXPORT jint JNICALL Java_ml_dmlc_xgboost4j_java_XGBoostJNI_RabitFinalize
-  (JNIEnv *jenv, jclass jcls) {
-  if (RabitFinalize()) {
+  (JNIEnv *jenv, jclass jcls, jboolean jwith_exception) {
+  if (RabitFinalize(jwith_exception)) {
     return 0;
   } else {
     return 1;

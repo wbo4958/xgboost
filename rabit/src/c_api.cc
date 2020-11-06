@@ -228,8 +228,8 @@ RABIT_DLL bool RabitInit(int argc, char *argv[]) {
   return ret;
 }
 
-RABIT_DLL int RabitFinalize() {
-  auto ret = rabit::Finalize();
+RABIT_DLL int RabitFinalize(bool with_exception) {
+  auto ret = rabit::Finalize(with_exception);
   if (!ret) {
     XGBAPISetLastError("Failed to shutdown RABIT worker.");
   }

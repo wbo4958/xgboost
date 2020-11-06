@@ -107,8 +107,8 @@ inline bool Init(int argc, char *argv[]) {
   return engine::Init(argc, argv);
 }
 // finalize the rabit engine
-inline bool Finalize() {
-  return engine::Finalize();
+inline bool Finalize(bool with_exception) {
+  return engine::Finalize(with_exception);
 }
 // get the rank of the previous worker in ring topology
 inline int GetRingPrevRank() {

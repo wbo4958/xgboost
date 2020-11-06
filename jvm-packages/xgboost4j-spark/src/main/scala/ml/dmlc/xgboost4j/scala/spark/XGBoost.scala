@@ -388,6 +388,7 @@ object XGBoost extends Serializable {
     rabitEnv.put("DMLC_NUM_ATTEMPT", attempt)
     val numRounds = xgbExecutionParam.numRounds
     val makeCheckpoint = xgbExecutionParam.checkpointParam.isDefined && taskId.toInt == 0
+    var withException = false
     try {
       Rabit.init(rabitEnv)
       val numEarlyStoppingRounds = xgbExecutionParam.earlyStoppingParams.numEarlyStoppingRounds
@@ -419,9 +420,14 @@ object XGBoost extends Serializable {
     } catch {
       case xgbException: XGBoostError =>
         logger.error(s"XGBooster worker $taskId has failed $attempt times due to ", xgbException)
+        withException = true
         throw xgbException
+      case e: Exception =>
+        withException = true
+        throw e
     } finally {
-      Rabit.shutdown()
+      logger.error("will shutdown --- " + withException)
+      Rabit.shutdown(withException)
       watches.delete()
     }
   }
