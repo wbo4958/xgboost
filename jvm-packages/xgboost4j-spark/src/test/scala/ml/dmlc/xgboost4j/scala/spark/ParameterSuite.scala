@@ -61,6 +61,7 @@ class ParameterSuite extends FunSuite with PerTest with BeforeAndAfterAll {
       case e: Throwable => // swallow anything
     } finally {
       waitForSparkContextShutdown()
+      waitSparkContextTotallyStopped
     }
   }
 
@@ -76,6 +77,7 @@ class ParameterSuite extends FunSuite with PerTest with BeforeAndAfterAll {
       case e: Throwable => // swallow anything
     } finally {
       waitForSparkContextShutdown()
+      waitSparkContextTotallyStopped
     }
   }
 }
