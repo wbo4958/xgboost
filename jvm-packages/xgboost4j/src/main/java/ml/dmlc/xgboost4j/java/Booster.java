@@ -49,6 +49,7 @@ public class Booster implements Serializable, KryoSerializable {
    */
   Booster(Map<String, Object> params, DMatrix[] cacheMats) throws XGBoostError {
     init(cacheMats);
+    setParam("seed", "0");
     setParams(params);
   }
 
@@ -242,14 +243,7 @@ public class Booster implements Serializable, KryoSerializable {
     String stringFormat = evalSet(evalMatrixs, evalNames, iter);
     String[] metricPairs = stringFormat.split("\t");
     for (int i = 1; i < metricPairs.length; i++) {
-      String value = metricPairs[i].split(":")[1];
-      if (value.equalsIgnoreCase("nan")) {
-        metricsOut[i - 1] = Float.NaN;
-      } else if (value.equalsIgnoreCase("-nan")) {
-        metricsOut[i - 1] = -Float.NaN;
-      } else {
-        metricsOut[i - 1] = Float.valueOf(value);
-      }
+      metricsOut[i - 1] = Float.valueOf(metricPairs[i].split(":")[1]);
     }
     return stringFormat;
   }
@@ -675,17 +669,6 @@ public class Booster implements Serializable, KryoSerializable {
   void saveRabitCheckpoint() throws XGBoostError {
     XGBoostJNI.checkCall(XGBoostJNI.XGBoosterSaveRabitCheckpoint(this.handle));
     version += 1;
-  }
-
-  /**
-   * Get number of model features.
-   * @return the number of features.
-   * @throws XGBoostError
-   */
-  public long getNumFeature() throws XGBoostError {
-    long[] numFeature = new long[1];
-    XGBoostJNI.checkCall(XGBoostJNI.XGBoosterGetNumFeature(this.handle, numFeature));
-    return numFeature[0];
   }
 
   /**

@@ -15,15 +15,15 @@
 #  R_VERSION (for win)
 #  R_ARCH (for win 64 when want 32 bit build)
 #
-# TODO:
-# - someone to verify OSX detection,
+# TODO: 
+# - someone to verify OSX detection, 
 # - possibly, add OSX detection based on current R in PATH or LIBR_EXECUTABLE
 # - improve registry-based R_HOME detection in Windows (from a set of R_VERSION's)
 
 
 # Windows users might want to change this to their R version:
 if(NOT R_VERSION)
-  set(R_VERSION "4.0.0")
+  set(R_VERSION "3.4.1")
 endif()
 if(NOT R_ARCH)
   if("${CMAKE_SIZEOF_VOID_P}" STREQUAL "4")
@@ -37,33 +37,23 @@ endif()
 # Creates R.lib and R.def in the build directory for linking with MSVC
 function(create_rlib_for_msvc)
   # various checks and warnings
-  if(NOT WIN32 OR (NOT MSVC AND NOT MINGW))
-    message(FATAL_ERROR "create_rlib_for_msvc() can only be used with MSVC or MINGW")
+  if(NOT WIN32 OR NOT MSVC)
+    message(FATAL_ERROR "create_rlib_for_msvc() can only be used with MSVC")
   endif()
   if(NOT EXISTS "${LIBR_LIB_DIR}")
     message(FATAL_ERROR "LIBR_LIB_DIR was not set!")
   endif()
+  find_program(GENDEF_EXE gendef)
   find_program(DLLTOOL_EXE dlltool)
-  if(NOT DLLTOOL_EXE)
-    message(FATAL_ERROR "\ndlltool.exe not found!\
+  if(NOT GENDEF_EXE OR NOT DLLTOOL_EXE)
+    message(FATAL_ERROR "\nEither gendef.exe or dlltool.exe not found!\
       \nDo you have Rtools installed with its MinGW's bin/ in PATH?")
-  endif()
-
+  endif()  
   # extract symbols from R.dll into R.def and R.lib import library
-  get_filename_component(
-    LIBR_RSCRIPT_EXECUTABLE_DIR
-    ${LIBR_EXECUTABLE}
-    DIRECTORY
-  )
-  set(LIBR_RSCRIPT_EXECUTABLE "${LIBR_RSCRIPT_EXECUTABLE_DIR}/Rscript")
-
-  execute_process(
-    COMMAND ${LIBR_RSCRIPT_EXECUTABLE}
-    "${CMAKE_CURRENT_BINARY_DIR}/../../R-package/inst/make-r-def.R"
-    "${LIBR_LIB_DIR}/R.dll" "${CMAKE_CURRENT_BINARY_DIR}/R.def"
-  )
-
-  execute_process(COMMAND ${DLLTOOL_EXE}
+  execute_process(COMMAND gendef
+    "-" "${LIBR_LIB_DIR}/R.dll"
+    OUTPUT_FILE "${CMAKE_CURRENT_BINARY_DIR}/R.def")
+  execute_process(COMMAND dlltool
     "--input-def" "${CMAKE_CURRENT_BINARY_DIR}/R.def"
     "--output-lib" "${CMAKE_CURRENT_BINARY_DIR}/R.lib")
 endfunction(create_rlib_for_msvc)
@@ -90,7 +80,7 @@ if(APPLE)
     set(LIBR_INCLUDE_DIRS "${LIBR_HOME}/include" CACHE PATH "R include directory")
     set(LIBR_LIB_DIR "${LIBR_HOME}/lib" CACHE PATH "R lib directory")
   endif()
-
+  
 # detection for UNIX & Win32
 else()
 
@@ -98,7 +88,7 @@ else()
   if(NOT LIBR_EXECUTABLE)
     find_program(LIBR_EXECUTABLE NAMES R R.exe)
   endif()
-
+  
   if(UNIX)
 
     if(NOT LIBR_EXECUTABLE)
@@ -113,18 +103,18 @@ else()
     )
     # ask R for the include dir
     execute_process(
-      COMMAND ${LIBR_EXECUTABLE} "--slave" "--vanilla" "-e" "cat(R.home('include'))"
+      COMMAND ${LIBR_EXECUTABLE} "--slave" "--no-save" "-e" "cat(R.home('include'))"
       OUTPUT_VARIABLE LIBR_INCLUDE_DIRS
     )
     # ask R for the lib dir
     execute_process(
-      COMMAND ${LIBR_EXECUTABLE} "--slave" "--vanilla" "-e" "cat(R.home('lib'))"
+      COMMAND ${LIBR_EXECUTABLE} "--slave" "--no-save" "-e" "cat(R.home('lib'))"
       OUTPUT_VARIABLE LIBR_LIB_DIR
     )
 
   # Windows
   else()
-    # ask R for R_HOME
+    # ask R for R_HOME 
     if(LIBR_EXECUTABLE)
       execute_process(
         COMMAND ${LIBR_EXECUTABLE} "--slave" "--no-save" "-e" "cat(normalizePath(R.home(),winslash='/'))"
@@ -147,7 +137,7 @@ else()
     # set other R paths based on home path
     set(LIBR_INCLUDE_DIRS "${LIBR_HOME}/include")
     set(LIBR_LIB_DIR "${LIBR_HOME}/bin/${R_ARCH}")
-
+ 
 message(STATUS "LIBR_HOME [${LIBR_HOME}]")
 message(STATUS "LIBR_EXECUTABLE [${LIBR_EXECUTABLE}]")
 message(STATUS "LIBR_INCLUDE_DIRS [${LIBR_INCLUDE_DIRS}]")
@@ -158,7 +148,7 @@ message(STATUS "LIBR_CORE_LIBRARY [${LIBR_CORE_LIBRARY}]")
 
 endif()
 
-if((WIN32 AND MSVC) OR (WIN32 AND MINGW))
+if(WIN32 AND MSVC)
   # create a local R.lib import library for R.dll if it doesn't exist
   if(NOT EXISTS "${CMAKE_CURRENT_BINARY_DIR}/R.lib")
     create_rlib_for_msvc()

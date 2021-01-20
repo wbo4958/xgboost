@@ -2,72 +2,54 @@
 set -e
 set -x
 
-if [ "$#" -lt 1 ]
-then
-  suite=''
-  args=''
-else
-  suite=$1
-  shift 1
-  args="$@"
-fi
+suite=$1
 
 # Install XGBoost Python package
-function install_xgboost {
-  wheel_found=0
-  pip install --upgrade pip --user
-  for file in python-package/dist/*.whl
-  do
-    if [ -e "${file}" ]
-    then
-      pip install --user "${file}"
-      wheel_found=1
-      break  # need just one
-    fi
-  done
-  if [ "$wheel_found" -eq 0 ]
+wheel_found=0
+for file in python-package/dist/*.whl
+do
+  if [ -e "${file}" ]
   then
-    pushd .
-    cd python-package
-    python setup.py install --user
-    popd
+    pip install --user "${file}"
+    wheel_found=1
+    break  # need just one
   fi
-}
-
-function uninstall_xgboost {
-  pip uninstall -y xgboost
-}
+done
+if [ "$wheel_found" -eq 0 ]
+then
+  pushd .
+  cd python-package
+  python setup.py install --user
+  popd
+fi
 
 # Run specified test suite
 case "$suite" in
   gpu)
-    source activate gpu_test
-    install_xgboost
-    pytest -v -s -rxXs --fulltrace --durations=0 -m "not mgpu" ${args} tests/python-gpu
-    uninstall_xgboost
+    pytest -v -s --fulltrace -m "not mgpu" tests/python-gpu
     ;;
 
   mgpu)
-    source activate gpu_test
-    install_xgboost
-    pytest -v -s -rxXs --fulltrace --durations=0 -m "mgpu" ${args} tests/python-gpu
-
+    pytest -v -s --fulltrace -m "mgpu" tests/python-gpu
     cd tests/distributed
     ./runtests-gpu.sh
-    uninstall_xgboost
+    cd -
+    pytest -v -s --fulltrace -m "mgpu" tests/python-gpu/test_gpu_with_dask.py
+    ;;
+
+  cudf)
+    source activate cudf_test
+    pytest -v -s --fulltrace -m "not mgpu" tests/python-gpu/test_from_columnar.py
     ;;
 
   cpu)
-    source activate cpu_test
-    install_xgboost
-    pytest -v -s -rxXs --fulltrace --durations=0 ${args} tests/python
+    pytest -v -s --fulltrace tests/python
     cd tests/distributed
     ./runtests.sh
-    uninstall_xgboost
     ;;
 
   *)
-    echo "Usage: $0 {gpu|mgpu|cpu} [extra args to pass to pytest]"
+    echo "Usage: $0 {gpu|mgpu|cudf|cpu}"
     exit 1
     ;;
 esac

@@ -55,16 +55,16 @@ struct Monitor {
   // from left to right, <name <count, elapsed>>
   using StatMap = std::map<std::string, std::pair<size_t, size_t>>;
 
-  std::string label_ = "";
-  std::map<std::string, Statistics> statistics_map_;
-  Timer self_timer_;
+  std::string label = "";
+  std::map<std::string, Statistics> statistics_map;
+  Timer self_timer;
 
   /*! \brief Collect time statistics across all workers. */
   std::vector<StatMap> CollectFromOtherRanks() const;
   void PrintStatistics(StatMap const& statistics) const;
 
  public:
-  Monitor() { self_timer_.Start(); }
+  Monitor() { self_timer.Start(); }
   /*\brief Print statistics info during destruction.
    *
    * Please note that this may not work, as with distributed frameworks like Dask, the
@@ -73,15 +73,17 @@ struct Monitor {
    */
   ~Monitor() {
     this->Print();
-    self_timer_.Stop();
+    self_timer.Stop();
   }
 
   /*! \brief Print all the statistics. */
   void Print() const;
 
-  void Init(std::string label) { this->label_ = label; }
+  void Init(std::string label) { this->label = label; }
   void Start(const std::string &name);
   void Stop(const std::string &name);
+  void StartCuda(const std::string &name);
+  void StopCuda(const std::string &name);
 };
 }  // namespace common
 }  // namespace xgboost

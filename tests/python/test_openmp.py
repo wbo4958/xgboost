@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 import xgboost as xgb
+import unittest
 import numpy as np
 
 
-class TestOMP:
+class TestOMP(unittest.TestCase):
     def test_omp(self):
         dpath = 'demo/data/'
         dtrain = xgb.DMatrix(dpath + 'agaricus.txt.train')

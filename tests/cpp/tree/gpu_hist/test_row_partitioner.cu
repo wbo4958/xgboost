@@ -119,7 +119,7 @@ void TestIncorrectRow() {
   });
 }
 
-TEST(RowPartitionerDeathTest, IncorrectRow) {
+TEST(RowPartitioner, IncorrectRow) {
   ASSERT_DEATH({ TestIncorrectRow(); },".*");
 }
 }  // namespace tree

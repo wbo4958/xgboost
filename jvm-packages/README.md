@@ -18,11 +18,11 @@ You can find more about XGBoost on [Documentation](https://xgboost.readthedocs.o
 
 ## Add Maven Dependency
 
-XGBoost4J, XGBoost4J-Spark, etc. in maven repository is compiled with g++-4.8.5.
+XGBoost4J, XGBoost4J-Spark, etc. in maven repository is compiled with g++-4.8.5  
 
 ### Access release version
 
-<b>Maven</b>
+<b>maven</b> 
 
 ```
 <dependency>
@@ -30,82 +30,66 @@ XGBoost4J, XGBoost4J-Spark, etc. in maven repository is compiled with g++-4.8.5.
     <artifactId>xgboost4j_2.12</artifactId>
     <version>latest_version_num</version>
 </dependency>
-<dependency>
-    <groupId>ml.dmlc</groupId>
-    <artifactId>xgboost4j-spark_2.12</artifactId>
-    <version>latest_version_num</version>
-</dependency>
-```
-
-<b>sbt</b>
+``` 
+ 
+<b>sbt</b> 
 ```sbt
-libraryDependencies ++= Seq(
-  "ml.dmlc" %% "xgboost4j" % "latest_version_num",
-  "ml.dmlc" %% "xgboost4j-spark" % "latest_version_num"
-)
-```
+ "ml.dmlc" %% "xgboost4j" % "latest_version_num"
+``` 
 
 For the latest release version number, please check [here](https://github.com/dmlc/xgboost/releases).
 
-To enable the GPU algorithm (`tree_method='gpu_hist'`), use artifacts `xgboost4j-gpu_2.12` and `xgboost4j-spark-gpu_2.12` instead.
+if you want to use `xgboost4j-spark`, you just need to replace xgboost4j with `xgboost4j-spark`
 
 ### Access SNAPSHOT version
 
-First add the following Maven repository hosted by the XGBoost project:
+You need to add github as repo:
 
-<b>Maven</b>:
+<b>maven</b>:
 
 ```xml
 <repository>
-  <id>XGBoost4J Snapshot Repo</id>
-  <name>XGBoost4J Snapshot Repo</name>
-  <url>https://s3-us-west-2.amazonaws.com/xgboost-maven-repo/snapshot/</url>
+  <id>GitHub Repo</id>
+  <name>GitHub Repo</name>
+  <url>https://raw.githubusercontent.com/CodingCat/xgboost/maven-repo/</url>
 </repository>
 ```
 
 <b>sbt</b>:
-
-```sbt
-resolvers += "XGBoost4J Snapshot Repo" at "https://s3-us-west-2.amazonaws.com/xgboost-maven-repo/snapshot/"
+ 
+```sbt 
+resolvers += "GitHub Repo" at "https://raw.githubusercontent.com/CodingCat/xgboost/maven-repo/"
 ```
 
-Then add XGBoost4J as a dependency:
+the add dependency as following:
 
-<b>Maven</b>
+<b>maven</b> 
 
 ```
 <dependency>
     <groupId>ml.dmlc</groupId>
     <artifactId>xgboost4j_2.12</artifactId>
-    <version>latest_version_num-SNAPSHOT</version>
+    <version>latest_version_num</version>
 </dependency>
-<dependency>
-    <groupId>ml.dmlc</groupId>
-    <artifactId>xgboost4j-spark_2.12</artifactId>
-    <version>latest_version_num-SNAPSHOT</version>
-</dependency>
-```
-
-<b>sbt</b>
+``` 
+ 
+<b>sbt</b> 
 ```sbt
-libraryDependencies ++= Seq(
-  "ml.dmlc" %% "xgboost4j" % "latest_version_num-SNAPSHOT",
-  "ml.dmlc" %% "xgboost4j-spark" % "latest_version_num-SNAPSHOT"
-)
-```
+ "ml.dmlc" %% "xgboost4j" % "latest_version_num"
+``` 
 
-For the latest release version number, please check [the repository listing](https://s3-us-west-2.amazonaws.com/xgboost-maven-repo/list.html).
+For the latest release version number, please check [here](https://github.com/CodingCat/xgboost/tree/maven-repo/ml/dmlc/xgboost4j_2.12).
 
-To enable the GPU algorithm (`tree_method='gpu_hist'`), use artifacts `xgboost4j-gpu_2.12` and `xgboost4j-spark-gpu_2.12` instead.
+if you want to use `xgboost4j-spark`, you just need to replace xgboost4j with `xgboost4j-spark`
 
 ## Examples
 
 Full code examples for Scala, Java, Apache Spark, and Apache Flink can
 be found in the [examples package](https://github.com/dmlc/xgboost/tree/master/jvm-packages/xgboost4j-example).
 
-**NOTE on LIBSVM Format**:
+**NOTE on LIBSVM Format**: 
 
-There is an inconsistent issue between XGBoost4J-Spark and other language bindings of XGBoost.
+There is an inconsistent issue between XGBoost4J-Spark and other language bindings of XGBoost. 
 
 When users use Spark to load trainingset/testset in LibSVM format with the following code snippet:
 
@@ -124,7 +108,7 @@ You can build/package xgboost4j locally with the following steps:
 2. Clone this repo: `git clone --recursive https://github.com/dmlc/xgboost.git`
 3. Run the following command:
   - With Tests: `./xgboost/jvm-packages/dev/build-linux.sh`
-  - Skip Tests: `./xgboost/jvm-packages/dev/build-linux.sh --skip-tests`
+  - Skip Tests: `./xgboost/jvm-packages/dev/build-linux.sh --skip-tests` 
 
 **Windows:**
 1. Ensure [Docker for Windows](https://docs.docker.com/docker-for-windows/install/) is installed.

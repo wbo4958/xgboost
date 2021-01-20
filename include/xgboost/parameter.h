@@ -1,6 +1,6 @@
 /*!
  * Copyright 2018 by Contributors
- * \file parameter.h
+ * \file enum_class_param.h
  * \brief macro for using C++11 enum class as DMLC parameter
  * \author Hyunsu Philip Cho
  */

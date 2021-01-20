@@ -9,7 +9,8 @@ There are three steps you need to do to add a plugin to xgboost
   - In this example ```XGBOOST_REGISTER_OBJECTIVE``` in [this line](custom_obj.cc#L78)
 - Add a line to `xgboost/plugin/CMakeLists.txt`:
 ```
-target_sources(objxgboost PRIVATE ${xgboost_SOURCE_DIR}/plugin/example/custom_obj.cc)
+set(PLUGINS_SOURCES ${PLUGINS_SOURCES}
+    ${xgboost_SOURCE_DIR}/plugin/example/custom_obj.cc PARENT_SCOPE)
 ```
 
 Then you can test this plugin by using ```objective=mylogistic``` parameter.

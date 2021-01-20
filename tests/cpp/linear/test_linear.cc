@@ -5,17 +5,17 @@
 #include <xgboost/gbm.h>
 
 #include "../helpers.h"
-#include "test_json_io.h"
+
 #include "../../../src/gbm/gblinear_model.h"
-#include "xgboost/base.h"
 
 namespace xgboost {
 
-TEST(Linear, Shotgun) {
+TEST(Linear, shotgun) {
   size_t constexpr kRows = 10;
   size_t constexpr kCols = 10;
 
-  auto p_fmat = xgboost::RandomDataGenerator(kRows, kCols, 0).GenerateDMatrix();
+  auto pp_dmat = xgboost::CreateDMatrix(kRows, kCols, 0);
+  auto p_fmat {*pp_dmat};
 
   auto lparam = xgboost::CreateEmptyGenericParam(GPUIDX);
   LearnerModelParam mparam;
@@ -33,7 +33,7 @@ TEST(Linear, Shotgun) {
     model.LazyInitModel();
     updater->Update(&gpair, p_fmat.get(), &model, gpair.Size());
 
-    ASSERT_EQ(model.Bias()[0], 5.0f);
+    ASSERT_EQ(model.bias()[0], 5.0f);
 
   }
   {
@@ -41,17 +41,16 @@ TEST(Linear, Shotgun) {
         xgboost::LinearUpdater::Create("shotgun", &lparam));
     EXPECT_ANY_THROW(updater->Configure({{"feature_selector", "random"}}));
   }
-}
 
-TEST(Shotgun, JsonIO) {
-  TestUpdaterJsonIO("shotgun");
+  delete pp_dmat;
 }
 
 TEST(Linear, coordinate) {
   size_t constexpr kRows = 10;
   size_t constexpr kCols = 10;
 
-  auto p_fmat = xgboost::RandomDataGenerator(kRows, kCols, 0).GenerateDMatrix();
+  auto pp_dmat = xgboost::CreateDMatrix(kRows, kCols, 0);
+  auto p_fmat {*pp_dmat};
 
   auto lparam = xgboost::CreateEmptyGenericParam(GPUIDX);
   LearnerModelParam mparam;
@@ -68,11 +67,9 @@ TEST(Linear, coordinate) {
   model.LazyInitModel();
   updater->Update(&gpair, p_fmat.get(), &model, gpair.Size());
 
-  ASSERT_EQ(model.Bias()[0], 5.0f);
-}
+  ASSERT_EQ(model.bias()[0], 5.0f);
 
-TEST(Coordinate, JsonIO){
-  TestUpdaterJsonIO("coord_descent");
+  delete pp_dmat;
 }
 
 }  // namespace xgboost

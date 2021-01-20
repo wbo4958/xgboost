@@ -15,7 +15,6 @@ namespace xgboost {
 class Json;
 
 struct Model {
-  virtual ~Model() = default;
   /*!
    * \brief load the model from a json object
    * \param in json object where to load the model from
@@ -29,7 +28,6 @@ struct Model {
 };
 
 struct Configurable {
-  virtual ~Configurable() = default;
   /*!
    * \brief Load configuration from JSON object
    * \param in JSON object containing the configuration

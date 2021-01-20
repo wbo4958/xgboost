@@ -4,8 +4,7 @@ import sys
 import numpy as np
 
 sys.path.append("tests/python")
-import testing as tm               # noqa
-import test_with_sklearn as twskl  # noqa
+import testing as tm
 
 pytestmark = pytest.mark.skipif(**tm.no_sklearn())
 
@@ -30,7 +29,3 @@ def test_gpu_binary_classification():
             err = sum(1 for i in range(len(preds))
                       if int(preds[i] > 0.5) != labels[i]) / float(len(preds))
             assert err < 0.1
-
-
-def test_boost_from_prediction_gpu_hist():
-    cpu_test = twskl.run_boost_from_prediction('gpu_hist')

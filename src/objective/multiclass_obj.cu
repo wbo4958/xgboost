@@ -49,12 +49,7 @@ class SoftmaxMultiClassObj : public ObjFunction {
                    const MetaInfo& info,
                    int iter,
                    HostDeviceVector<GradientPair>* out_gpair) override {
-    // Remove unused parameter compiler warning.
-    (void) iter;
-
-    if (info.labels_.Size() == 0) {
-      return;
-    }
+    CHECK_NE(info.labels_.Size(), 0U) << "label set cannot be empty";
     CHECK(preds.Size() == (static_cast<size_t>(param_.num_class) * info.labels_.Size()))
         << "SoftmaxMultiClassObj: label size and pred size does not match.\n"
         << "label.Size() * num_class: "
@@ -128,7 +123,7 @@ class SoftmaxMultiClassObj : public ObjFunction {
     this->Transform(io_preds, true);
   }
   const char* DefaultEvalMetric() const override {
-    return "mlogloss";
+    return "merror";
   }
 
   inline void Transform(HostDeviceVector<bst_float> *io_preds, bool prob) {
@@ -175,11 +170,11 @@ class SoftmaxMultiClassObj : public ObjFunction {
     } else {
       out["name"] = String("multi:softmax");
     }
-    out["softmax_multiclass_param"] = ToJson(param_);
+    out["softmax_multiclass_param"] = toJson(param_);
   }
 
   void LoadConfig(Json const& in) override {
-    FromJson(in["softmax_multiclass_param"], &param_);
+    fromJson(in["softmax_multiclass_param"], &param_);
   }
 
  private:

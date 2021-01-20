@@ -18,7 +18,7 @@ struct Version {
   static const TripletT kInvalid;
 
   // Save/Load version info to Json document
-  static TripletT Load(Json const& in);
+  static TripletT Load(Json const& in, bool check = false);
   static void Save(Json* out);
 
   // Save/Load version info to dmlc::Stream
