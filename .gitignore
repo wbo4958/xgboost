@@ -51,6 +51,7 @@ Debug
 #.Rbuildignore
 R-package.Rproj
 *.cache*
+.mypy_cache/
 # java
 java/xgboost4j/target
 java/xgboost4j/tmp
@@ -65,12 +66,12 @@ nb-configuration*
 .pydevproject
 .settings/
 build
-config.mk
 /xgboost
 *.data
 build_plugin
 recommonmark/
 tags
+TAGS
 *.class
 target
 *.swp
@@ -93,6 +94,7 @@ metastore_db
 # files from R-package source install
 **/config.status
 R-package/src/Makevars
+*.lib
 
 # Visual Studio Code
 /.vscode/
@@ -101,3 +103,15 @@ R-package/src/Makevars
 .idea
 *.iml
 /cmake-build-debug/
+
+# GDB
+.gdb_history
+
+# Python joblib.Memory used in pytest.
+cachedir/
+
+# Files from local Dask work
+dask-worker-space/
+
+# Jupyter notebook checkpoints
+.ipynb_checkpoints/

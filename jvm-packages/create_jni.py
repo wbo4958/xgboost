@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 import errno
+import argparse
 import glob
 import os
 import shutil
 import subprocess
 import sys
 from contextlib import contextmanager
-
+from cudautils import cudaver
 
 # Monkey-patch the API inconsistency between Python2.X and 3.X.
 if sys.platform.startswith("linux"):
@@ -19,8 +20,11 @@ CONFIG = {
     "USE_AZURE": "OFF",
     "USE_S3": "OFF",
 
-    "USE_CUDA": "OFF",
-    "JVM_BINDINGS": "ON"
+    "USE_CUDA": "ON",
+    "USE_NCCL": "ON",
+    "PLUGIN_RMM": "ON",
+    "JVM_BINDINGS": "ON",
+    "LOG_CAPI_INVOCATION": "OFF"
 }
 
 
@@ -68,19 +72,25 @@ def normpath(path):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--log-capi-invocation', type=str, choices=['ON', 'OFF'], default='OFF')
+    parser.add_argument('--use-cuda', type=str, choices=['ON', 'OFF'], default='OFF')
+    cli_args = parser.parse_args()
+
     if sys.platform == "darwin":
         # Enable of your compiler supports OpenMP.
         CONFIG["USE_OPENMP"] = "OFF"
         os.environ["JAVA_HOME"] = subprocess.check_output(
             "/usr/libexec/java_home").strip().decode()
 
-    print("building Java wrapper")
+    cuda = cudaver()
+    print("building Java wrapper on " + cuda)
     with cd(".."):
         maybe_makedirs("build")
         with cd("build"):
             if sys.platform == "win32":
                 # Force x64 build on Windows.
-                maybe_generator = ' -G"Visual Studio 14 Win64"'
+                maybe_generator = ' -A x64'
             else:
                 maybe_generator = ""
             if sys.platform == "linux":
@@ -88,18 +98,33 @@ if __name__ == "__main__":
             else:
                 maybe_parallel_build = ""
 
+            if cli_args.log_capi_invocation == 'ON':
+                CONFIG['LOG_CAPI_INVOCATION'] = 'ON'
+
+            if cli_args.use_cuda == 'ON':
+                CONFIG['USE_CUDA'] = 'ON'
+                CONFIG['USE_NCCL'] = 'ON'
+
             args = ["-D{0}:BOOL={1}".format(k, v) for k, v in CONFIG.items()]
 
             # if enviorment set rabit_mock
             if os.getenv("RABIT_MOCK", None) is not None:
                 args.append("-DRABIT_MOCK:BOOL=ON")
 
+            # if enviorment set GPU_ARCH_FLAG
+            gpu_arch_flag = os.getenv("GPU_ARCH_FLAG", None)
+            if gpu_arch_flag is not None:
+                args.append("%s" % gpu_arch_flag)
+
             run("cmake .. " + " ".join(args) + maybe_generator)
             run("cmake --build . --config Release" + maybe_parallel_build)
 
-        with cd("demo/regression"):
+        with cd("demo/CLI/regression"):
             run(sys.executable + " mapfeat.py")
             run(sys.executable + " mknfold.py machine.txt 1")
+
+    xgboost4j = 'xgboost4j-gpu' if cli_args.use_cuda == 'ON' else 'xgboost4j'
+    xgboost4j_spark = 'xgboost4j-spark-gpu' if cli_args.use_cuda == 'ON' else 'xgboost4j-spark'
 
     print("copying native library")
     library_name = {
@@ -107,24 +132,26 @@ if __name__ == "__main__":
         "darwin": "libxgboost4j.dylib",
         "linux": "libxgboost4j.so"
     }[sys.platform]
-    maybe_makedirs("xgboost4j/src/main/resources/lib")
-    cp("../lib/" + library_name, "xgboost4j/src/main/resources/lib")
+
+    maybe_makedirs("xgboost4j/src/main/resources/lib/" + cuda)
+    cp("../lib/" + library_name, "xgboost4j/src/main/resources/lib/" + cuda)
 
     print("copying pure-Python tracker")
     cp("../dmlc-core/tracker/dmlc_tracker/tracker.py",
-       "xgboost4j/src/main/resources")
+       "{}/src/main/resources".format(xgboost4j))
 
     print("copying train/test files")
-    maybe_makedirs("xgboost4j-spark/src/test/resources")
-    with cd("../demo/regression"):
+    maybe_makedirs("{}/src/test/resources".format(xgboost4j_spark))
+    with cd("../demo/CLI/regression"):
         run("{} mapfeat.py".format(sys.executable))
         run("{} mknfold.py machine.txt 1".format(sys.executable))
 
-    for file in glob.glob("../demo/regression/machine.txt.t*"):
-        cp(file, "xgboost4j-spark/src/test/resources")
+    for file in glob.glob("../demo/CLI/regression/machine.txt.t*"):
+        cp(file, "{}/src/test/resources".format(xgboost4j_spark))
     for file in glob.glob("../demo/data/agaricus.*"):
-        cp(file, "xgboost4j-spark/src/test/resources")
+        cp(file, "{}/src/test/resources".format(xgboost4j_spark))
 
-    maybe_makedirs("xgboost4j/src/test/resources")
+    maybe_makedirs("{}/src/test/resources".format(xgboost4j))
     for file in glob.glob("../demo/data/agaricus.*"):
-        cp(file, "xgboost4j/src/test/resources")
+        cp(file, "{}/src/test/resources".format(xgboost4j))
+

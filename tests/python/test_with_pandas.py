@@ -2,7 +2,6 @@
 import numpy as np
 import xgboost as xgb
 import testing as tm
-import unittest
 import pytest
 
 try:
@@ -18,7 +17,7 @@ dpath = 'demo/data/'
 rng = np.random.RandomState(1994)
 
 
-class TestPandas(unittest.TestCase):
+class TestPandas:
 
     def test_pandas(self):
 
@@ -29,6 +28,7 @@ class TestPandas(unittest.TestCase):
         assert dm.feature_types == ['int', 'float', 'i']
         assert dm.num_row() == 2
         assert dm.num_col() == 3
+        np.testing.assert_array_equal(dm.get_label(), np.array([1, 2]))
 
         # overwrite feature_names and feature_types
         dm = xgb.DMatrix(df, label=pd.Series([1, 2]),
@@ -42,7 +42,8 @@ class TestPandas(unittest.TestCase):
         # incorrect dtypes
         df = pd.DataFrame([[1, 2., 'x'], [2, 3., 'y']],
                           columns=['a', 'b', 'c'])
-        self.assertRaises(ValueError, xgb.DMatrix, df)
+        with pytest.raises(ValueError):
+            xgb.DMatrix(df)
 
         # numeric columns
         df = pd.DataFrame([[1, 2., True], [2, 3., False]])
@@ -51,6 +52,7 @@ class TestPandas(unittest.TestCase):
         assert dm.feature_types == ['int', 'float', 'i']
         assert dm.num_row() == 2
         assert dm.num_col() == 3
+        np.testing.assert_array_equal(dm.get_label(), np.array([1, 2]))
 
         df = pd.DataFrame([[1, 2., 1], [2, 3., 1]], columns=[4, 5, 6])
         dm = xgb.DMatrix(df, label=pd.Series([1, 2]))
@@ -65,7 +67,8 @@ class TestPandas(unittest.TestCase):
         # 0  1    1    0    0
         # 1  2    0    1    0
         # 2  3    0    0    1
-        result, _, _ = xgb.core._maybe_pandas_data(dummies, None, None)
+        result, _, _ = xgb.data._transform_pandas_df(dummies,
+                                                     enable_categorical=False)
         exp = np.array([[1., 1., 0., 0.],
                         [2., 0., 1., 0.],
                         [3., 0., 0., 1.]])
@@ -107,28 +110,71 @@ class TestPandas(unittest.TestCase):
         assert dm.num_row() == 2
         assert dm.num_col() == 6
 
+    def test_pandas_categorical(self):
+        rng = np.random.RandomState(1994)
+        rows = 100
+        X = rng.randint(3, 7, size=rows)
+        X = pd.Series(X, dtype="category")
+        X = pd.DataFrame({'f0': X})
+        y = rng.randn(rows)
+        m = xgb.DMatrix(X, y, enable_categorical=True)
+        assert m.feature_types[0] == 'categorical'
+
+    def test_pandas_sparse(self):
+        import pandas as pd
+        rows = 100
+        X = pd.DataFrame(
+            {"A": pd.arrays.SparseArray(np.random.randint(0, 10, size=rows)),
+             "B": pd.arrays.SparseArray(np.random.randn(rows)),
+             "C": pd.arrays.SparseArray(np.random.permutation(
+                 [True, False] * (rows // 2)))}
+        )
+        y = pd.Series(pd.arrays.SparseArray(np.random.randn(rows)))
+        dtrain = xgb.DMatrix(X, y)
+        booster = xgb.train({}, dtrain, num_boost_round=4)
+        predt_sparse = booster.predict(xgb.DMatrix(X))
+        predt_dense = booster.predict(xgb.DMatrix(X.sparse.to_dense()))
+        np.testing.assert_allclose(predt_sparse, predt_dense)
+
     def test_pandas_label(self):
         # label must be a single column
         df = pd.DataFrame({'A': ['X', 'Y', 'Z'], 'B': [1, 2, 3]})
-        self.assertRaises(ValueError, xgb.core._maybe_pandas_label, df)
+        with pytest.raises(ValueError):
+            xgb.data._transform_pandas_df(df, False, None, None, 'label', 'float')
 
         # label must be supported dtype
         df = pd.DataFrame({'A': np.array(['a', 'b', 'c'], dtype=object)})
-        self.assertRaises(ValueError, xgb.core._maybe_pandas_label, df)
+        with pytest.raises(ValueError):
+            xgb.data._transform_pandas_df(df, False, None, None, 'label', 'float')
 
         df = pd.DataFrame({'A': np.array([1, 2, 3], dtype=int)})
-        result = xgb.core._maybe_pandas_label(df)
+        result, _, _ = xgb.data._transform_pandas_df(df, False, None, None,
+                                                     'label', 'float')
         np.testing.assert_array_equal(result, np.array([[1.], [2.], [3.]],
                                                        dtype=float))
-
         dm = xgb.DMatrix(np.random.randn(3, 2), label=df)
         assert dm.num_row() == 3
         assert dm.num_col() == 2
 
+    def test_pandas_weight(self):
+        kRows = 32
+        kCols = 8
+
+        X = np.random.randn(kRows, kCols)
+        y = np.random.randn(kRows)
+        w = np.random.uniform(size=kRows).astype(np.float32)
+        w_pd = pd.DataFrame(w)
+        data = xgb.DMatrix(X, y, w_pd)
+
+        assert data.num_row() == kRows
+        assert data.num_col() == kCols
+
+        np.testing.assert_array_equal(data.get_weight(), w)
+
     def test_cv_as_pandas(self):
         dm = xgb.DMatrix(dpath + 'agaricus.txt.train')
         params = {'max_depth': 2, 'eta': 1, 'verbosity': 0,
-                  'objective': 'binary:logistic'}
+                  'objective': 'binary:logistic', 'eval_metric': 'error'}
 
         cv = xgb.cv(params, dm, num_boost_round=10, nfold=10)
         assert isinstance(cv, pd.DataFrame)

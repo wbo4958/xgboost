@@ -1,3 +1,5 @@
+import collections
+import importlib.util
 import numpy as np
 import xgboost as xgb
 import testing as tm
@@ -5,6 +7,7 @@ import tempfile
 import os
 import shutil
 import pytest
+import json
 
 rng = np.random.RandomState(1994)
 
@@ -25,13 +28,14 @@ def test_binary_classification():
     from sklearn.datasets import load_digits
     from sklearn.model_selection import KFold
 
-    digits = load_digits(2)
+    digits = load_digits(n_class=2)
     y = digits['target']
     X = digits['data']
     kf = KFold(n_splits=2, shuffle=True, random_state=rng)
     for cls in (xgb.XGBClassifier, xgb.XGBRFClassifier):
         for train_index, test_index in kf.split(X, y):
-            xgb_model = cls(random_state=42).fit(X[train_index], y[train_index])
+            clf = cls(random_state=42)
+            xgb_model = clf.fit(X[train_index], y[train_index], eval_metric=['auc', 'logloss'])
             preds = xgb_model.predict(X[test_index])
             labels = y[test_index]
             err = sum(1 for i in range(len(preds))
@@ -74,6 +78,34 @@ def test_multiclass_classification():
         check_pred(preds4, labels, output_margin=False)
 
 
+def test_best_ntree_limit():
+    from sklearn.datasets import load_iris
+
+    X, y = load_iris(return_X_y=True)
+
+    def train(booster, forest):
+        rounds = 4
+        cls = xgb.XGBClassifier(
+            n_estimators=rounds, num_parallel_tree=forest, booster=booster
+        ).fit(
+            X, y, eval_set=[(X, y)], early_stopping_rounds=3
+        )
+
+        if forest:
+            assert cls.best_ntree_limit == rounds * forest * cls.n_classes_
+        else:
+            assert cls.best_ntree_limit == 0
+
+        # best_ntree_limit is used by default, assert that under gblinear it's
+        # automatically ignored due to being 0.
+        cls.predict(X)
+
+    num_parallel_tree = 4
+    train('gbtree', num_parallel_tree)
+    train('dart', num_parallel_tree)
+    train('gblinear', None)
+
+
 def test_ranking():
     # generate random data
     x_train = np.random.rand(1000, 10)
@@ -88,14 +120,17 @@ def test_ranking():
               'learning_rate': 0.1, 'gamma': 1.0, 'min_child_weight': 0.1,
               'max_depth': 6, 'n_estimators': 4}
     model = xgb.sklearn.XGBRanker(**params)
-    model.fit(x_train, y_train, train_group,
+    model.fit(x_train, y_train, group=train_group,
               eval_set=[(x_valid, y_valid)], eval_group=[valid_group])
+    assert model.evals_result()
+
     pred = model.predict(x_test)
 
     train_data = xgb.DMatrix(x_train, y_train)
     valid_data = xgb.DMatrix(x_valid, y_valid)
     test_data = xgb.DMatrix(x_test)
     train_data.set_group(train_group)
+    assert train_data.get_label().shape[0] == x_train.shape[0]
     valid_data.set_group(valid_group)
 
     params_orig = {'tree_method': 'exact', 'objective': 'rank:pairwise',
@@ -108,16 +143,62 @@ def test_ranking():
     np.testing.assert_almost_equal(pred, pred_orig)
 
 
+def test_stacking_regression():
+    from sklearn.model_selection import train_test_split
+    from sklearn.datasets import load_diabetes
+    from sklearn.linear_model import RidgeCV
+    from sklearn.ensemble import RandomForestRegressor
+    from sklearn.ensemble import StackingRegressor
+
+    X, y = load_diabetes(return_X_y=True)
+    estimators = [
+        ('gbm', xgb.sklearn.XGBRegressor(objective='reg:squarederror')),
+        ('lr', RidgeCV())
+    ]
+    reg = StackingRegressor(
+        estimators=estimators,
+        final_estimator=RandomForestRegressor(n_estimators=10,
+                                              random_state=42)
+    )
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=42)
+    reg.fit(X_train, y_train).score(X_test, y_test)
+
+
+def test_stacking_classification():
+    from sklearn.model_selection import train_test_split
+    from sklearn.datasets import load_iris
+    from sklearn.svm import LinearSVC
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.preprocessing import StandardScaler
+    from sklearn.pipeline import make_pipeline
+    from sklearn.ensemble import StackingClassifier
+
+    X, y = load_iris(return_X_y=True)
+    estimators = [
+        ('gbm', xgb.sklearn.XGBClassifier()),
+        ('svr', make_pipeline(StandardScaler(),
+                              LinearSVC(random_state=42)))
+    ]
+    clf = StackingClassifier(
+        estimators=estimators, final_estimator=LogisticRegression()
+    )
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=42)
+    clf.fit(X_train, y_train).score(X_test, y_test)
+
+
 @pytest.mark.skipif(**tm.no_pandas())
 def test_feature_importances_weight():
     from sklearn.datasets import load_digits
 
-    digits = load_digits(2)
+    digits = load_digits(n_class=2)
     y = digits['target']
     X = digits['data']
-    xgb_model = xgb.XGBClassifier(
-        random_state=0, tree_method="exact", importance_type="weight").fit(X, y)
-
+    xgb_model = xgb.XGBClassifier(random_state=0,
+                                  tree_method="exact",
+                                  learning_rate=0.1,
+                                  importance_type="weight").fit(X, y)
     exp = np.array([0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.00833333, 0.,
                     0., 0., 0., 0., 0., 0., 0., 0.025, 0.14166667, 0., 0., 0.,
                     0., 0., 0., 0.00833333, 0.25833333, 0., 0., 0., 0.,
@@ -132,12 +213,16 @@ def test_feature_importances_weight():
     import pandas as pd
     y = pd.Series(digits['target'])
     X = pd.DataFrame(digits['data'])
-    xgb_model = xgb.XGBClassifier(
-        random_state=0, tree_method="exact", importance_type="weight").fit(X, y)
+    xgb_model = xgb.XGBClassifier(random_state=0,
+                                  tree_method="exact",
+                                  learning_rate=0.1,
+                                  importance_type="weight").fit(X, y)
     np.testing.assert_almost_equal(xgb_model.feature_importances_, exp)
 
-    xgb_model = xgb.XGBClassifier(
-        random_state=0, tree_method="exact", importance_type="weight").fit(X, y)
+    xgb_model = xgb.XGBClassifier(random_state=0,
+                                  tree_method="exact",
+                                  learning_rate=0.1,
+                                  importance_type="weight").fit(X, y)
     np.testing.assert_almost_equal(xgb_model.feature_importances_, exp)
 
 
@@ -145,11 +230,13 @@ def test_feature_importances_weight():
 def test_feature_importances_gain():
     from sklearn.datasets import load_digits
 
-    digits = load_digits(2)
+    digits = load_digits(n_class=2)
     y = digits['target']
     X = digits['data']
     xgb_model = xgb.XGBClassifier(
-        random_state=0, tree_method="exact", importance_type="gain").fit(X, y)
+        random_state=0, tree_method="exact",
+        learning_rate=0.1,
+        importance_type="gain").fit(X, y)
 
     exp = np.array([0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
                     0.00326159, 0., 0., 0., 0., 0., 0., 0., 0.,
@@ -167,12 +254,29 @@ def test_feature_importances_gain():
     y = pd.Series(digits['target'])
     X = pd.DataFrame(digits['data'])
     xgb_model = xgb.XGBClassifier(
-        random_state=0, tree_method="exact", importance_type="gain").fit(X, y)
+        random_state=0, tree_method="exact",
+        learning_rate=0.1,
+        importance_type="gain").fit(X, y)
     np.testing.assert_almost_equal(xgb_model.feature_importances_, exp)
 
     xgb_model = xgb.XGBClassifier(
-        random_state=0, tree_method="exact", importance_type="gain").fit(X, y)
+        random_state=0, tree_method="exact",
+        learning_rate=0.1,
+        importance_type="gain").fit(X, y)
     np.testing.assert_almost_equal(xgb_model.feature_importances_, exp)
+
+
+def test_select_feature():
+    from sklearn.datasets import load_digits
+    from sklearn.feature_selection import SelectFromModel
+    digits = load_digits(n_class=2)
+    y = digits['target']
+    X = digits['data']
+    cls = xgb.XGBClassifier()
+    cls.fit(X, y)
+    selector = SelectFromModel(cls, prefit=True, max_features=1)
+    X_selected = selector.transform(X)
+    assert X_selected.shape[1] == 1
 
 
 def test_num_parallel_tree():
@@ -188,6 +292,10 @@ def test_num_parallel_tree():
     bst = reg.fit(X=boston['data'], y=boston['target'])
     dump = bst.get_booster().get_dump(dump_format='json')
     assert len(dump) == 4
+
+    config = json.loads(bst.get_booster().save_config())
+    assert int(config['learner']['gradient_booster']['gbtree_train_param'][
+        'num_parallel_tree']) == 4
 
 
 def test_boston_housing_regression():
@@ -242,10 +350,10 @@ def test_parameter_tuning():
     boston = load_boston()
     y = boston['target']
     X = boston['data']
-    xgb_model = xgb.XGBRegressor()
+    xgb_model = xgb.XGBRegressor(learning_rate=0.1)
     clf = GridSearchCV(xgb_model, {'max_depth': [2, 4, 6],
                                    'n_estimators': [50, 100, 200]},
-                       cv=3, verbose=1, iid=True)
+                       cv=3, verbose=1)
     clf.fit(X, y)
     assert clf.best_score_ < 0.7
     assert clf.best_params_ == {'n_estimators': 100, 'max_depth': 4}
@@ -294,7 +402,7 @@ def test_classification_with_custom_objective():
         hess = y_pred * (1.0 - y_pred)
         return grad, hess
 
-    digits = load_digits(2)
+    digits = load_digits(n_class=2)
     y = digits['target']
     X = digits['data']
     kf = KFold(n_splits=2, shuffle=True, random_state=rng)
@@ -320,6 +428,21 @@ def test_classification_with_custom_objective():
         xgb_model.fit,
         X, y
     )
+
+    cls = xgb.XGBClassifier(use_label_encoder=False, n_estimators=1)
+    cls.fit(X, y)
+
+    is_called = [False]
+
+    def wrapped(y, p):
+        is_called[0] = True
+        return logregobj(y, p)
+
+    cls.set_params(objective=wrapped)
+    cls.predict(X)              # no throw
+    cls.fit(X, y)
+
+    assert is_called[0]
 
 
 def test_sklearn_api():
@@ -357,6 +480,7 @@ def test_sklearn_api_gblinear():
 
 
 @pytest.mark.skipif(**tm.no_matplotlib())
+@pytest.mark.skipif(**tm.no_graphviz())
 def test_sklearn_plotting():
     from sklearn.datasets import load_iris
 
@@ -390,7 +514,7 @@ def test_sklearn_nfolds_cv():
     from sklearn.datasets import load_digits
     from sklearn.model_selection import StratifiedKFold
 
-    digits = load_digits(3)
+    digits = load_digits(n_class=3)
     X = digits['data']
     y = digits['target']
     dm = xgb.DMatrix(X, label=y)
@@ -422,7 +546,7 @@ def test_sklearn_nfolds_cv():
 def test_split_value_histograms():
     from sklearn.datasets import load_digits
 
-    digits_2class = load_digits(2)
+    digits_2class = load_digits(n_class=2)
 
     X = digits_2class['data']
     y = digits_2class['target']
@@ -463,12 +587,35 @@ def test_sklearn_n_jobs():
     assert clf.get_xgb_params()['n_jobs'] == 2
 
 
-def test_kwargs():
+def test_parameters_access():
+    from sklearn import datasets
     params = {'updater': 'grow_gpu_hist', 'subsample': .5, 'n_jobs': -1}
     clf = xgb.XGBClassifier(n_estimators=1000, **params)
     assert clf.get_params()['updater'] == 'grow_gpu_hist'
     assert clf.get_params()['subsample'] == .5
     assert clf.get_params()['n_estimators'] == 1000
+
+    clf = xgb.XGBClassifier(n_estimators=1, nthread=4)
+    X, y = datasets.load_iris(return_X_y=True)
+    clf.fit(X, y)
+
+    config = json.loads(clf.get_booster().save_config())
+    assert int(config['learner']['generic_param']['nthread']) == 4
+
+    clf.set_params(nthread=16)
+    config = json.loads(clf.get_booster().save_config())
+    assert int(config['learner']['generic_param']['nthread']) == 16
+
+    clf.predict(X)
+    config = json.loads(clf.get_booster().save_config())
+    assert int(config['learner']['generic_param']['nthread']) == 16
+
+
+def test_kwargs_error():
+    params = {'updater': 'grow_gpu_hist', 'subsample': .5, 'n_jobs': -1}
+    with pytest.raises(TypeError):
+        clf = xgb.XGBClassifier(n_jobs=1000, **params)
+        assert isinstance(clf, xgb.XGBClassifier)
 
 
 def test_kwargs_grid_search():
@@ -491,19 +638,23 @@ def test_kwargs_grid_search():
     assert len(means) == len(set(means))
 
 
-def test_kwargs_error():
-    params = {'updater': 'grow_gpu_hist', 'subsample': .5, 'n_jobs': -1}
-    with pytest.raises(TypeError):
-        clf = xgb.XGBClassifier(n_jobs=1000, **params)
-        assert isinstance(clf, xgb.XGBClassifier)
-
-
 def test_sklearn_clone():
     from sklearn.base import clone
 
     clf = xgb.XGBClassifier(n_jobs=2)
     clf.n_jobs = -1
     clone(clf)
+
+
+def test_sklearn_get_default_params():
+    from sklearn.datasets import load_digits
+    digits_2class = load_digits(n_class=2)
+    X = digits_2class['data']
+    y = digits_2class['target']
+    cls = xgb.XGBClassifier()
+    assert cls.get_params()['base_score'] is None
+    cls.fit(X[:4, ...], y[:4, ...])
+    assert cls.get_params()['base_score'] is not None
 
 
 def test_validation_weights_xgbmodel():
@@ -549,6 +700,18 @@ def test_validation_weights_xgbmodel():
     # weights than when not using them
     assert all((logloss_with_weights[i] != logloss_without_weights[i]
                 for i in [0, 1]))
+
+    with pytest.raises(AssertionError):
+        # length of eval set and sample weight doesn't match.
+        clf.fit(X_train, y_train, sample_weight=weights_train,
+                eval_set=[(X_train, y_train), (X_test, y_test)],
+                sample_weight_eval_set=[weights_train])
+
+    with pytest.raises(AssertionError):
+        cls = xgb.XGBClassifier()
+        cls.fit(X_train, y_train, sample_weight=weights_train,
+                eval_set=[(X_train, y_train), (X_test, y_test)],
+                sample_weight_eval_set=[weights_train])
 
 
 def test_validation_weights_xgbclassifier():
@@ -596,26 +759,70 @@ def test_validation_weights_xgbclassifier():
                 for i in [0, 1]))
 
 
-def test_save_load_model():
+def save_load_model(model_path):
     from sklearn.datasets import load_digits
     from sklearn.model_selection import KFold
 
-    digits = load_digits(2)
+    digits = load_digits(n_class=2)
     y = digits['target']
     X = digits['data']
     kf = KFold(n_splits=2, shuffle=True, random_state=rng)
-    with TemporaryDirectory() as tempdir:
-        model_path = os.path.join(tempdir, 'digits.model')
-        for train_index, test_index in kf.split(X, y):
-            xgb_model = xgb.XGBClassifier().fit(X[train_index], y[train_index])
-            xgb_model.save_model(model_path)
+    for train_index, test_index in kf.split(X, y):
+        xgb_model = xgb.XGBClassifier(use_label_encoder=False).fit(X[train_index], y[train_index])
+        xgb_model.save_model(model_path)
+        xgb_model = xgb.XGBClassifier(use_label_encoder=False)
+        xgb_model.load_model(model_path)
+        assert isinstance(xgb_model.classes_, np.ndarray)
+        assert isinstance(xgb_model._Booster, xgb.Booster)
+        preds = xgb_model.predict(X[test_index])
+        labels = y[test_index]
+        err = sum(1 for i in range(len(preds))
+                  if int(preds[i] > 0.5) != labels[i]) / float(len(preds))
+        assert err < 0.1
+        assert xgb_model.get_booster().attr('scikit_learn') is None
+
+        # test native booster
+        preds = xgb_model.predict(X[test_index], output_margin=True)
+        booster = xgb.Booster(model_file=model_path)
+        predt_1 = booster.predict(xgb.DMatrix(X[test_index]),
+                                  output_margin=True)
+        assert np.allclose(preds, predt_1)
+
+        with pytest.raises(TypeError):
             xgb_model = xgb.XGBModel()
             xgb_model.load_model(model_path)
-            preds = xgb_model.predict(X[test_index])
-            labels = y[test_index]
-            err = sum(1 for i in range(len(preds))
-                      if int(preds[i] > 0.5) != labels[i]) / float(len(preds))
-            assert err < 0.1
+
+
+def test_save_load_model():
+    with TemporaryDirectory() as tempdir:
+        model_path = os.path.join(tempdir, 'digits.model')
+        save_load_model(model_path)
+
+    with TemporaryDirectory() as tempdir:
+        model_path = os.path.join(tempdir, 'digits.model.json')
+        save_load_model(model_path)
+
+    from sklearn.datasets import load_digits
+    with TemporaryDirectory() as tempdir:
+        model_path = os.path.join(tempdir, 'digits.model.json')
+        digits = load_digits(n_class=2)
+        y = digits['target']
+        X = digits['data']
+        booster = xgb.train({'tree_method': 'hist',
+                             'objective': 'binary:logistic'},
+                            dtrain=xgb.DMatrix(X, y),
+                            num_boost_round=4)
+        predt_0 = booster.predict(xgb.DMatrix(X))
+        booster.save_model(model_path)
+        cls = xgb.XGBClassifier()
+        cls.load_model(model_path)
+        predt_1 = cls.predict_proba(X)[:, 1]
+        assert np.allclose(predt_0, predt_1)
+
+        cls = xgb.XGBModel()
+        cls.load_model(model_path)
+        predt_1 = cls.predict(X)
+        assert np.allclose(predt_0, predt_1)
 
 
 def test_RFECV():
@@ -626,10 +833,10 @@ def test_RFECV():
 
     # Regression
     X, y = load_boston(return_X_y=True)
-    bst = xgb.XGBClassifier(booster='gblinear', learning_rate=0.1,
-                            n_estimators=10, n_jobs=1,
-                            objective='reg:squarederror',
-                            random_state=0, verbosity=0)
+    bst = xgb.XGBRegressor(booster='gblinear', learning_rate=0.1,
+                           n_estimators=10,
+                           objective='reg:squarederror',
+                           random_state=0, verbosity=0)
     rfecv = RFECV(
         estimator=bst, step=1, cv=3, scoring='neg_mean_squared_error')
     rfecv.fit(X, y)
@@ -637,9 +844,9 @@ def test_RFECV():
     # Binary classification
     X, y = load_breast_cancer(return_X_y=True)
     bst = xgb.XGBClassifier(booster='gblinear', learning_rate=0.1,
-                            n_estimators=10, n_jobs=1,
+                            n_estimators=10,
                             objective='binary:logistic',
-                            random_state=0, verbosity=0)
+                            random_state=0, verbosity=0, use_label_encoder=False)
     rfecv = RFECV(estimator=bst, step=1, cv=3, scoring='roc_auc')
     rfecv.fit(X, y)
 
@@ -647,11 +854,21 @@ def test_RFECV():
     X, y = load_iris(return_X_y=True)
     bst = xgb.XGBClassifier(base_score=0.4, booster='gblinear',
                             learning_rate=0.1,
-                            n_estimators=10, n_jobs=1,
+                            n_estimators=10,
                             objective='multi:softprob',
                             random_state=0, reg_alpha=0.001, reg_lambda=0.01,
-                            scale_pos_weight=0.5, verbosity=0)
+                            scale_pos_weight=0.5, verbosity=0, use_label_encoder=False)
     rfecv = RFECV(estimator=bst, step=1, cv=3, scoring='neg_log_loss')
+    rfecv.fit(X, y)
+
+    X[0:4, :] = np.nan          # verify scikit_learn doesn't throw with nan
+    reg = xgb.XGBRegressor()
+    rfecv = RFECV(estimator=reg)
+    rfecv.fit(X, y)
+
+    cls = xgb.XGBClassifier(use_label_encoder=False)
+    rfecv = RFECV(estimator=cls, step=1, cv=3,
+                  scoring='neg_mean_squared_error')
     rfecv.fit(X, y)
 
 
@@ -697,21 +914,197 @@ def test_XGBClassifier_resume():
         assert log_loss1 > log_loss2
 
 
-def test_boost_from_prediction():
+def test_constraint_parameters():
+    reg = xgb.XGBRegressor(interaction_constraints='[[0, 1], [2, 3, 4]]')
+    X = np.random.randn(10, 10)
+    y = np.random.randn(10)
+    reg.fit(X, y)
+
+    config = json.loads(reg.get_booster().save_config())
+    assert config['learner']['gradient_booster']['updater']['grow_colmaker'][
+        'train_param']['interaction_constraints'] == '[[0, 1], [2, 3, 4]]'
+
+
+def test_parameter_validation():
+    reg = xgb.XGBRegressor(foo='bar', verbosity=1)
+    X = np.random.randn(10, 10)
+    y = np.random.randn(10)
+    with tm.captured_output() as (out, err):
+        reg.fit(X, y)
+        output = out.getvalue().strip()
+
+    assert output.find('foo') != -1
+
+    reg = xgb.XGBRegressor(n_estimators=2, missing=3,
+                           importance_type='gain', verbosity=1)
+    X = np.random.randn(10, 10)
+    y = np.random.randn(10)
+    with tm.captured_output() as (out, err):
+        reg.fit(X, y)
+        output = out.getvalue().strip()
+
+    assert len(output) == 0
+
+
+def test_deprecate_position_arg():
+    from sklearn.datasets import load_digits
+    X, y = load_digits(return_X_y=True, n_class=2)
+    w = y
+    with pytest.warns(FutureWarning):
+        xgb.XGBRegressor(3, learning_rate=0.1)
+    model = xgb.XGBRegressor(n_estimators=1)
+    with pytest.warns(FutureWarning):
+        model.fit(X, y, w)
+
+    with pytest.warns(FutureWarning):
+        xgb.XGBClassifier(1, use_label_encoder=False)
+    model = xgb.XGBClassifier(n_estimators=1, use_label_encoder=False)
+    with pytest.warns(FutureWarning):
+        model.fit(X, y, w)
+
+    with pytest.warns(FutureWarning):
+        xgb.XGBRanker('rank:ndcg', learning_rate=0.1)
+    model = xgb.XGBRanker(n_estimators=1)
+    group = np.repeat(1, X.shape[0])
+    with pytest.warns(FutureWarning):
+        model.fit(X, y, group)
+
+    with pytest.warns(FutureWarning):
+        xgb.XGBRFRegressor(1, learning_rate=0.1)
+    model = xgb.XGBRFRegressor(n_estimators=1)
+    with pytest.warns(FutureWarning):
+        model.fit(X, y, w)
+
+    with pytest.warns(FutureWarning):
+        xgb.XGBRFClassifier(1, use_label_encoder=True)
+    model = xgb.XGBRFClassifier(n_estimators=1)
+    with pytest.warns(FutureWarning):
+        model.fit(X, y, w)
+
+
+@pytest.mark.skipif(**tm.no_pandas())
+def test_pandas_input():
+    import pandas as pd
+    from sklearn.calibration import CalibratedClassifierCV
+    rng = np.random.RandomState(1994)
+
+    kRows = 100
+    kCols = 6
+
+    X = rng.randint(low=0, high=2, size=kRows*kCols)
+    X = X.reshape(kRows, kCols)
+
+    df = pd.DataFrame(X)
+    feature_names = []
+    for i in range(1, kCols):
+        feature_names += ['k'+str(i)]
+
+    df.columns = ['status'] + feature_names
+
+    target = df['status']
+    train = df.drop(columns=['status'])
+    model = xgb.XGBClassifier()
+    model.fit(train, target)
+    clf_isotonic = CalibratedClassifierCV(model,
+                                          cv='prefit', method='isotonic')
+    clf_isotonic.fit(train, target)
+    assert isinstance(clf_isotonic.calibrated_classifiers_[0].base_estimator,
+                      xgb.XGBClassifier)
+    np.testing.assert_allclose(np.array(clf_isotonic.classes_),
+                               np.array([0, 1]))
+
+
+def run_feature_weights(increasing):
+    with TemporaryDirectory() as tmpdir:
+        kRows = 512
+        kCols = 64
+        colsample_bynode = 0.5
+        reg = xgb.XGBRegressor(tree_method='hist',
+                               colsample_bynode=colsample_bynode)
+        X = rng.randn(kRows, kCols)
+        y = rng.randn(kRows)
+        fw = np.ones(shape=(kCols,))
+        for i in range(kCols):
+            if increasing:
+                fw[i] *= float(i)
+            else:
+                fw[i] *= float(kCols - i)
+
+        reg.fit(X, y, feature_weights=fw)
+        model_path = os.path.join(tmpdir, 'model.json')
+        reg.save_model(model_path)
+        with open(model_path) as fd:
+            model = json.load(fd)
+
+        parser_path = os.path.join(tm.PROJECT_ROOT, 'demo', 'json-model',
+                                   'json_parser.py')
+        spec = importlib.util.spec_from_file_location("JsonParser",
+                                                      parser_path)
+        foo = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(foo)
+        model = foo.Model(model)
+        splits = {}
+        total_nodes = 0
+        for tree in model.trees:
+            n_nodes = len(tree.nodes)
+            total_nodes += n_nodes
+            for n in range(n_nodes):
+                if tree.is_leaf(n):
+                    continue
+                if splits.get(tree.split_index(n), None) is None:
+                    splits[tree.split_index(n)] = 1
+                else:
+                    splits[tree.split_index(n)] += 1
+
+        od = collections.OrderedDict(sorted(splits.items()))
+        tuples = [(k, v) for k, v in od.items()]
+        k, v = list(zip(*tuples))
+        w = np.polyfit(k, v, deg=1)
+        return w
+
+
+def test_feature_weights():
+    poly_increasing = run_feature_weights(True)
+    poly_decreasing = run_feature_weights(False)
+    # Approxmated test, this is dependent on the implementation of random
+    # number generator in std library.
+    assert poly_increasing[0] > 0.08
+    assert poly_decreasing[0] < -0.08
+
+
+def run_boost_from_prediction(tree_method):
     from sklearn.datasets import load_breast_cancer
     X, y = load_breast_cancer(return_X_y=True)
     model_0 = xgb.XGBClassifier(
-        learning_rate=0.3, random_state=0, n_estimators=4)
+        learning_rate=0.3, random_state=0, n_estimators=4,
+        tree_method=tree_method)
     model_0.fit(X=X, y=y)
     margin = model_0.predict(X, output_margin=True)
 
     model_1 = xgb.XGBClassifier(
-        learning_rate=0.3, random_state=0, n_estimators=4)
+        learning_rate=0.3, random_state=0, n_estimators=4,
+        tree_method=tree_method)
     model_1.fit(X=X, y=y, base_margin=margin)
     predictions_1 = model_1.predict(X, base_margin=margin)
 
     cls_2 = xgb.XGBClassifier(
-        learning_rate=0.3, random_state=0, n_estimators=8)
+        learning_rate=0.3, random_state=0, n_estimators=8,
+        tree_method=tree_method)
     cls_2.fit(X=X, y=y)
-    predictions_2 = cls_2.predict(X, base_margin=margin)
+    predictions_2 = cls_2.predict(X)
     assert np.all(predictions_1 == predictions_2)
+
+
+@pytest.mark.skipif(**tm.no_sklearn())
+def test_boost_from_prediction_hist():
+    run_boost_from_prediction('hist')
+
+
+@pytest.mark.skipif(**tm.no_sklearn())
+def test_boost_from_prediction_approx():
+    run_boost_from_prediction('approx')
+
+
+@pytest.mark.skipif(**tm.no_sklearn())
+def test_boost_from_prediction_exact():
+    run_boost_from_prediction('exact')

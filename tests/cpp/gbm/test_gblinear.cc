@@ -16,7 +16,7 @@
 namespace xgboost {
 namespace gbm {
 
-TEST(GBLinear, Json_IO) {
+TEST(GBLinear, JsonIO) {
   size_t constexpr kRows = 16, kCols = 16;
 
   LearnerModelParam param;
@@ -44,6 +44,5 @@ TEST(GBLinear, Json_IO) {
     ASSERT_EQ(weights.size(), 17);
   }
 }
-
 }  // namespace gbm
 }  // namespace xgboost

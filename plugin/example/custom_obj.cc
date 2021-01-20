@@ -56,7 +56,7 @@ class MyLogistic : public ObjFunction {
     }
   }
   const char* DefaultEvalMetric() const override {
-    return "error";
+    return "logloss";
   }
   void PredTransform(HostDeviceVector<bst_float> *io_preds) override {
     // transform margin value to probability.
@@ -73,11 +73,11 @@ class MyLogistic : public ObjFunction {
   void SaveConfig(Json* p_out) const override {
     auto& out = *p_out;
     out["name"] = String("my_logistic");
-    out["my_logistic_param"] = toJson(param_);
+    out["my_logistic_param"] = ToJson(param_);
   }
 
   void LoadConfig(Json const& in) override {
-    fromJson(in["my_logistic_param"], &param_);
+    FromJson(in["my_logistic_param"], &param_);
   }
 
  private:

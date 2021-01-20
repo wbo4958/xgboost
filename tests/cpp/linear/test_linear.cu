@@ -3,6 +3,7 @@
 #include <xgboost/gbm.h>
 
 #include "../helpers.h"
+#include "test_json_io.h"
 #include "../../../src/gbm/gblinear_model.h"
 
 namespace xgboost {
@@ -11,7 +12,7 @@ TEST(Linear, GPUCoordinate) {
   size_t constexpr kRows = 10;
   size_t constexpr kCols = 10;
 
-  auto mat = xgboost::CreateDMatrix(kRows, kCols, 0);
+  auto mat = xgboost::RandomDataGenerator(kRows, kCols, 0).GenerateDMatrix();
   auto lparam = CreateEmptyGenericParam(GPUIDX);
 
   LearnerModelParam mparam;
@@ -23,14 +24,16 @@ TEST(Linear, GPUCoordinate) {
       xgboost::LinearUpdater::Create("gpu_coord_descent", &lparam));
   updater->Configure({{"eta", "1."}});
   xgboost::HostDeviceVector<xgboost::GradientPair> gpair(
-      (*mat)->Info().num_row_, xgboost::GradientPair(-5, 1.0));
+      mat->Info().num_row_, xgboost::GradientPair(-5, 1.0));
   xgboost::gbm::GBLinearModel model{&mparam};
 
   model.LazyInitModel();
-  updater->Update(&gpair, (*mat).get(), &model, gpair.Size());
+  updater->Update(&gpair, mat.get(), &model, gpair.Size());
 
-  ASSERT_EQ(model.bias()[0], 5.0f);
+  ASSERT_EQ(model.Bias()[0], 5.0f);
+}
 
-  delete mat;
+TEST(GPUCoordinate, JsonIO) {
+  TestUpdaterJsonIO("gpu_coord_descent");
 }
 }  // namespace xgboost

@@ -5,7 +5,7 @@
 namespace xgboost {
 namespace common {
 
-TEST(Transform, MGPU_SpecifiedGpuId) {
+TEST(Transform, MGPU_SpecifiedGpuId) {  // NOLINT
   if (AllVisibleGPUs() < 2) {
     LOG(WARNING) << "Not testing in multi-gpu environment.";
     return;
@@ -15,9 +15,9 @@ TEST(Transform, MGPU_SpecifiedGpuId) {
   const size_t size {256};
   std::vector<bst_float> h_in(size);
   std::vector<bst_float> h_out(size);
-  InitializeRange(h_in.begin(), h_in.end());
+  std::iota(h_in.begin(), h_in.end(), 0);
   std::vector<bst_float> h_sol(size);
-  InitializeRange(h_sol.begin(), h_sol.end());
+  std::iota(h_sol.begin(), h_sol.end(), 0);
 
   const HostDeviceVector<bst_float> in_vec {h_in, device};
   HostDeviceVector<bst_float> out_vec {h_out, device};

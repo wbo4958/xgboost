@@ -59,13 +59,6 @@ class ElementWiseMetricsReduction {
 
 #if defined(XGBOOST_USE_CUDA)
 
-  ~ElementWiseMetricsReduction() {
-    if (device_ >= 0) {
-      dh::safe_cuda(cudaSetDevice(device_));
-      allocator_.Free();
-    }
-  }
-
   PackedReduceResult DeviceReduceMetrics(
       const HostDeviceVector<bst_float>& weights,
       const HostDeviceVector<bst_float>& labels,
@@ -83,8 +76,9 @@ class ElementWiseMetricsReduction {
 
     auto d_policy = policy_;
 
+    dh::XGBCachingDeviceAllocator<char> alloc;
     PackedReduceResult result = thrust::transform_reduce(
-        thrust::cuda::par(allocator_),
+        thrust::cuda::par(alloc),
         begin, end,
         [=] XGBOOST_DEVICE(size_t idx) {
           bst_float weight = is_null_weight ? 1.0f : s_weights[idx];
@@ -130,7 +124,6 @@ class ElementWiseMetricsReduction {
   EvalRow policy_;
 #if defined(XGBOOST_USE_CUDA)
   int device_{-1};
-  dh::CubMemory allocator_;
 #endif  // defined(XGBOOST_USE_CUDA)
 };
 
@@ -175,6 +168,18 @@ struct EvalRowMAE {
   }
 };
 
+struct EvalRowMAPE {
+  const char *Name() const {
+    return "mape";
+  }
+  XGBOOST_DEVICE bst_float EvalRow(bst_float label, bst_float pred) const {
+    return std::abs((label - pred) / label);
+  }
+  static bst_float GetFinal(bst_float esum, bst_float wsum) {
+    return wsum == 0 ? esum : esum / wsum;
+  }
+};
+
 struct EvalRowLogLoss {
   const char *Name() const {
     return "logloss";
@@ -192,6 +197,19 @@ struct EvalRowLogLoss {
     }
   }
 
+  static bst_float GetFinal(bst_float esum, bst_float wsum) {
+    return wsum == 0 ? esum : esum / wsum;
+  }
+};
+
+struct EvalRowMPHE {
+  char const *Name() const {
+    return "mphe";
+  }
+  XGBOOST_DEVICE bst_float EvalRow(bst_float label, bst_float pred) const {
+    bst_float diff = label - pred;
+    return std::sqrt( 1 + diff * diff) - 1;
+  }
   static bst_float GetFinal(bst_float esum, bst_float wsum) {
     return wsum == 0 ? esum : esum / wsum;
   }
@@ -319,16 +337,13 @@ struct EvalTweedieNLogLik {
  */
 template<typename Policy>
 struct EvalEWiseBase : public Metric {
-  EvalEWiseBase() : policy_{}, reducer_{policy_} {}
+  EvalEWiseBase() = default;
   explicit EvalEWiseBase(char const* policy_param) :
     policy_{policy_param}, reducer_{policy_} {}
 
   bst_float Eval(const HostDeviceVector<bst_float>& preds,
                  const MetaInfo& info,
                  bool distributed) override {
-    if (info.labels_.Size() == 0) {
-      LOG(WARNING) << "label set is empty";
-    }
     CHECK_EQ(preds.Size(), info.labels_.Size())
         << "label and prediction size not match, "
         << "hint: use merror or mlogloss for multi-class classification";
@@ -351,8 +366,7 @@ struct EvalEWiseBase : public Metric {
 
  private:
   Policy policy_;
-
-  ElementWiseMetricsReduction<Policy> reducer_;
+  ElementWiseMetricsReduction<Policy> reducer_{policy_};
 };
 
 XGBOOST_REGISTER_METRIC(RMSE, "rmse")
@@ -366,6 +380,14 @@ XGBOOST_REGISTER_METRIC(RMSLE, "rmsle")
 XGBOOST_REGISTER_METRIC(MAE, "mae")
 .describe("Mean absolute error.")
 .set_body([](const char* param) { return new EvalEWiseBase<EvalRowMAE>(); });
+
+XGBOOST_REGISTER_METRIC(MAPE, "mape")
+    .describe("Mean absolute percentage error.")
+    .set_body([](const char* param) { return new EvalEWiseBase<EvalRowMAPE>(); });
+
+XGBOOST_REGISTER_METRIC(MPHE, "mphe")
+.describe("Mean Pseudo Huber error.")
+.set_body([](const char* param) { return new EvalEWiseBase<EvalRowMPHE>(); });
 
 XGBOOST_REGISTER_METRIC(LogLoss, "logloss")
 .describe("Negative loglikelihood for logistic regression.")

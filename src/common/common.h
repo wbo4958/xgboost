@@ -9,12 +9,15 @@
 #include <xgboost/base.h>
 #include <xgboost/logging.h>
 
+#include <algorithm>
 #include <exception>
+#include <functional>
 #include <limits>
 #include <type_traits>
 #include <vector>
 #include <string>
 #include <sstream>
+#include <numeric>
 
 #if defined(__CUDACC__)
 #include <thrust/system/cuda/error.h>
@@ -62,6 +65,11 @@ inline std::vector<std::string> Split(const std::string& s, char delim) {
     ret.push_back(item);
   }
   return ret;
+}
+
+template <typename T>
+XGBOOST_DEVICE T Max(T a, T b) {
+  return a < b ? b : a;
 }
 
 // simple routine to convert any data to string
@@ -113,7 +121,7 @@ class Range {
     XGBOOST_DEVICE explicit Iterator(DifferenceType start, DifferenceType step) :
         i_{start}, step_{step} {}
 
-   public:
+   private:
     int64_t i_;
     DifferenceType step_ = 1;
   };
@@ -142,6 +150,28 @@ class Range {
 };
 
 int AllVisibleGPUs();
+
+inline void AssertGPUSupport() {
+#ifndef XGBOOST_USE_CUDA
+    LOG(FATAL) << "XGBoost version not compiled with GPU support.";
+#endif  // XGBOOST_USE_CUDA
+}
+
+inline void AssertOneAPISupport() {
+#ifndef XGBOOST_USE_ONEAPI
+    LOG(FATAL) << "XGBoost version not compiled with OneAPI support.";
+#endif  // XGBOOST_USE_ONEAPI
+}
+
+template <typename Idx, typename V, typename Comp = std::less<V>>
+std::vector<Idx> ArgSort(std::vector<V> const &array, Comp comp = std::less<V>{}) {
+  std::vector<Idx> result(array.size());
+  std::iota(result.begin(), result.end(), 0);
+  std::stable_sort(
+      result.begin(), result.end(),
+      [&array, comp](Idx const &l, Idx const &r) { return comp(array[l], array[r]); });
+  return result;
+}
 }  // namespace common
 }  // namespace xgboost
 #endif  // XGBOOST_COMMON_COMMON_H_

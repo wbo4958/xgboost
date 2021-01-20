@@ -28,7 +28,7 @@ class ObjFunction : public Configurable {
 
  public:
   /*! \brief virtual destructor */
-  virtual ~ObjFunction() = default;
+  ~ObjFunction() override = default;
   /*!
    * \brief Configure the objective with the specified parameters.
    * \param args arguments to the objective function.
@@ -53,7 +53,7 @@ class ObjFunction : public Configurable {
    * \brief transform prediction values, this is only called when Prediction is called
    * \param io_preds prediction values, saves to this vector as well
    */
-  virtual void PredTransform(HostDeviceVector<bst_float> *io_preds) {}
+  virtual void PredTransform(HostDeviceVector<bst_float>*) {}
 
   /*!
    * \brief transform prediction values, this is only called when Eval is called,

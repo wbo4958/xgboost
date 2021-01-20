@@ -1,6 +1,6 @@
 /*!
  * Copyright 2014-2019 by Contributors
- * \file learner.cc
+ * \file generic_parameters.h
  */
 #ifndef XGBOOST_GENERIC_PARAMETERS_H_
 #define XGBOOST_GENERIC_PARAMETERS_H_
@@ -11,13 +11,15 @@
 #include <string>
 
 namespace xgboost {
+
 struct GenericParameter : public XGBoostParameter<GenericParameter> {
   // Constant representing the device ID of CPU.
   static int32_t constexpr kCpuId = -1;
+  static int64_t constexpr kDefaultSeed = 0;
 
  public:
   // stored random seed
-  int seed;
+  int64_t seed { kDefaultSeed };
   // whether seed the PRNG each iteration
   bool seed_per_iteration;
   // number of threads to use if OpenMP is enabled
@@ -25,9 +27,12 @@ struct GenericParameter : public XGBoostParameter<GenericParameter> {
   int nthread;
   // primary device, -1 means no gpu.
   int gpu_id;
+  // fail when gpu_id is invalid
+  bool fail_on_invalid_gpu_id {false};
   // gpu page size in external memory mode, 0 means using the default.
   size_t gpu_page_size;
-  bool enable_experimental_json_serialization {false};
+  bool enable_experimental_json_serialization {true};
+  bool validate_parameters {false};
 
   void CheckDeprecated() {
     if (this->n_gpus != 0) {
@@ -45,7 +50,7 @@ struct GenericParameter : public XGBoostParameter<GenericParameter> {
 
   // declare parameters
   DMLC_DECLARE_PARAMETER(GenericParameter) {
-    DMLC_DECLARE_FIELD(seed).set_default(0).describe(
+    DMLC_DECLARE_FIELD(seed).set_default(kDefaultSeed).describe(
         "Random number seed during training.");
     DMLC_DECLARE_ALIAS(seed, random_state);
     DMLC_DECLARE_FIELD(seed_per_iteration)
@@ -62,14 +67,20 @@ struct GenericParameter : public XGBoostParameter<GenericParameter> {
         .set_default(-1)
         .set_lower_bound(-1)
         .describe("The primary GPU device ordinal.");
+    DMLC_DECLARE_FIELD(fail_on_invalid_gpu_id)
+        .set_default(false)
+        .describe("Fail with error when gpu_id is invalid.");
     DMLC_DECLARE_FIELD(gpu_page_size)
         .set_default(0)
         .set_lower_bound(0)
         .describe("GPU page size when running in external memory mode.");
     DMLC_DECLARE_FIELD(enable_experimental_json_serialization)
-        .set_default(false)
+        .set_default(true)
         .describe("Enable using JSON for memory serialization (Python Pickle, "
                   "rabit checkpoints etc.).");
+    DMLC_DECLARE_FIELD(validate_parameters)
+        .set_default(false)
+        .describe("Enable checking whether parameters are used or not.");
     DMLC_DECLARE_FIELD(n_gpus)
         .set_default(0)
         .set_range(0, 1)
@@ -81,7 +92,7 @@ struct GenericParameter : public XGBoostParameter<GenericParameter> {
 
  private:
   // number of devices to use (deprecated).
-  int n_gpus {0};
+  int n_gpus {0};  // NOLINT
 };
 }  // namespace xgboost
 

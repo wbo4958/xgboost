@@ -19,6 +19,8 @@ package org.apache.spark
 import org.apache.commons.logging.LogFactory
 import org.apache.spark.scheduler._
 
+import scala.collection.mutable.{HashMap, HashSet}
+
 /**
  * A tracker that ensures enough number of executor cores are alive.
  * Throws an exception when the number of alive cores is less than nWorkers.
@@ -26,11 +28,13 @@ import org.apache.spark.scheduler._
  * @param sc The SparkContext object
  * @param timeout The maximum time to wait for enough number of workers.
  * @param numWorkers nWorkers used in an XGBoost Job
+ * @param killSparkContextOnWorkerFailure kill SparkContext or not when task fails
  */
 class SparkParallelismTracker(
     val sc: SparkContext,
     timeout: Long,
-    numWorkers: Int) {
+    numWorkers: Int,
+    killSparkContextOnWorkerFailure: Boolean = true) {
 
   private[this] val requestedCores = numWorkers * sc.conf.getInt("spark.task.cpus", 1)
   private[this] val logger = LogFactory.getLog("XGBoostSpark")
@@ -39,7 +43,7 @@ class SparkParallelismTracker(
     sc.statusStore.executorList(true).map(_.totalCores).sum
   }
 
-  private[this] def waitForCondition(
+  protected[this] def waitForCondition(
       condition: => Boolean,
       timeout: Long,
       checkInterval: Long = 100L) = {
@@ -57,8 +61,8 @@ class SparkParallelismTracker(
     waitImpl(0L, condition)
   }
 
-  private[this] def safeExecute[T](body: => T): T = {
-    val listener = new TaskFailedListener
+  protected[this] def safeExecute[T](body: => T): T = {
+    val listener = new TaskFailedListener(killSparkContextOnWorkerFailure)
     sc.addSparkListener(listener)
     try {
       body
@@ -66,6 +70,11 @@ class SparkParallelismTracker(
       sc.removeSparkListener(listener)
     }
   }
+
+  protected[this] def numAliveWorkers: Int =
+    sc.statusStore.executorList(true).size
+
+  protected[this] def isActiveCoresEnough: Boolean = numAliveCores >= requestedCores
 
   /**
    * Execute a blocking function call with two checks on enough nWorkers:
@@ -79,7 +88,7 @@ class SparkParallelismTracker(
   def execute[T](body: => T): T = {
     if (timeout <= 0) {
       logger.info("starting training without setting timeout for waiting for resources")
-      body
+      safeExecute(body)
     } else {
       logger.info(s"starting training with timeout set as $timeout ms for waiting for resources")
       if (!waitForCondition(numAliveCores >= requestedCores, timeout)) {
@@ -90,16 +99,51 @@ class SparkParallelismTracker(
   }
 }
 
-private[spark] class TaskFailedListener extends SparkListener {
+class TaskFailedListener(killSparkContext: Boolean = true) extends SparkListener {
 
   private[this] val logger = LogFactory.getLog("XGBoostTaskFailedListener")
+
+  // {jobId, [stageId0, stageId1, ...] }
+  // keep track of the mapping of job id and stage ids
+  // when a task fails, find the job id and stage id the task belongs to, finally
+  // cancel the jobs
+  private val jobIdToStageIds: HashMap[Int, HashSet[Int]] = HashMap.empty
+
+  override def onJobStart(jobStart: SparkListenerJobStart): Unit = {
+    if (!killSparkContext) {
+      jobStart.stageIds.foreach(stageId => {
+        jobIdToStageIds.getOrElseUpdate(jobStart.jobId, new HashSet[Int]()) += stageId
+      })
+    }
+  }
+
+  override def onJobEnd(jobEnd: SparkListenerJobEnd): Unit = {
+    if (!killSparkContext) {
+      jobIdToStageIds.remove(jobEnd.jobId)
+    }
+  }
 
   override def onTaskEnd(taskEnd: SparkListenerTaskEnd): Unit = {
     taskEnd.reason match {
       case taskEndReason: TaskFailedReason =>
         logger.error(s"Training Task Failed during XGBoost Training: " +
-            s"$taskEndReason, stopping SparkContext")
-        TaskFailedListener.startedSparkContextKiller()
+            s"$taskEndReason")
+        if (killSparkContext) {
+          logger.error("killing SparkContext")
+          TaskFailedListener.startedSparkContextKiller()
+        } else {
+          val stageId = taskEnd.stageId
+          // find job ids according to stage id and then cancel the job
+
+          jobIdToStageIds.foreach {
+            case (jobId, stageIds) =>
+              if (stageIds.contains(stageId)) {
+                logger.error("Cancelling jobId:" + jobId)
+                jobIdToStageIds.remove(jobId)
+                SparkContext.getOrCreate().cancelJob(jobId)
+              }
+          }
+        }
       case _ =>
     }
   }
@@ -107,22 +151,30 @@ private[spark] class TaskFailedListener extends SparkListener {
 
 object TaskFailedListener {
 
-  var killerStarted = false
+  var killerStarted: Boolean = false
+
+  var sparkContextKiller: Thread = _
+
+  val sparkContextShutdownLock = new AnyRef
 
   private def startedSparkContextKiller(): Unit = this.synchronized {
     if (!killerStarted) {
+      killerStarted = true
       // Spark does not allow ListenerThread to shutdown SparkContext so that we have to do it
       // in a separate thread
-      val sparkContextKiller = new Thread() {
+      sparkContextKiller = new Thread() {
         override def run(): Unit = {
           LiveListenerBus.withinListenerThread.withValue(false) {
-            SparkContext.getOrCreate().stop()
+            sparkContextShutdownLock.synchronized {
+              SparkContext.getActive.foreach(_.stop())
+              killerStarted = false
+              sparkContextShutdownLock.notify()
+            }
           }
         }
       }
       sparkContextKiller.setDaemon(true)
       sparkContextKiller.start()
-      killerStarted = true
     }
   }
 }
