@@ -22,17 +22,17 @@ DMLC_REGISTRY_FILE_TAG(updater_sync);
  */
 class TreeSyncher: public TreeUpdater {
  public:
-  void Configure(const Args&) override {}
+  void Configure(const Args& args) override {}
 
-  void LoadConfig(Json const&) override {}
-  void SaveConfig(Json*) const override {}
+  void LoadConfig(Json const& in) override {}
+  void SaveConfig(Json* p_out) const override {}
 
   char const* Name() const override {
     return "prune";
   }
 
-  void Update(HostDeviceVector<GradientPair>* ,
-              DMatrix*,
+  void Update(HostDeviceVector<GradientPair> *gpair,
+              DMatrix* dmat,
               const std::vector<RegTree*> &trees) override {
     if (rabit::GetWorldSize() == 1) return;
     std::string s_model;

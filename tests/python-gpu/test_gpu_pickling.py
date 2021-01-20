@@ -1,16 +1,15 @@
 '''Test model IO with pickle.'''
 import pickle
+import unittest
 import numpy as np
 import subprocess
 import os
-import sys
 import json
 import pytest
+import copy
+
 import xgboost as xgb
 from xgboost import XGBClassifier
-
-sys.path.append("tests/python")
-import testing as tm
 
 model_path = './model.pkl'
 
@@ -34,7 +33,7 @@ def load_pickle(path):
     return bst
 
 
-class TestPickling:
+class TestPickling(unittest.TestCase):
     args_template = [
         "pytest",
         "--verbose",
@@ -92,7 +91,6 @@ class TestPickling:
         )
         status = subprocess.call(args, env=env)
         assert status == 0
-        os.remove(model_path)
 
     def test_pickled_predictor(self):
         x, y = build_dataset()
@@ -131,8 +129,6 @@ class TestPickling:
         status = subprocess.call(args, env=env)
         assert status == 0
 
-        os.remove(model_path)
-
     def test_predict_sklearn_pickle(self):
         x, y = build_dataset()
 
@@ -158,14 +154,3 @@ class TestPickling:
         bst.set_param({'predictor': 'cpu_predictor'})
         cpu_pred = model.predict(x, output_margin=True)
         np.testing.assert_allclose(cpu_pred, gpu_pred, rtol=1e-5)
-
-    def test_training_on_cpu_only_env(self):
-        cuda_environment = {'CUDA_VISIBLE_DEVICES': '-1'}
-        env = os.environ.copy()
-        env.update(cuda_environment)
-        args = self.args_template.copy()
-        args.append(
-            "./tests/python-gpu/"
-            "load_pickle.py::TestLoadPickle::test_training_on_cpu_only_env")
-        status = subprocess.call(args, env=env)
-        assert status == 0

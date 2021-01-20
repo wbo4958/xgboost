@@ -17,35 +17,26 @@ class EllpackPageRawFormat : public SparsePageFormat<EllpackPage> {
  public:
   bool Read(EllpackPage* page, dmlc::SeekStream* fi) override {
     auto* impl = page->Impl();
-    fi->Read(&impl->Cuts().cut_values_.HostVector());
-    fi->Read(&impl->Cuts().cut_ptrs_.HostVector());
-    fi->Read(&impl->Cuts().min_vals_.HostVector());
-    fi->Read(&impl->n_rows);
-    fi->Read(&impl->is_dense);
-    fi->Read(&impl->row_stride);
-    if (!fi->Read(&impl->gidx_buffer.HostVector())) {
-      return false;
-    }
-    return true;
+    impl->Clear();
+    if (!fi->Read(&impl->matrix.n_rows))  return false;
+    return fi->Read(&impl->idx_buffer);
   }
 
   bool Read(EllpackPage* page,
             dmlc::SeekStream* fi,
             const std::vector<bst_uint>& sorted_index_set) override {
-    LOG(FATAL) << "Not implemented";
-    return false;
+    auto* impl = page->Impl();
+    impl->Clear();
+    if (!fi->Read(&impl->matrix.n_rows))  return false;
+    return fi->Read(&page->Impl()->idx_buffer);
   }
 
   void Write(const EllpackPage& page, dmlc::Stream* fo) override {
     auto* impl = page.Impl();
-    fo->Write(impl->Cuts().cut_values_.ConstHostVector());
-    fo->Write(impl->Cuts().cut_ptrs_.ConstHostVector());
-    fo->Write(impl->Cuts().min_vals_.ConstHostVector());
-    fo->Write(impl->n_rows);
-    fo->Write(impl->is_dense);
-    fo->Write(impl->row_stride);
-    CHECK(!impl->gidx_buffer.ConstHostVector().empty());
-    fo->Write(impl->gidx_buffer.HostVector());
+    fo->Write(impl->matrix.n_rows);
+    auto buffer = impl->idx_buffer;
+    CHECK(!buffer.empty());
+    fo->Write(buffer);
   }
 };
 

@@ -1,27 +1,12 @@
 /*!
- *  Copyright (c) 2019~2020 by Contributors
+ *  Copyright (c) 2019 by Contributors
  * \file adapter.h
  */
 #ifndef XGBOOST_DATA_ADAPTER_H_
 #define XGBOOST_DATA_ADAPTER_H_
-#include <dmlc/data.h>
-
-#include <cstddef>
-#include <functional>
 #include <limits>
 #include <memory>
 #include <string>
-#include <utility>
-#include <vector>
-
-#include "xgboost/logging.h"
-#include "xgboost/base.h"
-#include "xgboost/data.h"
-#include "xgboost/span.h"
-
-#include "array_interface.h"
-#include "../c_api/c_api_error.h"
-
 namespace xgboost {
 namespace data {
 
@@ -71,8 +56,7 @@ namespace data {
 constexpr size_t kAdapterUnknownSize = std::numeric_limits<size_t >::max();
 
 struct COOTuple {
-  COOTuple() = default;
-  XGBOOST_DEVICE COOTuple(size_t row_idx, size_t column_idx, float value)
+  COOTuple(size_t row_idx, size_t column_idx, float value)
       : row_idx(row_idx), column_idx(column_idx), value(value) {}
 
   size_t row_idx{0};
@@ -88,17 +72,17 @@ namespace detail {
 template <typename DType>
 class SingleBatchDataIter : dmlc::DataIter<DType> {
  public:
-  void BeforeFirst() override { counter_ = 0; }
+  void BeforeFirst() override { counter = 0; }
   bool Next() override {
-    if (counter_ == 0) {
-      counter_++;
+    if (counter == 0) {
+      counter++;
       return true;
     }
     return false;
   }
 
  private:
-  int counter_{0};
+  int counter{0};
 };
 
 /** \brief Indicates this data source cannot contain meta-info such as labels,
@@ -108,7 +92,6 @@ class NoMetaInfo {
   const float* Labels() const { return nullptr; }
   const float* Weights() const { return nullptr; }
   const uint64_t* Qid() const { return nullptr; }
-  const float* BaseMargin() const { return nullptr; }
 };
 
 };  // namespace detail
@@ -119,41 +102,42 @@ class CSRAdapterBatch : public detail::NoMetaInfo {
    public:
     Line(size_t row_idx, size_t size, const unsigned* feature_idx,
          const float* values)
-        : row_idx_(row_idx),
-          size_(size),
-          feature_idx_(feature_idx),
-          values_(values) {}
+        : row_idx(row_idx),
+          size(size),
+          feature_idx(feature_idx),
+          values(values) {}
 
-    size_t Size() const { return size_; }
+    size_t Size() const { return size; }
     COOTuple GetElement(size_t idx) const {
-      return COOTuple{row_idx_, feature_idx_[idx], values_[idx]};
+      return COOTuple(row_idx, feature_idx[idx], values[idx]);
     }
 
    private:
-    size_t row_idx_;
-    size_t size_;
-    const unsigned* feature_idx_;
-    const float* values_;
+    size_t row_idx;
+    size_t size;
+    const unsigned* feature_idx;
+    const float* values;
   };
   CSRAdapterBatch(const size_t* row_ptr, const unsigned* feature_idx,
-                  const float* values, size_t num_rows, size_t, size_t)
-      : row_ptr_(row_ptr),
-        feature_idx_(feature_idx),
-        values_(values),
-        num_rows_(num_rows) {}
+                  const float* values, size_t num_rows, size_t num_elements,
+                  size_t num_features)
+      : row_ptr(row_ptr),
+        feature_idx(feature_idx),
+        values(values),
+        num_rows(num_rows) {}
   const Line GetLine(size_t idx) const {
-    size_t begin_offset = row_ptr_[idx];
-    size_t end_offset = row_ptr_[idx + 1];
-    return Line(idx, end_offset - begin_offset, &feature_idx_[begin_offset],
-                &values_[begin_offset]);
+    size_t begin_offset = row_ptr[idx];
+    size_t end_offset = row_ptr[idx + 1];
+    return Line(idx, end_offset - begin_offset, &feature_idx[begin_offset],
+                &values[begin_offset]);
   }
-  size_t Size() const { return num_rows_; }
+  size_t Size() const { return num_rows; }
 
  private:
-  const size_t* row_ptr_;
-  const unsigned* feature_idx_;
-  const float* values_;
-  size_t num_rows_;
+  const size_t* row_ptr;
+  const unsigned* feature_idx;
+  const float* values;
+  size_t num_rows;
 };
 
 class CSRAdapter : public detail::SingleBatchDataIter<CSRAdapterBatch> {
@@ -161,146 +145,150 @@ class CSRAdapter : public detail::SingleBatchDataIter<CSRAdapterBatch> {
   CSRAdapter(const size_t* row_ptr, const unsigned* feature_idx,
              const float* values, size_t num_rows, size_t num_elements,
              size_t num_features)
-      : batch_(row_ptr, feature_idx, values, num_rows, num_elements,
-               num_features),
-        num_rows_(num_rows),
-        num_columns_(num_features) {}
-  const CSRAdapterBatch& Value() const override { return batch_; }
-  size_t NumRows() const { return num_rows_; }
-  size_t NumColumns() const { return num_columns_; }
+      : batch(row_ptr, feature_idx, values, num_rows, num_elements,
+              num_features),
+        num_rows(num_rows),
+        num_columns(num_features) {}
+  const CSRAdapterBatch& Value() const override { return batch; }
+  size_t NumRows() const { return num_rows; }
+  size_t NumColumns() const { return num_columns; }
 
  private:
-  CSRAdapterBatch batch_;
-  size_t num_rows_;
-  size_t num_columns_;
+  CSRAdapterBatch batch;
+  size_t num_rows;
+  size_t num_columns;
 };
 
 class DenseAdapterBatch : public detail::NoMetaInfo {
  public:
-  DenseAdapterBatch(const float* values, size_t num_rows, size_t num_features)
-      : values_(values),
-        num_rows_(num_rows),
-        num_features_(num_features) {}
+  DenseAdapterBatch(const float* values, size_t num_rows, size_t num_elements,
+                    size_t num_features)
+      : num_features(num_features),
+        num_rows(num_rows),
+        num_elements(num_elements),
+        values(values) {}
 
  private:
   class Line {
    public:
     Line(const float* values, size_t size, size_t row_idx)
-        : row_idx_(row_idx), size_(size), values_(values) {}
+        : row_idx(row_idx), size(size), values(values) {}
 
-    size_t Size() const { return size_; }
+    size_t Size() const { return size; }
     COOTuple GetElement(size_t idx) const {
-      return COOTuple{row_idx_, idx, values_[idx]};
+      return COOTuple(row_idx, idx, values[idx]);
     }
 
    private:
-    size_t row_idx_;
-    size_t size_;
-    const float* values_;
+    size_t row_idx;
+    size_t size;
+    const float* values;
   };
 
  public:
-  size_t Size() const { return num_rows_; }
+  size_t Size() const { return num_rows; }
   const Line GetLine(size_t idx) const {
-    return Line(values_ + idx * num_features_, num_features_, idx);
+    return Line(values + idx * num_features, num_features, idx);
   }
 
  private:
-  const float* values_;
-  size_t num_rows_;
-  size_t num_features_;
+  const float* values;
+  size_t num_elements;
+  size_t num_rows;
+  size_t num_features;
 };
 
 class DenseAdapter : public detail::SingleBatchDataIter<DenseAdapterBatch> {
  public:
-  DenseAdapter(const float* values, size_t num_rows, size_t num_features)
-      : batch_(values, num_rows, num_features),
-        num_rows_(num_rows),
-        num_columns_(num_features) {}
-  const DenseAdapterBatch& Value() const override { return batch_; }
+  DenseAdapter(const float* values, size_t num_rows, size_t num_elements,
+               size_t num_features)
+      : batch(values, num_rows, num_elements, num_features),
+        num_rows(num_rows),
+        num_columns(num_features) {}
+  const DenseAdapterBatch& Value() const override { return batch; }
 
-  size_t NumRows() const { return num_rows_; }
-  size_t NumColumns() const { return num_columns_; }
+  size_t NumRows() const { return num_rows; }
+  size_t NumColumns() const { return num_columns; }
 
  private:
-  DenseAdapterBatch batch_;
-  size_t num_rows_;
-  size_t num_columns_;
+  DenseAdapterBatch batch;
+  size_t num_rows;
+  size_t num_columns;
 };
 
 class CSCAdapterBatch : public detail::NoMetaInfo {
  public:
   CSCAdapterBatch(const size_t* col_ptr, const unsigned* row_idx,
                   const float* values, size_t num_features)
-      : col_ptr_(col_ptr),
-        row_idx_(row_idx),
-        values_(values),
-        num_features_(num_features) {}
+      : col_ptr(col_ptr),
+        row_idx(row_idx),
+        values(values),
+        num_features(num_features) {}
 
  private:
   class Line {
    public:
     Line(size_t col_idx, size_t size, const unsigned* row_idx,
          const float* values)
-        : col_idx_(col_idx), size_(size), row_idx_(row_idx), values_(values) {}
+        : col_idx(col_idx), size(size), row_idx(row_idx), values(values) {}
 
-    size_t Size() const { return size_; }
+    size_t Size() const { return size; }
     COOTuple GetElement(size_t idx) const {
-      return COOTuple{row_idx_[idx], col_idx_, values_[idx]};
+      return COOTuple(row_idx[idx], col_idx, values[idx]);
     }
 
    private:
-    size_t col_idx_;
-    size_t size_;
-    const unsigned* row_idx_;
-    const float* values_;
+    size_t col_idx;
+    size_t size;
+    const unsigned* row_idx;
+    const float* values;
   };
 
  public:
-  size_t Size() const { return num_features_; }
+  size_t Size() const { return num_features; }
   const Line GetLine(size_t idx) const {
-    size_t begin_offset = col_ptr_[idx];
-    size_t end_offset = col_ptr_[idx + 1];
-    return Line(idx, end_offset - begin_offset, &row_idx_[begin_offset],
-                &values_[begin_offset]);
+    size_t begin_offset = col_ptr[idx];
+    size_t end_offset = col_ptr[idx + 1];
+    return Line(idx, end_offset - begin_offset, &row_idx[begin_offset],
+                &values[begin_offset]);
   }
 
  private:
-  const size_t* col_ptr_;
-  const unsigned* row_idx_;
-  const float* values_;
-  size_t num_features_;
+  const size_t* col_ptr;
+  const unsigned* row_idx;
+  const float* values;
+  size_t num_features;
 };
 
 class CSCAdapter : public detail::SingleBatchDataIter<CSCAdapterBatch> {
  public:
   CSCAdapter(const size_t* col_ptr, const unsigned* row_idx,
              const float* values, size_t num_features, size_t num_rows)
-      : batch_(col_ptr, row_idx, values, num_features),
-        num_rows_(num_rows),
-        num_columns_(num_features) {}
-  const CSCAdapterBatch& Value() const override { return batch_; }
+      : batch(col_ptr, row_idx, values, num_features),
+        num_rows(num_rows),
+        num_columns(num_features) {}
+  const CSCAdapterBatch& Value() const override { return batch; }
 
   // JVM package sends 0 as unknown
   size_t NumRows() const {
-    return num_rows_ == 0 ? kAdapterUnknownSize : num_rows_;
+    return num_rows == 0 ? kAdapterUnknownSize : num_rows;
   }
-  size_t NumColumns() const { return num_columns_; }
+  size_t NumColumns() const { return num_columns; }
 
  private:
-  CSCAdapterBatch batch_;
-  size_t num_rows_;
-  size_t num_columns_;
+  CSCAdapterBatch batch;
+  size_t num_rows;
+  size_t num_columns;
 };
 
 class DataTableAdapterBatch : public detail::NoMetaInfo {
  public:
   DataTableAdapterBatch(void** data, const char** feature_stypes,
                         size_t num_rows, size_t num_features)
-      : data_(data),
-        feature_stypes_(feature_stypes),
-        num_features_(num_features),
-        num_rows_(num_rows) {}
+      : data(data),
+        feature_stypes(feature_stypes),
+        num_features(num_features),
+        num_rows(num_rows) {}
 
  private:
   enum class DTType : uint8_t {
@@ -377,31 +365,31 @@ class DataTableAdapterBatch : public detail::NoMetaInfo {
 
    public:
     Line(DTType type, size_t size, size_t column_idx, const void* column)
-        : type_(type), size_(size), column_idx_(column_idx), column_(column) {}
+        : type(type), size(size), column_idx(column_idx), column(column) {}
 
-    size_t Size() const { return size_; }
+    size_t Size() const { return size; }
     COOTuple GetElement(size_t idx) const {
-      return COOTuple{idx, column_idx_, DTGetValue(column_, type_, idx)};
+      return COOTuple(idx, column_idx, DTGetValue(column, type, idx));
     }
 
    private:
-    DTType type_;
-    size_t size_;
-    size_t column_idx_;
-    const void* column_;
+    DTType type;
+    size_t size;
+    size_t column_idx;
+    const void* column;
   };
 
  public:
-  size_t Size() const { return num_features_; }
+  size_t Size() const { return num_features; }
   const Line GetLine(size_t idx) const {
-    return Line(DTGetType(feature_stypes_[idx]), num_rows_, idx, data_[idx]);
+    return Line(DTGetType(feature_stypes[idx]), num_rows, idx, data[idx]);
   }
 
  private:
-  void** data_;
-  const char** feature_stypes_;
-  size_t num_features_;
-  size_t num_rows_;
+  void** data;
+  const char** feature_stypes;
+  size_t num_features;
+  size_t num_rows;
 };
 
 class DataTableAdapter
@@ -409,78 +397,77 @@ class DataTableAdapter
  public:
   DataTableAdapter(void** data, const char** feature_stypes, size_t num_rows,
                    size_t num_features)
-      : batch_(data, feature_stypes, num_rows, num_features),
-        num_rows_(num_rows),
-        num_columns_(num_features) {}
-  const DataTableAdapterBatch& Value() const override { return batch_; }
-  size_t NumRows() const { return num_rows_; }
-  size_t NumColumns() const { return num_columns_; }
+      : batch(data, feature_stypes, num_rows, num_features),
+        num_rows(num_rows),
+        num_columns(num_features) {}
+  const DataTableAdapterBatch& Value() const override { return batch; }
+  size_t NumRows() const { return num_rows; }
+  size_t NumColumns() const { return num_columns; }
 
  private:
-  DataTableAdapterBatch batch_;
-  size_t num_rows_;
-  size_t num_columns_;
+  DataTableAdapterBatch batch;
+  size_t num_rows;
+  size_t num_columns;
 };
 
 class FileAdapterBatch {
  public:
   class Line {
    public:
-    Line(size_t row_idx, const uint32_t *feature_idx, const float *value,
+    Line(size_t row_idx, const uint32_t* feature_idx, const float* value,
          size_t size)
-        : row_idx_(row_idx),
-          feature_idx_(feature_idx),
-          value_(value),
-          size_(size) {}
+        : row_idx(row_idx),
+          feature_idx(feature_idx),
+          value(value),
+          size(size) {}
 
-    size_t Size() { return size_; }
+    size_t Size() { return size; }
     COOTuple GetElement(size_t idx) {
-      float fvalue = value_ == nullptr ? 1.0f : value_[idx];
-      return COOTuple{row_idx_, feature_idx_[idx], fvalue};
+      float fvalue = value == nullptr ? 1.0f : value[idx];
+      return COOTuple(row_idx, feature_idx[idx], fvalue);
     }
 
    private:
-    size_t row_idx_;
-    const uint32_t* feature_idx_;
-    const float* value_;
-    size_t size_;
+    size_t row_idx;
+    const uint32_t* feature_idx;
+    const float* value;
+    size_t size;
   };
   FileAdapterBatch(const dmlc::RowBlock<uint32_t>* block, size_t row_offset)
-      : block_(block), row_offset_(row_offset) {}
+      : block(block), row_offset(row_offset) {}
   Line GetLine(size_t idx) const {
-    auto begin = block_->offset[idx];
-    auto end = block_->offset[idx + 1];
-    return Line{idx + row_offset_, &block_->index[begin], &block_->value[begin],
-                end - begin};
+    auto begin = block->offset[idx];
+    auto end = block->offset[idx + 1];
+    return Line(idx + row_offset, &block->index[begin], &block->value[begin],
+                end - begin);
   }
-  const float* Labels() const { return block_->label; }
-  const float* Weights() const { return block_->weight; }
-  const uint64_t* Qid() const { return block_->qid; }
-  const float* BaseMargin() const { return nullptr; }
+  const float* Labels() const { return block->label; }
+  const float* Weights() const { return block->weight; }
+  const uint64_t* Qid() const { return block->qid; }
 
-  size_t Size() const { return block_->size; }
+  size_t Size() const { return block->size; }
 
  private:
-  const dmlc::RowBlock<uint32_t>* block_;
-  size_t row_offset_;
+  const dmlc::RowBlock<uint32_t>* block;
+  size_t row_offset;
 };
 
 /** \brief FileAdapter wraps dmlc::parser to read files and provide access in a
  * common interface. */
 class FileAdapter : dmlc::DataIter<FileAdapterBatch> {
  public:
-  explicit FileAdapter(dmlc::Parser<uint32_t>* parser) : parser_(parser) {}
+  explicit FileAdapter(dmlc::Parser<uint32_t>* parser) : parser(parser) {}
 
-  const FileAdapterBatch& Value() const override { return *batch_.get(); }
+  const FileAdapterBatch& Value() const override { return *batch.get(); }
   void BeforeFirst() override {
-    batch_.reset();
-    parser_->BeforeFirst();
-    row_offset_ = 0;
+    batch.reset();
+    parser->BeforeFirst();
+    row_offset = 0;
   }
   bool Next() override {
-    bool next = parser_->Next();
-    batch_.reset(new FileAdapterBatch(&parser_->Value(), row_offset_));
-    row_offset_ += parser_->Value().size;
+    bool next = parser->Next();
+    batch.reset(new FileAdapterBatch(&parser->Value(), row_offset));
+    row_offset += parser->Value().size;
     return next;
   }
   // Indicates a number of rows/columns must be inferred
@@ -488,116 +475,9 @@ class FileAdapter : dmlc::DataIter<FileAdapterBatch> {
   size_t NumColumns() const { return kAdapterUnknownSize; }
 
  private:
-  size_t row_offset_{0};
-  std::unique_ptr<FileAdapterBatch> batch_;
-  dmlc::Parser<uint32_t>* parser_;
-};
-
-/*! \brief Data iterator that takes callback to return data, used in JVM package for
- *  accepting data iterator. */
-template <typename DataIterHandle, typename XGBCallbackDataIterNext, typename XGBoostBatchCSR>
-class IteratorAdapter : public dmlc::DataIter<FileAdapterBatch> {
- public:
-  IteratorAdapter(DataIterHandle data_handle,
-                  XGBCallbackDataIterNext* next_callback)
-      :  columns_{data::kAdapterUnknownSize}, row_offset_{0},
-         at_first_(true),
-         data_handle_(data_handle), next_callback_(next_callback) {}
-
-  // override functions
-  void BeforeFirst() override {
-    CHECK(at_first_) << "Cannot reset IteratorAdapter";
-  }
-
-  bool Next() override {
-    if ((*next_callback_)(
-            data_handle_,
-            [](void *handle, XGBoostBatchCSR batch) -> int {
-              API_BEGIN();
-              static_cast<IteratorAdapter *>(handle)->SetData(batch);
-              API_END();
-            },
-            this) != 0) {
-      at_first_ = false;
-      return true;
-    } else {
-      return false;
-    }
-  }
-
-  FileAdapterBatch const& Value() const override {
-    return *batch_.get();
-  }
-
-  // callback to set the data
-  void SetData(const XGBoostBatchCSR& batch) {
-    offset_.clear();
-    label_.clear();
-    weight_.clear();
-    index_.clear();
-    value_.clear();
-    offset_.insert(offset_.end(), batch.offset, batch.offset + batch.size + 1);
-
-    if (batch.label != nullptr) {
-      label_.insert(label_.end(), batch.label, batch.label + batch.size);
-    }
-    if (batch.weight != nullptr) {
-      weight_.insert(weight_.end(), batch.weight, batch.weight + batch.size);
-    }
-    if (batch.index != nullptr) {
-      index_.insert(index_.end(), batch.index + offset_[0],
-                    batch.index + offset_.back());
-    }
-    if (batch.value != nullptr) {
-      value_.insert(value_.end(), batch.value + offset_[0],
-                    batch.value + offset_.back());
-    }
-    if (offset_[0] != 0) {
-      size_t base = offset_[0];
-      for (size_t &item : offset_) {
-        item -= base;
-      }
-    }
-    CHECK(columns_ == data::kAdapterUnknownSize || columns_ == batch.columns)
-        << "Number of columns between batches changed from " << columns_
-        << " to " << batch.columns;
-
-    columns_ = batch.columns;
-    block_.size = batch.size;
-
-    block_.offset = dmlc::BeginPtr(offset_);
-    block_.label = dmlc::BeginPtr(label_);
-    block_.weight = dmlc::BeginPtr(weight_);
-    block_.qid = nullptr;
-    block_.field = nullptr;
-    block_.index = dmlc::BeginPtr(index_);
-    block_.value = dmlc::BeginPtr(value_);
-
-    batch_.reset(new FileAdapterBatch(&block_, row_offset_));
-    row_offset_ += offset_.size() - 1;
-  }
-
-  size_t NumColumns() const { return columns_; }
-  size_t NumRows() const { return kAdapterUnknownSize; }
-
- private:
-  std::vector<size_t> offset_;
-  std::vector<dmlc::real_t> label_;
-  std::vector<dmlc::real_t> weight_;
-  std::vector<uint32_t> index_;
-  std::vector<dmlc::real_t> value_;
-
-  size_t columns_;
-  size_t row_offset_;
-  // at the beinning.
-  bool at_first_;
-  // handle to the iterator,
-  DataIterHandle data_handle_;
-  // call back to get the data.
-  XGBCallbackDataIterNext *next_callback_;
-  // internal Rowblock
-  dmlc::RowBlock<uint32_t> block_;
-  std::unique_ptr<FileAdapterBatch> batch_;
+  size_t row_offset{0};
+  std::unique_ptr<FileAdapterBatch> batch;
+  dmlc::Parser<uint32_t>* parser;
 };
 };  // namespace data
 }  // namespace xgboost

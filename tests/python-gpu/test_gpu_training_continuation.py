@@ -1,3 +1,4 @@
+import unittest
 import numpy as np
 import xgboost as xgb
 import json
@@ -5,7 +6,7 @@ import json
 rng = np.random.RandomState(1994)
 
 
-class TestGPUTrainingContinuation:
+class TestGPUTrainingContinuation(unittest.TestCase):
     def run_training_continuation(self, use_json):
         kRows = 64
         kCols = 32

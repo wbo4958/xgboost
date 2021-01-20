@@ -20,8 +20,6 @@ import java.nio.ByteBuffer;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import ml.dmlc.xgboost4j.java.rapids.ColumnBatch;
-
 /**
  * xgboost JNI functions
  * change 2015-7-6: *use a long[] (length=1) as container of handle to get the output DMatrix or Booster
@@ -122,7 +120,6 @@ class XGBoostJNI {
   public final static native int XGBoosterSetAttr(long handle, String key, String value);
   public final static native int XGBoosterLoadRabitCheckpoint(long handle, int[] out_version);
   public final static native int XGBoosterSaveRabitCheckpoint(long handle);
-  public final static native int XGBoosterGetNumFeature(long handle, long[] feature);
 
   // rabit functions
   public final static native int RabitInit(String[] args);
@@ -136,12 +133,4 @@ class XGBoostJNI {
   // This JNI function does not support the callback function for data preparation yet.
   final static native int RabitAllreduce(ByteBuffer sendrecvbuf, int count,
                                                 int enum_dtype, int enum_op);
-
-  public final static native int XGDMatrixCreateFromArrayInterfaceColumns(
-    String columnJosn, float missing, int nthread, long[] out);
-  public final static native int XGDMatrixSetInfoFromInterface(
-    long handle, String field, String json);
-
-  public final static native int XGDeviceQuantileDMatrixCreateFromCallback(
-    java.util.Iterator<ColumnBatch> iter, float missing, int nthread, int maxBin, long[] out);
 }

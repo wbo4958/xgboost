@@ -5,34 +5,36 @@
 namespace xgboost {
 
 template <typename T = uint32_t, typename Comparator = thrust::greater<T>>
-std::unique_ptr<dh::SegmentSorter<T>>
+std::unique_ptr<xgboost::obj::SegmentSorter<T>>
 RankSegmentSorterTestImpl(const std::vector<uint32_t> &group_indices,
                           const std::vector<T> &hlabels,
                           const std::vector<T> &expected_sorted_hlabels,
                           const std::vector<uint32_t> &expected_orig_pos
                           ) {
-  std::unique_ptr<dh::SegmentSorter<T>> seg_sorter_ptr(new dh::SegmentSorter<T>);
-  dh::SegmentSorter<T> &seg_sorter(*seg_sorter_ptr);
+  std::unique_ptr<xgboost::obj::SegmentSorter<T>> seg_sorter_ptr(
+    new xgboost::obj::SegmentSorter<T>);
+  xgboost::obj::SegmentSorter<T> &seg_sorter(*seg_sorter_ptr);
 
   // Create a bunch of unsorted labels on the device and sort it via the segment sorter
   dh::device_vector<T> dlabels(hlabels);
   seg_sorter.SortItems(dlabels.data().get(), dlabels.size(), group_indices, Comparator());
 
-  auto num_items = seg_sorter.GetItemsSpan().size();
-  EXPECT_EQ(num_items, group_indices.back());
+  EXPECT_EQ(seg_sorter.GetNumItems(), group_indices.back());
   EXPECT_EQ(seg_sorter.GetNumGroups(), group_indices.size() - 1);
 
   // Check the labels
-  dh::device_vector<T> sorted_dlabels(num_items);
-  sorted_dlabels.assign(dh::tcbegin(seg_sorter.GetItemsSpan()),
-                        dh::tcend(seg_sorter.GetItemsSpan()));
+  dh::device_vector<T> sorted_dlabels(seg_sorter.GetNumItems());
+  sorted_dlabels.assign(thrust::device_ptr<const T>(seg_sorter.GetItemsPtr()),
+                        thrust::device_ptr<const T>(seg_sorter.GetItemsPtr())
+                        + seg_sorter.GetNumItems());
   thrust::host_vector<T> sorted_hlabels(sorted_dlabels);
   EXPECT_EQ(expected_sorted_hlabels, sorted_hlabels);
 
   // Check the indices
-  dh::device_vector<uint32_t> dorig_pos(num_items);
-  dorig_pos.assign(dh::tcbegin(seg_sorter.GetOriginalPositionsSpan()),
-                   dh::tcend(seg_sorter.GetOriginalPositionsSpan()));
+  dh::device_vector<uint32_t> dorig_pos(seg_sorter.GetNumItems());
+  dorig_pos.assign(thrust::device_ptr<const uint32_t>(seg_sorter.GetOriginalPositionsPtr()),
+                   thrust::device_ptr<const uint32_t>(seg_sorter.GetOriginalPositionsPtr())
+                   + seg_sorter.GetNumItems());
   dh::device_vector<uint32_t> horig_pos(dorig_pos);
   EXPECT_EQ(expected_orig_pos, horig_pos);
 
@@ -150,22 +152,18 @@ TEST(Objective, NDCGLambdaWeightComputerTest) {
 
   // Where will the predictions move from its current position, if they were sorted
   // descendingly?
-  auto dsorted_pred_pos = ndcg_lw_computer.GetPredictionSorter().GetIndexableSortedPositionsSpan();
-  std::vector<uint32_t> hsorted_pred_pos(segment_label_sorter->GetNumItems());
-  dh::CopyDeviceSpanToVector(&hsorted_pred_pos, dsorted_pred_pos);
+  auto dsorted_pred_pos = ndcg_lw_computer.GetPredictionSorter().GetIndexableSortedPositions();
+  thrust::host_vector<uint32_t> hsorted_pred_pos(dsorted_pred_pos);
   std::vector<uint32_t> expected_sorted_pred_pos{2, 0, 1, 3,
                                                  4, 5, 6,
                                                  7, 8, 11, 9, 10};
   EXPECT_EQ(expected_sorted_pred_pos, hsorted_pred_pos);
 
   // Check group DCG values
-  std::vector<float> hgroup_dcgs(segment_label_sorter->GetNumGroups());
-  dh::CopyDeviceSpanToVector(&hgroup_dcgs, ndcg_lw_computer.GetGroupDcgsSpan());
-  std::vector<uint32_t> hgroups(segment_label_sorter->GetNumGroups() + 1);
-  dh::CopyDeviceSpanToVector(&hgroups, segment_label_sorter->GetGroupsSpan());
+  thrust::host_vector<float> hgroup_dcgs(ndcg_lw_computer.GetGroupDcgs());
+  thrust::host_vector<uint32_t> hgroups(segment_label_sorter->GetGroups());
+  thrust::host_vector<float> hsorted_labels(segment_label_sorter->GetItems());
   EXPECT_EQ(hgroup_dcgs.size(), segment_label_sorter->GetNumGroups());
-  std::vector<float> hsorted_labels(segment_label_sorter->GetNumItems());
-  dh::CopyDeviceSpanToVector(&hsorted_labels, segment_label_sorter->GetItemsSpan());
   for (auto i = 0; i < hgroup_dcgs.size(); ++i) {
     // Compute group DCG value on CPU and compare
     auto gbegin = hgroups[i];
@@ -195,9 +193,7 @@ TEST(Objective, IndexableSortedItemsTest) {
      9, 11, 7, 10, 8});
 
   segment_label_sorter->CreateIndexableSortedPositions();
-  std::vector<uint32_t> sorted_indices(segment_label_sorter->GetNumItems());
-  dh::CopyDeviceSpanToVector(&sorted_indices,
-                             segment_label_sorter->GetIndexableSortedPositionsSpan());
+  thrust::host_vector<uint32_t> sorted_indices(segment_label_sorter->GetIndexableSortedPositions());
   std::vector<uint32_t> expected_sorted_indices = {
     1, 3, 2, 0,
     4, 6, 5,
@@ -232,13 +228,11 @@ TEST(Objective, ComputeAndCompareMAPStatsTest) {
                                                         *segment_label_sorter);
 
   // Get the device MAP stats on host
-  std::vector<xgboost::obj::MAPLambdaWeightComputer::MAPStats> dmap_stats(
-    segment_label_sorter->GetNumItems());
-  dh::CopyDeviceSpanToVector(&dmap_stats, map_lw_computer.GetMapStatsSpan());
+  thrust::host_vector<xgboost::obj::MAPLambdaWeightComputer::MAPStats> dmap_stats(
+    map_lw_computer.GetMapStats());
 
   // Compute the MAP stats on host next to compare
-  std::vector<uint32_t> hgroups(segment_label_sorter->GetNumGroups() + 1);
-  dh::CopyDeviceSpanToVector(&hgroups, segment_label_sorter->GetGroupsSpan());
+  thrust::host_vector<uint32_t> hgroups(segment_label_sorter->GetGroups());
 
   for (auto i = 0; i < hgroups.size() - 1; ++i) {
     auto gbegin = hgroups[i];

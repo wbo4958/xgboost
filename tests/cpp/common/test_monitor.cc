@@ -30,6 +30,8 @@ TEST(Monitor, Logging) {
   run_monitor();
   output = testing::internal::GetCapturedStderr();
   ASSERT_EQ(output.size(), 0);
+
+  ConsoleLogger::Configure(Args{{"verbosity", "1"}});
 }
 }  // namespace common
 }  // namespace xgboost

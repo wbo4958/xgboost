@@ -10,32 +10,20 @@
 #include "timer.h"
 #include "xgboost/json.h"
 
-#if defined(XGBOOST_USE_NVTX)
-#include <nvToolsExt.h>
-#endif  // defined(XGBOOST_USE_NVTX)
-
 namespace xgboost {
 namespace common {
 
 void Monitor::Start(std::string const &name) {
   if (ConsoleLogger::ShouldLog(ConsoleLogger::LV::kDebug)) {
-    auto &stats = statistics_map_[name];
-    stats.timer.Start();
-#if defined(XGBOOST_USE_NVTX)
-    std::string nvtx_name = label_ + "::" + name;
-    stats.nvtx_id = nvtxRangeStartA(nvtx_name.c_str());
-#endif  // defined(XGBOOST_USE_NVTX)
+    statistics_map[name].timer.Start();
   }
 }
 
 void Monitor::Stop(const std::string &name) {
   if (ConsoleLogger::ShouldLog(ConsoleLogger::LV::kDebug)) {
-    auto &stats = statistics_map_[name];
+    auto &stats = statistics_map[name];
     stats.timer.Stop();
     stats.count++;
-#if defined(XGBOOST_USE_NVTX)
-    nvtxRangeEnd(stats.nvtx_id);
-#endif  // defined(XGBOOST_USE_NVTX)
   }
 }
 
@@ -52,17 +40,17 @@ std::vector<Monitor::StatMap> Monitor::CollectFromOtherRanks() const {
   j_statistic["statistic"] = Object();
 
   auto& statistic = j_statistic["statistic"];
-  for (auto const& kv : statistics_map_) {
+  for (auto const& kv : statistics_map) {
     statistic[kv.first] = Object();
     auto& j_pair = statistic[kv.first];
     j_pair["count"] = Integer(kv.second.count);
-    j_pair["elapsed"] = Integer(static_cast<int64_t>(
-        std::chrono::duration_cast<std::chrono::microseconds>(
-        kv.second.timer.elapsed).count()));
+    j_pair["elapsed"] = Integer(std::chrono::duration_cast<std::chrono::microseconds>(
+        kv.second.timer.elapsed).count());
   }
 
-  std::string str;
-  Json::Dump(j_statistic, &str);
+  std::stringstream ss;
+  Json::Dump(j_statistic, &ss);
+  std::string const str { ss.str() };
 
   size_t str_size = str.size();
   rabit::Allreduce<rabit::op::Max>(&str_size, 1);
@@ -100,10 +88,10 @@ void Monitor::PrintStatistics(StatMap const& statistics) const {
           "Timer for " << kv.first << " did not get stopped properly.";
       continue;
     }
-    LOG(CONSOLE) << kv.first << ": " << static_cast<double>(kv.second.second) / 1e+6
-                 << "s, " << kv.second.first << " calls @ "
-                 << kv.second.second
-                 << "us" << std::endl;
+    std::cout << kv.first << ": " << static_cast<double>(kv.second.second) / 1e+6
+              << "s, " << kv.second.first << " calls @ "
+              << kv.second.second
+              << "us" << std::endl;
   }
 }
 
@@ -116,23 +104,25 @@ void Monitor::Print() const {
     auto world = this->CollectFromOtherRanks();
     // rank zero is in charge of printing
     if (rabit::GetRank() == 0) {
-      LOG(CONSOLE) << "======== Monitor: " << label_ << " ========";
+      LOG(CONSOLE) << "======== Monitor: " << label << " ========";
       for (size_t i = 0; i < world.size(); ++i) {
-        LOG(CONSOLE) << "From rank: " << i << ": " << std::endl;
+        std::cout << "From rank: " << i << ": " << std::endl;
         auto const& statistic = world[i];
         this->PrintStatistics(statistic);
+        std::cout << std::endl;
       }
     }
   } else {
     StatMap stat_map;
-    for (auto const& kv : statistics_map_) {
+    for (auto const& kv : statistics_map) {
       stat_map[kv.first] = std::make_pair(
           kv.second.count, std::chrono::duration_cast<std::chrono::microseconds>(
               kv.second.timer.elapsed).count());
     }
-    LOG(CONSOLE) << "======== Monitor: " << label_ << " ========";
+    LOG(CONSOLE) << "======== Monitor: " << label << " ========";
     this->PrintStatistics(stat_map);
   }
+  std::cout << std::endl;
 }
 
 }  // namespace common

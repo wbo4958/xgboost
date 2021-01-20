@@ -1,3 +1,4 @@
+#!/usr/bin/python
 '''
 Created on 1 Apr 2015
 
@@ -14,12 +15,12 @@ from sklearn.datasets import load_iris, load_digits, load_boston
 rng = np.random.RandomState(31337)
 
 print("Zeros and Ones from the Digits dataset: binary classification")
-digits = load_digits(n_class=2)
+digits = load_digits(2)
 y = digits['target']
 X = digits['data']
 kf = KFold(n_splits=2, shuffle=True, random_state=rng)
 for train_index, test_index in kf.split(X):
-    xgb_model = xgb.XGBClassifier(n_jobs=1).fit(X[train_index], y[train_index])
+    xgb_model = xgb.XGBClassifier().fit(X[train_index], y[train_index])
     predictions = xgb_model.predict(X[test_index])
     actuals = y[test_index]
     print(confusion_matrix(actuals, predictions))
@@ -30,7 +31,7 @@ y = iris['target']
 X = iris['data']
 kf = KFold(n_splits=2, shuffle=True, random_state=rng)
 for train_index, test_index in kf.split(X):
-    xgb_model = xgb.XGBClassifier(n_jobs=1).fit(X[train_index], y[train_index])
+    xgb_model = xgb.XGBClassifier().fit(X[train_index], y[train_index])
     predictions = xgb_model.predict(X[test_index])
     actuals = y[test_index]
     print(confusion_matrix(actuals, predictions))
@@ -41,7 +42,7 @@ y = boston['target']
 X = boston['data']
 kf = KFold(n_splits=2, shuffle=True, random_state=rng)
 for train_index, test_index in kf.split(X):
-    xgb_model = xgb.XGBRegressor(n_jobs=1).fit(X[train_index], y[train_index])
+    xgb_model = xgb.XGBRegressor().fit(X[train_index], y[train_index])
     predictions = xgb_model.predict(X[test_index])
     actuals = y[test_index]
     print(mean_squared_error(actuals, predictions))
@@ -49,11 +50,11 @@ for train_index, test_index in kf.split(X):
 print("Parameter optimization")
 y = boston['target']
 X = boston['data']
-xgb_model = xgb.XGBRegressor(n_jobs=1)
+xgb_model = xgb.XGBRegressor()
 clf = GridSearchCV(xgb_model,
-                   {'max_depth': [2, 4, 6],
-                    'n_estimators': [50, 100, 200]}, verbose=1, n_jobs=1)
-clf.fit(X, y)
+                   {'max_depth': [2,4,6],
+                    'n_estimators': [50,100,200]}, verbose=1)
+clf.fit(X,y)
 print(clf.best_score_)
 print(clf.best_params_)
 
@@ -69,6 +70,7 @@ print(np.allclose(clf.predict(X), clf2.predict(X)))
 X = digits['data']
 y = digits['target']
 X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=0)
-clf = xgb.XGBClassifier(n_jobs=1)
+clf = xgb.XGBClassifier()
 clf.fit(X_train, y_train, early_stopping_rounds=10, eval_metric="auc",
         eval_set=[(X_test, y_test)])
+

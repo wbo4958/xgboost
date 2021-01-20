@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import numpy as np
 import xgboost as xgb
+import unittest
 import itertools
 import re
 import scipy
@@ -10,7 +11,7 @@ dpath = 'demo/data/'
 rng = np.random.RandomState(1994)
 
 
-class TestSHAP:
+class TestSHAP(unittest.TestCase):
 
     def test_feature_importances(self):
         data = np.random.randn(100, 5)

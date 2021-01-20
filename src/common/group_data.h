@@ -1,5 +1,5 @@
 /*!
- * Copyright 2014-2020 by Contributors
+ * Copyright 2014 by Contributors
  * \file group_data.h
  * \brief this file defines utils to group data by integer keys
  *     Input: given input sequence (key,value), (k1,v1), (k2,v2)
@@ -14,10 +14,8 @@
 #ifndef XGBOOST_COMMON_GROUP_DATA_H_
 #define XGBOOST_COMMON_GROUP_DATA_H_
 
-#include <cstddef>
 #include <vector>
 #include <algorithm>
-#include <utility>
 
 #include "xgboost/base.h"
 
@@ -46,6 +44,15 @@ class ParallelGroupBuilder {
                        size_t base_row_offset = 0)
       : rptr_(*p_rptr),
         data_(*p_data),
+        thread_rptr_(tmp_thread_rptr_),
+        base_row_offset_(base_row_offset) {}
+  ParallelGroupBuilder(std::vector<SizeType> *p_rptr,
+                       std::vector<ValueType> *p_data,
+                       std::vector<std::vector<SizeType> > *p_thread_rptr,
+                       size_t base_row_offset = 0)
+      : rptr_(*p_rptr),
+        data_(*p_data),
+        thread_rptr_(*p_thread_rptr),
         base_row_offset_(base_row_offset) {}
 
   /*!
@@ -54,20 +61,20 @@ class ParallelGroupBuilder {
    * \param max_key number of keys in the matrix, can be smaller than expected
    * \param nthread number of thread that will be used in construction
    */
-  void InitBudget(std::size_t max_key, int nthread) {
+  inline void InitBudget(std::size_t max_key, int nthread) {
     thread_rptr_.resize(nthread);
     for (std::size_t i = 0; i < thread_rptr_.size(); ++i) {
-      thread_rptr_[i].resize(max_key - std::min(base_row_offset_, max_key), 0);
+      thread_rptr_[i].resize(max_key - std::min(base_row_offset_, max_key));
+      std::fill(thread_rptr_[i].begin(), thread_rptr_[i].end(), 0);
     }
   }
-
   /*!
    * \brief step 2: add budget to each key
    * \param key the key
    * \param threadid the id of thread that calls this function
    * \param nelem number of element budget add to this row
    */
-  void AddBudget(std::size_t key, int threadid, SizeType nelem = 1) {
+  inline void AddBudget(std::size_t key, int threadid, SizeType nelem = 1) {
     std::vector<SizeType> &trptr = thread_rptr_[threadid];
     size_t offset_key = key - base_row_offset_;
     if (trptr.size() < offset_key + 1) {
@@ -75,7 +82,6 @@ class ParallelGroupBuilder {
     }
     trptr[offset_key] += nelem;
   }
-
   /*! \brief step 3: initialize the necessary storage */
   inline void InitStorage() {
     // set rptr to correct size
@@ -103,7 +109,6 @@ class ParallelGroupBuilder {
     }
     data_.resize(rptr_.back());
   }
-
   /*!
    * \brief step 4: add data to the allocated space,
    *   the calls to this function should be exactly match previous call to AddBudget
@@ -112,10 +117,10 @@ class ParallelGroupBuilder {
    * \param value The value to be pushed to the group.
    * \param threadid the id of thread that calls this function
    */
-  void Push(std::size_t key, ValueType&& value, int threadid) {
+  void Push(std::size_t key, ValueType value, int threadid) {
     size_t offset_key = key - base_row_offset_;
     SizeType &rp = thread_rptr_[threadid][offset_key];
-    data_[rp++] = std::move(value);
+    data_[rp++] = value;
   }
 
  private:
@@ -124,7 +129,9 @@ class ParallelGroupBuilder {
   /*! \brief index of nonzero entries in each row */
   std::vector<ValueType> &data_;
   /*! \brief thread local data structure */
-  std::vector<std::vector<SizeType> > thread_rptr_;
+  std::vector<std::vector<SizeType> > &thread_rptr_;
+  /*! \brief local temp thread ptr, use this if not specified by the constructor */
+  std::vector<std::vector<SizeType> > tmp_thread_rptr_;
   /** \brief Used when rows being pushed into the builder are strictly above some number. */
   size_t base_row_offset_;
 };

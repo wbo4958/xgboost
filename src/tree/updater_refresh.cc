@@ -27,17 +27,14 @@ class TreeRefresher: public TreeUpdater {
   }
   void LoadConfig(Json const& in) override {
     auto const& config = get<Object const>(in);
-    FromJson(config.at("train_param"), &this->param_);
+    fromJson(config.at("train_param"), &this->param_);
   }
   void SaveConfig(Json* p_out) const override {
     auto& out = *p_out;
-    out["train_param"] = ToJson(param_);
+    out["train_param"] = toJson(param_);
   }
   char const* Name() const override {
     return "refresh";
-  }
-  bool CanModifyTree() const override {
-    return true;
   }
   // update the tree, do pruning
   void Update(HostDeviceVector<GradientPair> *gpair,
@@ -113,7 +110,7 @@ class TreeRefresher: public TreeUpdater {
   inline static void AddStats(const RegTree &tree,
                               const RegTree::FVec &feat,
                               const std::vector<GradientPair> &gpair,
-                              const MetaInfo&,
+                              const MetaInfo &info,
                               const bst_uint ridx,
                               GradStats *gstats) {
     // start from groups that belongs to current data
@@ -122,7 +119,7 @@ class TreeRefresher: public TreeUpdater {
     // tranverse tree
     while (!tree[pid].IsLeaf()) {
       unsigned split_index = tree[pid].SplitIndex();
-      pid = tree.GetNext(pid, feat.GetFvalue(split_index), feat.IsMissing(split_index));
+      pid = tree.GetNext(pid, feat.Fvalue(split_index), feat.IsMissing(split_index));
       gstats[pid].Add(gpair[ridx]);
     }
   }

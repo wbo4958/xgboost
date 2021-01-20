@@ -16,12 +16,6 @@ This tutorial is to cover the end-to-end process to build a machine learning pip
 * Building a Machine Learning Pipeline with XGBoost4J-Spark
 * Running XGBoost4J-Spark in Production
 
-.. note::
-
-  **SparkContext will be stopped by default when XGBoost training task fails**.
-
-  XGBoost4J-Spark 1.2.0+ exposes a parameter **kill_spark_context_on_worker_failure**. Set **kill_spark_context_on_worker_failure** to **false** so that the SparkContext will not be stopping on training failure. Instead of stopping the SparkContext, XGBoost4J-Spark will throw an exception instead. Users who want to re-use the SparkContext should wrap the training code in a try-catch block.
-
 .. contents::
   :backlinks: none
   :local:
@@ -33,7 +27,39 @@ Build an ML Application with XGBoost4J-Spark
 Refer to XGBoost4J-Spark Dependency
 ===================================
 
-Before we go into the tour of how to use XGBoost4J-Spark, you should first consult :ref:`Installation from Maven repository <install_jvm_packages>` in order to add XGBoost4J-Spark as a dependency for your project. We provide both stable releases and snapshots.
+Before we go into the tour of how to use XGBoost4J-Spark, we would bring a brief introduction about how to build a machine learning application with XGBoost4J-Spark. The first thing you need to do is to refer to the dependency in Maven Central.
+
+You can add the following dependency in your ``pom.xml``.
+
+.. code-block:: xml
+
+  <dependency>
+    <groupId>ml.dmlc</groupId>
+    <artifactId>xgboost4j-spark</artifactId>
+    <version>latest_version_num</version>
+  </dependency>
+
+For the latest release version number, please check `here <https://github.com/dmlc/xgboost/releases>`_.
+
+We also publish some functionalities which would be included in the coming release in the form of snapshot version. To access these functionalities, you can add dependency to the snapshot artifacts. We publish snapshot version in github-based repo, so you can add the following repo in ``pom.xml``:
+
+.. code-block:: xml
+
+  <repository>
+    <id>XGBoost4J-Spark Snapshot Repo</id>
+    <name>XGBoost4J-Spark Snapshot Repo</name>
+    <url>https://raw.githubusercontent.com/CodingCat/xgboost/maven-repo/</url>
+  </repository>
+
+and then refer to the snapshot dependency by adding:
+
+.. code-block:: xml
+
+  <dependency>
+      <groupId>ml.dmlc</groupId>
+      <artifactId>xgboost4j-spark</artifactId>
+      <version>next_version_num-SNAPSHOT</version>
+  </dependency>
 
 .. note:: XGBoost4J-Spark requires Apache Spark 2.4+
 
@@ -161,35 +187,10 @@ Example of setting a missing value (e.g. -999) to the "missing" parameter in XGB
   1. Explicitly convert the Vector returned from VectorAssembler to a DenseVector to return the zeros to the dataset. If
   doing this with missing values encoded as NaN, you will want to set ``setHandleInvalid = "keep"`` on VectorAssembler
   in order to keep the NaN values in the dataset. You would then set the "missing" parameter to whatever you want to be
-  treated as missing. However this may cause a large amount of memory use if your dataset is very sparse. For example:
-  
-  .. code-block:: scala
-
-  val assembler = new VectorAssembler().setInputCols(feature_names.toArray).setOutputCol("features").setHandleInvalid("keep")
-
-  // conversion to dense vector using Array()
-  
-  val featurePipeline = new Pipeline().setStages(Array(assembler))
-  val featureModel = featurePipeline.fit(df_training)
-  val featureDf = featureModel.transform(df_training)
-  
-  val xgbParam = Map("eta" -> 0.1f,
-        "max_depth" -> 2,
-        "objective" -> "multi:softprob",
-        "num_class" -> 3,
-        "num_round" -> 100,
-        "num_workers" -> 2,
-        "allow_non_zero_for_missing" -> "true",
-        "missing" -> -999)
-        
-  val xgb = new XGBoostClassifier(xgbParam)
-  val xgbclassifier = xgb.fit(featureDf)
-  
-
+  treated as missing. However this may cause a large amount of memory use if your dataset is very sparse.
   2. Before calling VectorAssembler you can transform the values you want to represent missing into an irregular value
   that is not 0, NaN, or Null and set the "missing" parameter to 0. The irregular value should ideally be chosen to be
   outside the range of values that your features have.
-
   3. Do not use the VectorAssembler class and instead use a custom way of constructing a SparseVector that allows for
   specifying sparsity to indicate a non-zero value. You can then set the "missing" parameter to whatever sparsity
   indicates in your Dataset. If this approach is taken you can pass the parameter

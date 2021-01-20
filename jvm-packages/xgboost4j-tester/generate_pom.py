@@ -24,9 +24,9 @@ pom_template = """
 
   <dependencies>
     <dependency>
-      <groupId>com.esotericsoftware</groupId>
+      <groupId>com.esotericsoftware.kryo</groupId>
       <artifactId>kryo</artifactId>
-      <version>4.0.2</version>
+      <version>2.21</version>
     </dependency>
     <dependency>
       <groupId>org.scala-lang</groupId>

@@ -1,5 +1,6 @@
 import numpy as np
 import xgboost as xgb
+import unittest
 import testing as tm
 import pytest
 
@@ -60,7 +61,7 @@ y = (
 training_dset = xgb.DMatrix(x, label=y)
 
 
-class TestMonotoneConstraints:
+class TestMonotoneConstraints(unittest.TestCase):
 
     def test_monotone_constraints_for_exact_tree_method(self):
 

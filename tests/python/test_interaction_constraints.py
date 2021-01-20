@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import numpy as np
 import xgboost
+import unittest
 import testing as tm
 import pytest
 
@@ -8,7 +9,7 @@ dpath = 'demo/data/'
 rng = np.random.RandomState(1994)
 
 
-class TestInteractionConstraints:
+class TestInteractionConstraints(unittest.TestCase):
     def run_interaction_constraints(self, tree_method):
         x1 = np.random.normal(loc=1.0, scale=1.0, size=1000)
         x2 = np.random.normal(loc=1.0, scale=1.0, size=1000)

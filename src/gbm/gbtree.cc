@@ -1,5 +1,5 @@
 /*!
- * Copyright 2014-2020 by Contributors
+ * Copyright 2014-2019 by Contributors
  * \file gbtree.cc
  * \brief gradient boosted tree implementation.
  * \author Tianqi Chen
@@ -14,7 +14,6 @@
 #include <limits>
 #include <algorithm>
 
-#include "xgboost/data.h"
 #include "xgboost/gbm.h"
 #include "xgboost/logging.h"
 #include "xgboost/json.h"
@@ -48,27 +47,19 @@ void GBTree::Configure(const Args& cfg) {
   // configure predictors
   if (!cpu_predictor_) {
     cpu_predictor_ = std::unique_ptr<Predictor>(
-        Predictor::Create("cpu_predictor", this->generic_param_));
+        Predictor::Create("cpu_predictor", this->generic_param_, cache_));
   }
   cpu_predictor_->Configure(cfg);
 #if defined(XGBOOST_USE_CUDA)
   auto n_gpus = common::AllVisibleGPUs();
   if (!gpu_predictor_ && n_gpus != 0) {
     gpu_predictor_ = std::unique_ptr<Predictor>(
-        Predictor::Create("gpu_predictor", this->generic_param_));
+        Predictor::Create("gpu_predictor", this->generic_param_, cache_));
   }
   if (n_gpus != 0) {
     gpu_predictor_->Configure(cfg);
   }
 #endif  // defined(XGBOOST_USE_CUDA)
-
-#if defined(XGBOOST_USE_ONEAPI)
-  if (!oneapi_predictor_) {
-    oneapi_predictor_ = std::unique_ptr<Predictor>(
-        Predictor::Create("oneapi_predictor", this->generic_param_));
-  }
-  oneapi_predictor_->Configure(cfg);
-#endif  // defined(XGBOOST_USE_ONEAPI)
 
   monitor_.Init("GBTree");
 
@@ -81,7 +72,7 @@ void GBTree::Configure(const Args& cfg) {
     LOG(WARNING) << "DANGER AHEAD: You have manually specified `updater` "
         "parameter. The `tree_method` parameter will be ignored. "
         "Incorrect sequence of updaters will produce undefined "
-        "behavior. For common uses, we recommend using "
+        "behavior. For common uses, we recommend using"
         "`tree_method` parameter instead.";
     // Don't drive users to silent XGBOost.
     showed_updater_warning_ = true;
@@ -133,20 +124,22 @@ void GBTree::PerformTreeMethodHeuristic(DMatrix* fmat) {
     return;
   }
 
+  tparam_.updater_seq = "grow_histmaker,prune";
   if (rabit::IsDistributed()) {
-    LOG(INFO) << "Tree method is automatically selected to be 'approx' "
-                 "for distributed training.";
+    LOG(WARNING) <<
+      "Tree method is automatically selected to be 'approx' "
+      "for distributed training.";
     tparam_.tree_method = TreeMethod::kApprox;
   } else if (!fmat->SingleColBlock()) {
-    LOG(INFO) << "Tree method is automatically set to 'approx' "
-                 "since external-memory data matrix is used.";
+    LOG(WARNING) << "Tree method is automatically set to 'approx' "
+                    "since external-memory data matrix is used.";
     tparam_.tree_method = TreeMethod::kApprox;
   } else if (fmat->Info().num_row_ >= (4UL << 20UL)) {
     /* Choose tree_method='approx' automatically for large data matrix */
-    LOG(INFO) << "Tree method is automatically selected to be "
-                 "'approx' for faster speed. To use old behavior "
-                 "(exact greedy algorithm on single machine), "
-                 "set tree_method to 'exact'.";
+    LOG(WARNING) << "Tree method is automatically selected to be "
+        "'approx' for faster speed. To use old behavior "
+        "(exact greedy algorithm on single machine), "
+        "set tree_method to 'exact'.";
     tparam_.tree_method = TreeMethod::kApprox;
   } else {
     tparam_.tree_method = TreeMethod::kExact;
@@ -179,7 +172,7 @@ void GBTree::ConfigureUpdaters() {
       tparam_.updater_seq = "grow_quantile_histmaker";
       break;
     case TreeMethod::kGPUHist: {
-      common::AssertGPUSupport();
+      this->AssertGPUSupport();
       tparam_.updater_seq = "grow_gpu_hist";
       break;
     }
@@ -191,9 +184,9 @@ void GBTree::ConfigureUpdaters() {
 
 void GBTree::DoBoost(DMatrix* p_fmat,
                      HostDeviceVector<GradientPair>* in_gpair,
-                     PredictionCacheEntry* predt) {
+                     ObjFunction* obj) {
   std::vector<std::vector<std::unique_ptr<RegTree> > > new_trees;
-  const int ngroup = model_.learner_model_param->num_output_group;
+  const int ngroup = model_.learner_model_param_->num_output_group;
   ConfigureWithKnownData(this->cfg_, p_fmat);
   monitor_.Start("BoostNewTrees");
   CHECK_NE(ngroup, 0);
@@ -203,7 +196,7 @@ void GBTree::DoBoost(DMatrix* p_fmat,
     new_trees.push_back(std::move(ret));
   } else {
     CHECK_EQ(in_gpair->Size() % ngroup, 0U)
-        << "must have exactly ngroup * nrow gpairs";
+        << "must have exactly ngroup*nrow gpairs";
     // TODO(canonizer): perform this on GPU if HostDeviceVector has device set.
     HostDeviceVector<GradientPair> tmp(in_gpair->Size() / ngroup,
                                        GradientPair(),
@@ -222,7 +215,7 @@ void GBTree::DoBoost(DMatrix* p_fmat,
     }
   }
   monitor_.Stop("BoostNewTrees");
-  this->CommitModel(std::move(new_trees), p_fmat, predt);
+  this->CommitModel(std::move(new_trees));
 }
 
 void GBTree::InitUpdater(Args const& cfg) {
@@ -274,26 +267,13 @@ void GBTree::BoostNewTrees(HostDeviceVector<GradientPair>* gpair,
   // create the trees
   for (int i = 0; i < tparam_.num_parallel_tree; ++i) {
     if (tparam_.process_type == TreeProcessType::kDefault) {
-      CHECK(!updaters_.front()->CanModifyTree())
-          << "Updater: `" << updaters_.front()->Name() << "` "
-          << "can not be used to create new trees. "
-          << "Set `process_type` to `update` if you want to update existing "
-             "trees.";
       // create new tree
       std::unique_ptr<RegTree> ptr(new RegTree());
       ptr->param.UpdateAllowUnknown(this->cfg_);
       new_trees.push_back(ptr.get());
       ret->push_back(std::move(ptr));
     } else if (tparam_.process_type == TreeProcessType::kUpdate) {
-      for (auto const& up : updaters_) {
-        CHECK(up->CanModifyTree())
-          << "Updater: `" << up->Name() << "` "
-          << "can not be used to modify existing trees. "
-          << "Set `process_type` to `default` if you want to build new trees.";
-      }
-      CHECK_LT(model_.trees.size(), model_.trees_to_update.size())
-          << "No more tree left for updating.  For updating existing trees, "
-          << "boosting rounds can not exceed previous training rounds";
+      CHECK_LT(model_.trees.size(), model_.trees_to_update.size());
       // move an existing tree from trees_to_update
       auto t = std::move(model_.trees_to_update[model_.trees.size() +
                                                 bst_group * tparam_.num_parallel_tree + i]);
@@ -302,54 +282,35 @@ void GBTree::BoostNewTrees(HostDeviceVector<GradientPair>* gpair,
     }
   }
   // update the trees
-  CHECK_EQ(gpair->Size(), p_fmat->Info().num_row_)
-      << "Mismatching size between number of rows from input data and size of "
-         "gradient vector.";
   for (auto& up : updaters_) {
     up->Update(gpair, p_fmat, new_trees);
   }
 }
 
-void GBTree::CommitModel(std::vector<std::vector<std::unique_ptr<RegTree>>>&& new_trees,
-                         DMatrix* m,
-                         PredictionCacheEntry* predts) {
+void GBTree::CommitModel(std::vector<std::vector<std::unique_ptr<RegTree>>>&& new_trees) {
   monitor_.Start("CommitModel");
   int num_new_trees = 0;
-  for (uint32_t gid = 0; gid < model_.learner_model_param->num_output_group; ++gid) {
+  for (uint32_t gid = 0; gid < model_.learner_model_param_->num_output_group; ++gid) {
     num_new_trees += new_trees[gid].size();
     model_.CommitModel(std::move(new_trees[gid]), gid);
   }
-  auto* out = &predts->predictions;
-  if (model_.learner_model_param->num_output_group == 1 &&
-      updaters_.size() > 0 &&
-      num_new_trees == 1 &&
-      out->Size() > 0 &&
-      updaters_.back()->UpdatePredictionCache(m, out)) {
-    auto delta = num_new_trees / model_.learner_model_param->num_output_group;
-    predts->Update(delta);
-  }
+  CHECK(configured_);
+  GetPredictor()->UpdatePredictionCache(model_, &updaters_, num_new_trees);
   monitor_.Stop("CommitModel");
 }
 
 void GBTree::LoadConfig(Json const& in) {
   CHECK_EQ(get<String>(in["name"]), "gbtree");
-  FromJson(in["gbtree_train_param"], &tparam_);
-  // Process type cannot be kUpdate from loaded model
-  // This would cause all trees to be pushed to trees_to_update
-  // e.g. updating a model, then saving and loading it would result in an empty model
-  tparam_.process_type = TreeProcessType::kDefault;
+  fromJson(in["gbtree_train_param"], &tparam_);
   int32_t const n_gpus = xgboost::common::AllVisibleGPUs();
   if (n_gpus == 0 && tparam_.predictor == PredictorType::kGPUPredictor) {
-    LOG(WARNING)
-        << "Loading from a raw memory buffer on CPU only machine.  "
-           "Changing predictor to auto.";
     tparam_.UpdateAllowUnknown(Args{{"predictor", "auto"}});
   }
   if (n_gpus == 0 && tparam_.tree_method == TreeMethod::kGPUHist) {
     tparam_.UpdateAllowUnknown(Args{{"tree_method", "hist"}});
     LOG(WARNING)
         << "Loading from a raw memory buffer on CPU only machine.  "
-           "Changing tree_method to hist.";
+           "Change tree_method to hist.";
   }
 
   auto const& j_updaters = get<Object const>(in["updater"]);
@@ -366,14 +327,7 @@ void GBTree::LoadConfig(Json const& in) {
 void GBTree::SaveConfig(Json* p_out) const {
   auto& out = *p_out;
   out["name"] = String("gbtree");
-  out["gbtree_train_param"] = ToJson(tparam_);
-
-  // Process type cannot be kUpdate from loaded model
-  // This would cause all trees to be pushed to trees_to_update
-  // e.g. updating a model, then saving and loading it would result in an empty
-  // model
-  out["gbtree_train_param"]["process_type"] = String("default");
-
+  out["gbtree_train_param"] = toJson(tparam_);
   out["updater"] = Object();
 
   auto& j_updaters = out["updater"];
@@ -398,124 +352,6 @@ void GBTree::SaveModel(Json* p_out) const {
   model_.SaveModel(&model);
 }
 
-void GBTree::Slice(int32_t layer_begin, int32_t layer_end, int32_t step,
-                   GradientBooster *out, bool* out_of_bound) const {
-  CHECK(configured_);
-  CHECK(out);
-
-  auto p_gbtree = dynamic_cast<GBTree *>(out);
-  CHECK(p_gbtree);
-  GBTreeModel &out_model = p_gbtree->model_;
-  auto layer_trees = this->LayerTrees();
-
-  layer_end = layer_end == 0 ? model_.trees.size() / layer_trees : layer_end;
-  CHECK_GE(layer_end, layer_begin);
-  CHECK_GE(step, 1);
-  int32_t n_layers = (layer_end - layer_begin) / step;
-  std::vector<std::unique_ptr<RegTree>> &out_trees = out_model.trees;
-  out_trees.resize(layer_trees * n_layers);
-  std::vector<int32_t> &out_trees_info = out_model.tree_info;
-  out_trees_info.resize(layer_trees * n_layers);
-  out_model.param.num_trees = out_model.trees.size();
-  CHECK(this->model_.trees_to_update.empty());
-
-  *out_of_bound = detail::SliceTrees(
-      layer_begin, layer_end, step, this->model_, tparam_, layer_trees,
-      [&](auto const &in_it, auto const &out_it) {
-        auto new_tree =
-            std::make_unique<RegTree>(*this->model_.trees.at(in_it));
-        bst_group_t group = this->model_.tree_info[in_it];
-        out_trees.at(out_it) = std::move(new_tree);
-        out_trees_info.at(out_it) = group;
-      });
-}
-
-void GBTree::PredictBatch(DMatrix* p_fmat,
-                          PredictionCacheEntry* out_preds,
-                          bool,
-                          unsigned ntree_limit) {
-  CHECK(configured_);
-  GetPredictor(&out_preds->predictions, p_fmat)
-      ->PredictBatch(p_fmat, out_preds, model_, 0, ntree_limit);
-}
-
-std::unique_ptr<Predictor> const &
-GBTree::GetPredictor(HostDeviceVector<float> const *out_pred,
-                     DMatrix *f_dmat) const {
-  CHECK(configured_);
-  if (tparam_.predictor != PredictorType::kAuto) {
-    if (tparam_.predictor == PredictorType::kGPUPredictor) {
-#if defined(XGBOOST_USE_CUDA)
-      CHECK_GE(common::AllVisibleGPUs(), 1) << "No visible GPU is found for XGBoost.";
-      CHECK(gpu_predictor_);
-      return gpu_predictor_;
-#else
-      common::AssertGPUSupport();
-#endif  // defined(XGBOOST_USE_CUDA)
-    }
-    if (tparam_.predictor == PredictorType::kOneAPIPredictor) {
-#if defined(XGBOOST_USE_ONEAPI)
-      CHECK(oneapi_predictor_);
-      return oneapi_predictor_;
-#else
-      common::AssertOneAPISupport();
-#endif  // defined(XGBOOST_USE_ONEAPI)
-    }
-    CHECK(cpu_predictor_);
-    return cpu_predictor_;
-  }
-
-  // Data comes from Device DMatrix.
-  auto is_ellpack = f_dmat && f_dmat->PageExists<EllpackPage>() &&
-                    !f_dmat->PageExists<SparsePage>();
-  // Data comes from device memory, like CuDF or CuPy.
-  auto is_from_device =
-      f_dmat && f_dmat->PageExists<SparsePage>() &&
-      (*(f_dmat->GetBatches<SparsePage>().begin())).data.DeviceCanRead();
-  auto on_device = is_ellpack || is_from_device;
-
-  // Use GPU Predictor if data is already on device and gpu_id is set.
-  if (on_device && generic_param_->gpu_id >= 0) {
-#if defined(XGBOOST_USE_CUDA)
-    CHECK_GE(common::AllVisibleGPUs(), 1) << "No visible GPU is found for XGBoost.";
-    CHECK(gpu_predictor_);
-    return gpu_predictor_;
-#else
-    LOG(FATAL) << "Data is on CUDA device, but XGBoost is not compiled with "
-                  "CUDA support.";
-    return cpu_predictor_;
-#endif  // defined(XGBOOST_USE_CUDA)
-  }
-
-  // GPU_Hist by default has prediction cache calculated from quantile values,
-  // so GPU Predictor is not used for training dataset.  But when XGBoost
-  // performs continue training with an existing model, the prediction cache is
-  // not availbale and number of trees doesn't equal zero, the whole training
-  // dataset got copied into GPU for precise prediction.  This condition tries
-  // to avoid such copy by calling CPU Predictor instead.
-  if ((out_pred && out_pred->Size() == 0) && (model_.param.num_trees != 0) &&
-      // FIXME(trivialfis): Implement a better method for testing whether data
-      // is on device after DMatrix refactoring is done.
-      !on_device) {
-    CHECK(cpu_predictor_);
-    return cpu_predictor_;
-  }
-
-  if (tparam_.tree_method == TreeMethod::kGPUHist) {
-#if defined(XGBOOST_USE_CUDA)
-    CHECK_GE(common::AllVisibleGPUs(), 1) << "No visible GPU is found for XGBoost.";
-    CHECK(gpu_predictor_);
-    return gpu_predictor_;
-#else
-    common::AssertGPUSupport();
-    return cpu_predictor_;
-#endif  // defined(XGBOOST_USE_CUDA)
-  }
-
-  CHECK(cpu_predictor_);
-  return cpu_predictor_;
-}
-
 class Dart : public GBTree {
  public:
   explicit Dart(LearnerModelParam const* booster_config) :
@@ -524,22 +360,6 @@ class Dart : public GBTree {
   void Configure(const Args& cfg) override {
     GBTree::Configure(cfg);
     dparam_.UpdateAllowUnknown(cfg);
-  }
-
-  void Slice(int32_t layer_begin, int32_t layer_end, int32_t step,
-             GradientBooster *out, bool* out_of_bound) const final {
-    GBTree::Slice(layer_begin, layer_end, step, out, out_of_bound);
-    if (*out_of_bound) {
-      return;
-    }
-    auto p_dart = dynamic_cast<Dart*>(out);
-    CHECK(p_dart);
-    CHECK(p_dart->weight_drop_.empty());
-    detail::SliceTrees(
-        layer_begin, layer_end, step, model_, tparam_, this->LayerTrees(),
-        [&](auto const& in_it, auto const&) {
-          p_dart->weight_drop_.push_back(this->weight_drop_.at(in_it));
-        });
   }
 
   void SaveModel(Json *p_out) const override {
@@ -584,7 +404,7 @@ class Dart : public GBTree {
     CHECK_EQ(get<String>(in["name"]), "dart");
     auto const& gbtree = in["gbtree"];
     GBTree::LoadConfig(gbtree);
-    FromJson(in["dart_train_param"], &dparam_);
+    fromJson(in["dart_train_param"], &dparam_);
   }
   void SaveConfig(Json* p_out) const override {
     auto& out = *p_out;
@@ -592,53 +412,34 @@ class Dart : public GBTree {
     out["gbtree"] = Object();
     auto& gbtree = out["gbtree"];
     GBTree::SaveConfig(&gbtree);
-    out["dart_train_param"] = ToJson(dparam_);
+    out["dart_train_param"] = toJson(dparam_);
   }
 
+  // predict the leaf scores with dropout if ntree_limit = 0
   void PredictBatch(DMatrix* p_fmat,
-                    PredictionCacheEntry* p_out_preds,
-                    bool training,
+                    HostDeviceVector<bst_float>* out_preds,
                     unsigned ntree_limit) override {
-    DropTrees(training);
-    int num_group = model_.learner_model_param->num_output_group;
-    ntree_limit *= num_group;
-    if (ntree_limit == 0 || ntree_limit > model_.trees.size()) {
-      ntree_limit = static_cast<unsigned>(model_.trees.size());
-    }
-    size_t n = num_group * p_fmat->Info().num_row_;
-    const auto &base_margin = p_fmat->Info().base_margin_.ConstHostVector();
-    auto& out_preds = p_out_preds->predictions.HostVector();
-    out_preds.resize(n);
-    if (base_margin.size() != 0) {
-      CHECK_EQ(out_preds.size(), n);
-      std::copy(base_margin.begin(), base_margin.end(), out_preds.begin());
-    } else {
-      std::fill(out_preds.begin(), out_preds.end(),
-                model_.learner_model_param->base_score);
-    }
-    const int nthread = omp_get_max_threads();
-    InitThreadTemp(nthread);
-    PredLoopSpecalize(p_fmat, &out_preds, num_group, 0, ntree_limit);
+    DropTrees(ntree_limit);
+    PredLoopInternal<Dart>(p_fmat, &out_preds->HostVector(), 0, ntree_limit, true);
   }
 
   void PredictInstance(const SparsePage::Inst &inst,
-                       std::vector<bst_float> *out_preds,
-                       unsigned ntree_limit) override {
-    DropTrees(false);
+                       std::vector<bst_float> *out_preds, unsigned ntree_limit) override {
+    DropTrees(1);
     if (thread_temp_.size() == 0) {
       thread_temp_.resize(1, RegTree::FVec());
-      thread_temp_[0].Init(model_.learner_model_param->num_feature);
+      thread_temp_[0].Init(model_.learner_model_param_->num_feature);
     }
-    out_preds->resize(model_.learner_model_param->num_output_group);
-    ntree_limit *= model_.learner_model_param->num_output_group;
+    out_preds->resize(model_.learner_model_param_->num_output_group);
+    ntree_limit *= model_.learner_model_param_->num_output_group;
     if (ntree_limit == 0 || ntree_limit > model_.trees.size()) {
       ntree_limit = static_cast<unsigned>(model_.trees.size());
     }
     // loop over output groups
-    for (uint32_t gid = 0; gid < model_.learner_model_param->num_output_group; ++gid) {
+    for (uint32_t gid = 0; gid < model_.learner_model_param_->num_output_group; ++gid) {
       (*out_preds)[gid] =
           PredValue(inst, gid, &thread_temp_[0], 0, ntree_limit) +
-          model_.learner_model_param->base_score;
+          model_.learner_model_param_->base_score;
     }
   }
 
@@ -647,16 +448,16 @@ class Dart : public GBTree {
   }
 
   void PredictContribution(DMatrix* p_fmat,
-                           HostDeviceVector<bst_float>* out_contribs,
-                           unsigned ntree_limit, bool approximate, int,
-                           unsigned) override {
+                           std::vector<bst_float>* out_contribs,
+                           unsigned ntree_limit, bool approximate, int condition,
+                           unsigned condition_feature) override {
     CHECK(configured_);
     cpu_predictor_->PredictContribution(p_fmat, out_contribs, model_,
                                         ntree_limit, &weight_drop_, approximate);
   }
 
   void PredictInteractionContributions(DMatrix* p_fmat,
-                                       HostDeviceVector<bst_float>* out_contribs,
+                                       std::vector<bst_float>* out_contribs,
                                        unsigned ntree_limit, bool approximate) override {
     CHECK(configured_);
     cpu_predictor_->PredictInteractionContributions(p_fmat, out_contribs, model_,
@@ -665,24 +466,61 @@ class Dart : public GBTree {
 
 
  protected:
+  friend class GBTree;
+  // internal prediction loop
+  // add predictions to out_preds
+  template<typename Derived>
+  inline void PredLoopInternal(
+      DMatrix* p_fmat,
+      std::vector<bst_float>* out_preds,
+      unsigned tree_begin,
+      unsigned ntree_limit,
+      bool init_out_preds) {
+    int num_group = model_.learner_model_param_->num_output_group;
+    ntree_limit *= num_group;
+    if (ntree_limit == 0 || ntree_limit > model_.trees.size()) {
+      ntree_limit = static_cast<unsigned>(model_.trees.size());
+    }
+
+    if (init_out_preds) {
+      size_t n = num_group * p_fmat->Info().num_row_;
+      const auto& base_margin =
+          p_fmat->Info().base_margin_.ConstHostVector();
+      out_preds->resize(n);
+      if (base_margin.size() != 0) {
+        CHECK_EQ(out_preds->size(), n);
+        std::copy(base_margin.begin(), base_margin.end(), out_preds->begin());
+      } else {
+        std::fill(out_preds->begin(), out_preds->end(),
+                  model_.learner_model_param_->base_score);
+      }
+    }
+    PredLoopSpecalize<Derived>(p_fmat, out_preds, num_group, tree_begin,
+                               ntree_limit);
+  }
+
+  template<typename Derived>
   inline void PredLoopSpecalize(
       DMatrix* p_fmat,
       std::vector<bst_float>* out_preds,
       int num_group,
       unsigned tree_begin,
       unsigned tree_end) {
-    CHECK_EQ(num_group, model_.learner_model_param->num_output_group);
+    const int nthread = omp_get_max_threads();
+    CHECK_EQ(num_group, model_.learner_model_param_->num_output_group);
+    InitThreadTemp(nthread);
     std::vector<bst_float>& preds = *out_preds;
     CHECK_EQ(model_.param.size_leaf_vector, 0)
         << "size_leaf_vector is enforced to 0 so far";
     CHECK_EQ(preds.size(), p_fmat->Info().num_row_ * num_group);
     // start collecting the prediction
+    auto* self = static_cast<Derived*>(this);
     for (const auto &batch : p_fmat->GetBatches<SparsePage>()) {
       constexpr int kUnroll = 8;
       const auto nsize = static_cast<bst_omp_uint>(batch.Size());
       const bst_omp_uint rest = nsize % kUnroll;
       if (nsize >= kUnroll) {
-#pragma omp parallel for schedule(static)
+        #pragma omp parallel for schedule(static)
         for (bst_omp_uint i = 0; i < nsize - rest; i += kUnroll) {
           const int tid = omp_get_thread_num();
           RegTree::FVec& feats = thread_temp_[tid];
@@ -698,7 +536,7 @@ class Dart : public GBTree {
             for (int gid = 0; gid < num_group; ++gid) {
               const size_t offset = ridx[k] * num_group + gid;
               preds[offset] +=
-                  this->PredValue(inst[k], gid, &feats, tree_begin, tree_end);
+                  self->PredValue(inst[k], gid, &feats, tree_begin, tree_end);
             }
           }
         }
@@ -711,7 +549,7 @@ class Dart : public GBTree {
         for (int gid = 0; gid < num_group; ++gid) {
           const size_t offset = ridx * num_group + gid;
           preds[offset] +=
-              this->PredValue(inst, gid,
+              self->PredValue(inst, gid,
                               &feats, tree_begin, tree_end);
         }
       }
@@ -720,10 +558,9 @@ class Dart : public GBTree {
 
   // commit new trees all at once
   void
-  CommitModel(std::vector<std::vector<std::unique_ptr<RegTree>>>&& new_trees,
-              DMatrix*, PredictionCacheEntry*) override {
+  CommitModel(std::vector<std::vector<std::unique_ptr<RegTree>>>&& new_trees) override {
     int num_new_trees = 0;
-    for (uint32_t gid = 0; gid < model_.learner_model_param->num_output_group; ++gid) {
+    for (uint32_t gid = 0; gid < model_.learner_model_param_->num_output_group; ++gid) {
       num_new_trees += new_trees[gid].size();
       model_.CommitModel(std::move(new_trees[gid]), gid);
     }
@@ -733,9 +570,11 @@ class Dart : public GBTree {
   }
 
   // predict the leaf scores without dropped trees
-  bst_float PredValue(const SparsePage::Inst &inst, int bst_group,
-                      RegTree::FVec *p_feats, unsigned tree_begin,
-                      unsigned tree_end) const {
+  inline bst_float PredValue(const SparsePage::Inst &inst,
+                             int bst_group,
+                             RegTree::FVec *p_feats,
+                             unsigned tree_begin,
+                             unsigned tree_end) {
     bst_float psum = 0.0f;
     p_feats->Fill(inst);
     for (size_t i = tree_begin; i < tree_end; ++i) {
@@ -752,12 +591,9 @@ class Dart : public GBTree {
   }
 
   // select which trees to drop
-  // passing clear=True will clear selection
-  inline void DropTrees(bool is_training) {
+  inline void DropTrees(unsigned ntree_limit_drop) {
     idx_drop_.clear();
-    if (!is_training) {
-      return;
-    }
+    if (ntree_limit_drop > 0) return;
 
     std::uniform_real_distribution<> runif(0.0, 1.0);
     auto& rnd = common::GlobalRandom();
@@ -840,7 +676,7 @@ class Dart : public GBTree {
     if (prev_thread_temp_size < nthread) {
       thread_temp_.resize(nthread, RegTree::FVec());
       for (int i = prev_thread_temp_size; i < nthread; ++i) {
-        thread_temp_[i].Init(model_.learner_model_param->num_feature);
+        thread_temp_[i].Init(model_.learner_model_param_->num_feature);
       }
     }
   }
@@ -863,13 +699,16 @@ DMLC_REGISTER_PARAMETER(DartTrainParam);
 
 XGBOOST_REGISTER_GBM(GBTree, "gbtree")
 .describe("Tree booster, gradient boosted trees.")
-.set_body([](LearnerModelParam const* booster_config) {
+.set_body([](const std::vector<std::shared_ptr<DMatrix> >& cached_mats,
+             LearnerModelParam const* booster_config) {
     auto* p = new GBTree(booster_config);
+    p->InitCache(cached_mats);
     return p;
   });
 XGBOOST_REGISTER_GBM(Dart, "dart")
 .describe("Tree booster, dart.")
-.set_body([](LearnerModelParam const* booster_config) {
+.set_body([](const std::vector<std::shared_ptr<DMatrix> >& cached_mats,
+             LearnerModelParam const* booster_config) {
     GBTree* p = new Dart(booster_config);
     return p;
   });

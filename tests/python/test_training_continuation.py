@@ -1,12 +1,13 @@
 import xgboost as xgb
 import testing as tm
 import numpy as np
+import unittest
 import pytest
 
 rng = np.random.RandomState(1337)
 
 
-class TestTrainingContinuation:
+class TestTrainingContinuation(unittest.TestCase):
     num_parallel_tree = 3
 
     def generate_parameters(self, use_json):
@@ -123,13 +124,13 @@ class TestTrainingContinuation:
         gbdt_05 = xgb.train(xgb_params_03, dtrain_5class,
                             num_boost_round=7)
         assert gbdt_05.best_ntree_limit == (
-            gbdt_05.best_iteration + 1) * self.num_parallel_tree * 5
+            gbdt_05.best_iteration + 1) * self.num_parallel_tree
         gbdt_05 = xgb.train(xgb_params_03,
                             dtrain_5class,
                             num_boost_round=3,
                             xgb_model=gbdt_05)
         assert gbdt_05.best_ntree_limit == (
-            gbdt_05.best_iteration + 1) * self.num_parallel_tree * 5
+            gbdt_05.best_iteration + 1) * self.num_parallel_tree
 
         res1 = gbdt_05.predict(dtrain_5class)
         res2 = gbdt_05.predict(dtrain_5class,
