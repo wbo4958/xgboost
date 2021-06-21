@@ -276,6 +276,18 @@ public class Booster implements Serializable, KryoSerializable {
   }
 
   /**
+   * Predict leaf indices given the data
+   *
+   * @param data The input data.
+   * @param treeLimit Number of trees to include, 0 means all trees.
+   * @return The leaf indices of the instance.
+   * @throws XGBoostError
+   */
+  public float[][] predictLeafNew(DMatrix data, int treeLimit) throws XGBoostError {
+    return this.predictNew(data, PredictType.PREDICT_LEAF, false, true);
+  }
+
+  /**
    * Advanced predict function with all the options.
    *
    * @param data         data
@@ -285,6 +297,34 @@ public class Booster implements Serializable, KryoSerializable {
    * @param predContribs prediction feature contributions
    * @return predict results
    */
+  private synchronized float[][] predictNew(DMatrix data, PredictType predictType,
+                                            boolean training, boolean strictShape)
+      throws XGBoostError {
+
+    String conf = new PredictConfigureBuilder()
+        .withType(predictType)
+        .withTraining(training)
+        .withStrictShape(strictShape)
+        .build();
+
+    long[][] outShape = new long[1][];
+    long[] outDim = new long[4];
+    float[][] outResult = new float[1][];
+
+    XGBoostJNI.checkCall(XGBoostJNI.XGBoosterPredictFromDMatrix(handle, data.getHandle(), conf,
+            outShape, outDim, outResult));
+
+    System.out.println("dim: " + outDim[0]);
+
+    StringBuilder builder = new StringBuilder();
+    for (int i = 0; i < outDim[0]; i++) {
+      builder.append(outShape[0][i] + " ");
+    }
+    System.out.println(builder.toString());
+
+    return outResult;
+  }
+
   private synchronized float[][] predict(DMatrix data,
                                          boolean outputMargin,
                                          int treeLimit,
@@ -302,7 +342,7 @@ public class Booster implements Serializable, KryoSerializable {
     }
     float[][] rawPredicts = new float[1][];
     XGBoostJNI.checkCall(XGBoostJNI.XGBoosterPredict(handle, data.getHandle(), optionMask,
-            treeLimit, rawPredicts));
+        treeLimit, rawPredicts));
     int row = (int) data.rowNum();
     int col = rawPredicts[0].length / row;
     float[][] predicts = new float[row][col];
@@ -771,6 +811,107 @@ public class Booster implements Serializable, KryoSerializable {
       XGBoostJNI.checkCall(XGBoostJNI.XGBoosterLoadModelFromBuffer(this.handle, bytes));
     } catch (XGBoostError ex) {
       logger.error(ex.getMessage(), ex);
+    }
+  }
+
+  enum PredictType {
+    NORMAL_PREDICTION(0),
+    OUTPUT_MARGIN(1),
+    PREDICT_CONTRIBUTION(2),
+    PREDICT_APPROXIMATED_CONTRIBUTION(3),
+    PREDICT_FEATURE_INTERACTION(4),
+    PREDICT_APPROXIMATED_FEATURE_INTERACTION(5),
+    PREDICT_LEAF(6);
+
+    private final int value;
+
+    PredictType(int value) {
+      this.value = value;
+    }
+
+    public int getValue() {
+      return value;
+    }
+  }
+  /**
+   * A builder to build a json string which will be passed to xgboost
+   */
+  class PredictConfigureBuilder {
+    private PredictType type;
+    private boolean training;
+    private int iterationBegin;
+    private int iterationEnd;
+    private boolean strictShape;
+
+    PredictConfigureBuilder withType(PredictType type) {
+      this.type = type;
+      return PredictConfigureBuilder.this;
+    }
+
+    /**
+     * Whether the prediction function is used as part of a training loop.
+     * Not used for inplace prediction.
+     *
+     * Prediction can be run in 2 scenarios:
+     *   1. Given data matrix X, obtain prediction y_pred from the model.
+     *   2. Obtain the prediction for computing gradients. For example, DART booster performs
+     *      dropout during training, and the prediction result will be different from the one
+     *      obtained by normal inference step due to dropped trees.
+     * Set training=false for the first scenario. Set training=true for the second
+     * scenario.  The second scenario applies when you are defining a custom objective
+     * function.
+     * @param training see above
+     * @return PredictConfigureBuilder
+     */
+    PredictConfigureBuilder withTraining(boolean training) {
+      this.training = training;
+      return PredictConfigureBuilder.this;
+    }
+
+    /**
+     * @param iterationBegin Beginning iteration of prediction
+     * @return
+     */
+    PredictConfigureBuilder withIterationBegin(int iterationBegin) {
+      this.iterationBegin = iterationBegin;
+      return PredictConfigureBuilder.this;
+    }
+
+    /**
+     *
+     * @param iterationEnd End iteration of prediction.  Set to 0 this will become the size of
+     *                    tree model (all the trees)
+     * @return
+     */
+    PredictConfigureBuilder withIterationEnd(int iterationEnd) {
+      this.iterationEnd = iterationEnd;
+      return PredictConfigureBuilder.this;
+    }
+
+    /**
+     * Whether should we reshape the output with stricter rules.  If set to true,
+     * normal/margin/contrib/interaction predict will output consistent shape
+     * disregarding the use of multi-class model, and leaf prediction will output 4-dim
+     * array representing: (n_samples, n_iterations, n_classes, n_trees_in_forest)
+     * @param strictShape
+     * @return
+     */
+    PredictConfigureBuilder withStrictShape(boolean strictShape) {
+      this.strictShape = strictShape;
+      return PredictConfigureBuilder.this;
+    }
+
+    // a simple json format, no need to involve any json libraries.
+    String build() {
+      StringBuilder builder = new StringBuilder();
+      builder.append("{");
+      builder.append("\"type\":" + type.getValue());
+      builder.append(",\"training\":" + training);
+      builder.append(",\"iteration_begin\":" + iterationBegin);
+      builder.append(",\"iteration_end\":" + iterationEnd);
+      builder.append(",\"strict_shape\":" + strictShape);
+      builder.append("}");
+      return builder.toString();
     }
   }
 }
