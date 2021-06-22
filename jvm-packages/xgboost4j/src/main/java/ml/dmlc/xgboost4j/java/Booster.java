@@ -284,7 +284,7 @@ public class Booster implements Serializable, KryoSerializable {
    * @throws XGBoostError
    */
   public float[][] predictLeafNew(DMatrix data, int treeLimit) throws XGBoostError {
-    return this.predictNew(data, PredictType.PREDICT_LEAF, false, true);
+    return this.predictNew(data, PredictType.PREDICT_FEATURE_INTERACTION, false, true);
   }
 
   /**

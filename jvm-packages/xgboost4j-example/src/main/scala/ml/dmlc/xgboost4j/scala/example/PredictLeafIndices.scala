@@ -16,7 +16,7 @@
 
 package ml.dmlc.xgboost4j.scala.example
 
-import java.util
+import java.util.Arrays
 
 import scala.collection.mutable
 
@@ -40,7 +40,7 @@ object PredictLeafIndices {
     watches += "train" -> trainMat
 //    watches += "test" -> testMat
 
-    val round = 3
+    val round = 4
     val booster = XGBoost.train(trainMat, params.toMap, round, watches.toMap)
 
 //    // predict using first 2 tree
@@ -51,8 +51,12 @@ object PredictLeafIndices {
 
     // predict all trees
     val leafIndex2 = booster.predictLeafNew(testMat, 0)
+    println(s"leafIndex2.length = ${leafIndex2.length}  ${leafIndex2(0).length}")
+
+
     for (leafs <- leafIndex2) {
-      println(java.util.Arrays.toString(leafs))
+      val newArray = Arrays.copyOf(leafs, 1000)
+      println(java.util.Arrays.toString(newArray))
     }
 
     println("----------------------------------------------------------")
