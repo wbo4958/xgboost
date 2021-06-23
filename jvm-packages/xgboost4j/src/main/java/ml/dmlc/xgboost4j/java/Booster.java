@@ -16,9 +16,11 @@
 package ml.dmlc.xgboost4j.java;
 
 import java.io.*;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -284,7 +286,7 @@ public class Booster implements Serializable, KryoSerializable {
    * @throws XGBoostError
    */
   public float[][] predictLeafNew(DMatrix data, int treeLimit) throws XGBoostError {
-    return this.predictNew(data, PredictType.PREDICT_FEATURE_INTERACTION, false, true);
+    return this.predictNew(data, PredictType.PREDICT_LEAF, false, true);
   }
 
   /**
@@ -316,11 +318,28 @@ public class Booster implements Serializable, KryoSerializable {
 
     System.out.println("dim: " + outDim[0]);
 
-    StringBuilder builder = new StringBuilder();
+    long numElements = 1;
     for (int i = 0; i < outDim[0]; i++) {
-      builder.append(outShape[0][i] + " ");
+      System.out.println("shape["+i +"] is:" + outShape[0][i]);
+      numElements *= outShape[0][i];
     }
-    System.out.println(builder.toString());
+    ArrayList list = new ArrayList();
+    for (int i = 0; i < outShape[0][0]; i++) {
+      ArrayList list1 = new ArrayList();
+      for (int j = 0; j < outShape[0][1]; j++) {
+        ArrayList list2 = new ArrayList();
+        for (int k = 0; k < outShape[0][2]; k++) {
+          int start = (int) (i*outShape[0][1] + j * outShape[0][2] + k);
+          int end = (int) (start + outShape[0][3]);
+          float[] x = Arrays.copyOfRange(outResult[0], start, end);
+          list2.add(Arrays.asList(x));
+        }
+        list1.add(list2);
+      }
+      list.add(list1);
+    }
+
+    System.out.println();
 
     return outResult;
   }

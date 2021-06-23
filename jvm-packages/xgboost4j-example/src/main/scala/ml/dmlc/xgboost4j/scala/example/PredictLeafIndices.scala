@@ -55,15 +55,15 @@ object PredictLeafIndices {
 
 
     for (leafs <- leafIndex2) {
-      val newArray = Arrays.copyOf(leafs, 1000)
+      val newArray = Arrays.copyOf(leafs, 100)
       println(java.util.Arrays.toString(newArray))
     }
 
     println("----------------------------------------------------------")
-    // predict all trees
-    val leafIndex3 = booster.predictLeaf(testMat, 0)
-    for (leafs <- leafIndex3) {
-      println(java.util.Arrays.toString(leafs))
-    }
+//    // predict all trees
+//    val leafIndex3 = booster.predictLeaf(testMat, 0)
+//    for (leafs <- leafIndex3) {
+//      println(java.util.Arrays.toString(leafs))
+//    }
   }
 }
