@@ -16,11 +16,11 @@
 
 package ml.dmlc.xgboost4j.scala.example
 
-import java.util.Arrays
+import java.util.ArrayList
 
 import scala.collection.mutable
 
-import ml.dmlc.xgboost4j.scala.{XGBoost, DMatrix}
+import ml.dmlc.xgboost4j.scala.{DMatrix, XGBoost}
 
 object PredictLeafIndices {
 
@@ -51,13 +51,34 @@ object PredictLeafIndices {
 
     // predict all trees
     val leafIndex2 = booster.predictLeafNew(testMat, 0)
-    println(s"leafIndex2.length = ${leafIndex2.length}  ${leafIndex2(0).length}")
+    println(s"leafIndex2.length = ${leafIndex2.length}")
 
+//    for (leafs <- leafIndex2) {
+//      println("----- " + leafs)
+//    }
 
-    for (leafs <- leafIndex2) {
-      val newArray = Arrays.copyOf(leafs, 100)
-      println(java.util.Arrays.toString(newArray))
+    def print(x: Any): Unit = {
+      x match {
+        case list: ArrayList[_] =>
+          val itr = list.iterator()
+          while (itr.hasNext) {
+            print(itr.next())
+          }
+        case z => {
+//          println(java.util.Arrays.toString())
+        }
+      }
     }
+
+    val itr = leafIndex2.iterator
+    while (itr.hasNext) {
+      print(itr.next())
+    }
+
+//    leafIndex2 match {
+//      case x: ArrayList[ArrayList[ArrayList]] =>
+//        println(s"x = ${x}")
+//    }
 
     println("----------------------------------------------------------")
 //    // predict all trees

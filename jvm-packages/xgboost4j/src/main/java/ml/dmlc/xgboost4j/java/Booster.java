@@ -18,6 +18,7 @@ package ml.dmlc.xgboost4j.java;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -285,7 +286,7 @@ public class Booster implements Serializable, KryoSerializable {
    * @return The leaf indices of the instance.
    * @throws XGBoostError
    */
-  public float[][] predictLeafNew(DMatrix data, int treeLimit) throws XGBoostError {
+  public List predictLeafNew(DMatrix data, int treeLimit) throws XGBoostError {
     return this.predictNew(data, PredictType.PREDICT_LEAF, false, true);
   }
 
@@ -299,7 +300,7 @@ public class Booster implements Serializable, KryoSerializable {
    * @param predContribs prediction feature contributions
    * @return predict results
    */
-  private synchronized float[][] predictNew(DMatrix data, PredictType predictType,
+  private synchronized List predictNew(DMatrix data, PredictType predictType,
                                             boolean training, boolean strictShape)
       throws XGBoostError {
 
@@ -332,7 +333,8 @@ public class Booster implements Serializable, KryoSerializable {
           int start = (int) (i*outShape[0][1] + j * outShape[0][2] + k);
           int end = (int) (start + outShape[0][3]);
           float[] x = Arrays.copyOfRange(outResult[0], start, end);
-          list2.add(Arrays.asList(x));
+//          list2.add(Arrays.asList(x));
+          Collections.addAll(list2, x);
         }
         list1.add(list2);
       }
@@ -341,7 +343,7 @@ public class Booster implements Serializable, KryoSerializable {
 
     System.out.println();
 
-    return outResult;
+    return list;
   }
 
   private synchronized float[][] predict(DMatrix data,

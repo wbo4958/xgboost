@@ -181,8 +181,8 @@ class Booster private[xgboost4j](private[xgboost4j] var booster: JBooster)
    * @throws XGBoostError native error
    */
   @throws(classOf[XGBoostError])
-  def predictLeafNew(data: DMatrix, treeLimit: Int = 0): Array[Array[Float]] = {
-    booster.predictLeafNew(data.jDMatrix, treeLimit)
+  def predictLeafNew(data: DMatrix, treeLimit: Int = 0): Array[_] = {
+    booster.predictLeafNew(data.jDMatrix, treeLimit).toArray
   }
 
   @throws(classOf[XGBoostError])

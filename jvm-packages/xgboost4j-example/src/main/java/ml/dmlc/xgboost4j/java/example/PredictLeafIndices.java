@@ -17,6 +17,7 @@ package ml.dmlc.xgboost4j.java.example;
 
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 
 import ml.dmlc.xgboost4j.java.Booster;
 import ml.dmlc.xgboost4j.java.DMatrix;
@@ -52,10 +53,10 @@ public class PredictLeafIndices {
     Booster booster = XGBoost.train(trainMat, params, round, watches, null, null);
 
     //predict using first 2 tree
-    float[][] leafindex = booster.predictLeafNew(testMat, 2);
-    for (float[] leafs : leafindex) {
-      System.out.println(Arrays.toString(leafs));
-    }
+    List leafindex = booster.predictLeafNew(testMat, 2);
+//    for (float[] leafs : leafindex) {
+//      System.out.println(Arrays.toString(leafs));
+//    }
 
 //    //predict all trees
 //    leafindex = booster.predictLeaf(testMat, 0);
