@@ -287,7 +287,7 @@ public class Booster implements Serializable, KryoSerializable {
    * @throws XGBoostError
    */
   public List predictLeafNew(DMatrix data, int treeLimit) throws XGBoostError {
-    return this.predictNew(data, PredictType.PREDICT_LEAF, false, true);
+    return this.predictNew(data, PredictType.PREDICT_LEAF, false, false);
   }
 
   /**
@@ -317,24 +317,50 @@ public class Booster implements Serializable, KryoSerializable {
     XGBoostJNI.checkCall(XGBoostJNI.XGBoosterPredictFromDMatrix(handle, data.getHandle(), conf,
             outShape, outDim, outResult));
 
-    System.out.println("dim: " + outDim[0]);
+    long dim = outDim[0];
+    long[] shape = outShape[0];
+    float[] result = outResult[0];
+
+    // The tensor predicated can only be no more than 4D
+    if (dim <= 0 || dim > 4) {
+      throw new XGBoostError("The dimension of tensor predicated is " + dim);
+    }
 
     long numElements = 1;
-    for (int i = 0; i < outDim[0]; i++) {
-      System.out.println("shape["+i +"] is:" + outShape[0][i]);
-      numElements *= outShape[0][i];
+    for (int i = 0; i < dim; i++) {
+      System.out.println("shape["+i +"] is:" + shape[i]);
+      numElements *= shape[i];
     }
+
     ArrayList list = new ArrayList();
-    for (int i = 0; i < outShape[0][0]; i++) {
+    for (int i = 0; i < shape[0]; i++) {
+      if (dim == 1) {
+        list.add(result[i]);
+        continue;
+      }
+
       ArrayList list1 = new ArrayList();
-      for (int j = 0; j < outShape[0][1]; j++) {
+      for (int j = 0; j < shape[1]; j++) {
+        if (dim == 2) {
+          int index = (int) (i*shape[1] + j);
+          list1.add(result[index]);
+          continue;
+        }
+
         ArrayList list2 = new ArrayList();
-        for (int k = 0; k < outShape[0][2]; k++) {
-          int start = (int) (i*outShape[0][1] + j * outShape[0][2] + k);
-          int end = (int) (start + outShape[0][3]);
-          float[] x = Arrays.copyOfRange(outResult[0], start, end);
-//          list2.add(Arrays.asList(x));
-          Collections.addAll(list2, x);
+        for (int k = 0; k < shape[2]; k++) {
+          if (dim == 3) {
+            int index = (int) (i*shape[1] + j * shape[2] + k);
+            list2.add(result[index]);
+            continue;
+          }
+
+          ArrayList list3 = new ArrayList();
+          for (int m = 0; m < shape[3]; m++) {
+            int index = (int) (i*shape[1] + j * shape[2] + k*shape[3] + m);
+            list3.add(result[index]);
+          }
+          list2.add(list3);
         }
         list1.add(list2);
       }
