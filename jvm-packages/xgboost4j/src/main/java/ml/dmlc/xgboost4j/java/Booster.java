@@ -287,26 +287,18 @@ public class Booster implements Serializable, KryoSerializable {
    * @throws XGBoostError
    */
   public List predictLeafNew(DMatrix data, int treeLimit) throws XGBoostError {
-    return this.predictNew(data, PredictType.PREDICT_LEAF, false, false);
+    return this.predict(data, PredictType.PREDICT_LEAF, false, 0, 1, true);
   }
 
-  /**
-   * Advanced predict function with all the options.
-   *
-   * @param data         data
-   * @param outputMargin output margin
-   * @param treeLimit    limit number of trees, 0 means all trees.
-   * @param predLeaf     prediction minimum to keep leafs
-   * @param predContribs prediction feature contributions
-   * @return predict results
-   */
-  private synchronized List predictNew(DMatrix data, PredictType predictType,
-                                            boolean training, boolean strictShape)
+  private synchronized List predict(DMatrix data, PredictType predictType, boolean training,
+                                    int iterationBegin, int iterationEnd, boolean strictShape)
       throws XGBoostError {
 
     String conf = new PredictConfigureBuilder()
         .withType(predictType)
         .withTraining(training)
+        .withIterationBegin(iterationBegin)
+        .withIterationEnd(iterationEnd)
         .withStrictShape(strictShape)
         .build();
 
@@ -315,7 +307,7 @@ public class Booster implements Serializable, KryoSerializable {
     float[][] outResult = new float[1][];
 
     XGBoostJNI.checkCall(XGBoostJNI.XGBoosterPredictFromDMatrix(handle, data.getHandle(), conf,
-            outShape, outDim, outResult));
+        outShape, outDim, outResult));
 
     long dim = outDim[0];
     long[] shape = outShape[0];
@@ -328,10 +320,11 @@ public class Booster implements Serializable, KryoSerializable {
 
     long numElements = 1;
     for (int i = 0; i < dim; i++) {
-      System.out.println("shape["+i +"] is:" + shape[i]);
       numElements *= shape[i];
     }
+    logger.debug("Total output " + numElements + " elements");
 
+    // Is there a better way to construct the multi-dimension result ?
     ArrayList list = new ArrayList();
     for (int i = 0; i < shape[0]; i++) {
       if (dim == 1) {
@@ -366,8 +359,6 @@ public class Booster implements Serializable, KryoSerializable {
       }
       list.add(list1);
     }
-
-    System.out.println();
 
     return list;
   }
