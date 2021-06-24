@@ -409,8 +409,9 @@ class XGBoostClassificationModel private[ml](
   private def producePredictionItrs(broadcastBooster: Broadcast[Booster], dm: DMatrix):
       Array[Iterator[Row]] = {
     val rawPredictionItr = {
-      broadcastBooster.value.predict(dm, outPutMargin = true, $(treeLimit)).
-        map(Row(_)).iterator
+//      broadcastBooster.value.predict(dm, outPutMargin = true, $(treeLimit)).
+//        map(Row(_)).iterator
+      broadcastBooster.value.predict(dm, 0, 0, false, false).map(Row(_)).iterator
     }
     val probabilityItr = {
       broadcastBooster.value.predict(dm, outPutMargin = false, $(treeLimit)).

@@ -157,7 +157,6 @@ class Booster private[xgboost4j](private[xgboost4j] var booster: JBooster)
     booster.evalSet(evalMatrixs.map(_.jDMatrix), evalNames, eval)
   }
 
-
   /**
    * Predict with data
    *
@@ -167,9 +166,27 @@ class Booster private[xgboost4j](private[xgboost4j] var booster: JBooster)
    * @return predict result
    */
   @throws(classOf[XGBoostError])
+  @Deprecated
   def predict(data: DMatrix, outPutMargin: Boolean = false, treeLimit: Int = 0):
       Array[Array[Float]] = {
     booster.predict(data.jDMatrix, outPutMargin, treeLimit)
+  }
+
+  /**
+   * Make normal prediction
+   *
+   * @param data             The DMatrix to be predicated
+   * @param iterationStart   Beginning iteration of prediction
+   * @param iterationEnd     End iteration of prediction, Set to 0 this will become the size of
+   *                         tree model (all the trees)
+   * @param strictShape      Whether should we reshape the output with stricter rules
+   * @param training         Whether the prediction function is used as part of a training loop
+   * @throws ml.dmlc.xgboost4j.java.XGBoostError
+   */
+  @throws(classOf[XGBoostError])
+  def predict(data: DMatrix, iterationStart: Int, iterationEnd: Int,
+      strictShape: Boolean, training: Boolean ): Array[_] = {
+    booster.predict(data.jDMatrix, iterationStart, iterationEnd, strictShape, training).toArray
   }
 
   /**
@@ -180,11 +197,6 @@ class Booster private[xgboost4j](private[xgboost4j] var booster: JBooster)
    * @return predict result
    * @throws XGBoostError native error
    */
-  @throws(classOf[XGBoostError])
-  def predictLeafNew(data: DMatrix, treeLimit: Int = 0): Array[_] = {
-    booster.predictLeaf(data.jDMatrix, treeLimit).toArray
-  }
-
   @throws(classOf[XGBoostError])
   def predictLeaf(data: DMatrix, treeLimit: Int = 0): Array[Array[Float]] = {
     booster.predictLeaf(data.jDMatrix, treeLimit)

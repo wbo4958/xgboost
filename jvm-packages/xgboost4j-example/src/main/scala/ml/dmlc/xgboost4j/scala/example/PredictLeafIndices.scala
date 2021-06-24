@@ -50,9 +50,9 @@ object PredictLeafIndices {
 //    }
 
     // predict all trees
-    val leafIndex2 = booster.predictLeafNew(testMat, 0)
-    println(s"leafIndex2.length = ${leafIndex2.length} $leafIndex2")
-    leafIndex2.foreach(item => println(item))
+//    val leafIndex2 = booster.predictLeafNew(testMat, 0)
+//    println(s"leafIndex2.length = ${leafIndex2.length} $leafIndex2")
+//    leafIndex2.foreach(item => println(item))
 
 //    for (leafs <- leafIndex2) {
 //      println("----- " + leafs)

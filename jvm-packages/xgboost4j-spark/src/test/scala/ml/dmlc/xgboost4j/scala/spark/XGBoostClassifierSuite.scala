@@ -103,6 +103,7 @@ abstract class XGBoostClassifierSuiteBase extends FunSuite with PerTest {
     assert(model.getEta == 0.1)
     assert(model.getMaxDepth == 6)
     assert(model.numClasses == 6)
+    model.transform(trainingDF).show(1000, false)
   }
 
   test("use base margin") {
