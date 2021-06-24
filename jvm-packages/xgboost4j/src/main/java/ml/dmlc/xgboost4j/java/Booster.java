@@ -286,13 +286,35 @@ public class Booster implements Serializable, KryoSerializable {
    * @return The leaf indices of the instance.
    * @throws XGBoostError
    */
-  public List predictLeafNew(DMatrix data, int treeLimit) throws XGBoostError {
-    return this.predict(data, PredictType.PREDICT_LEAF, false, 0, 1, true);
+  public List predictLeaf(DMatrix data, int iterationBegin, int iterationEnd, boolean strictShape)
+      throws XGBoostError {
+    if (iterationBegin != 0) {
+      throw new XGBoostError("Predict leaf supports only iterationBegin=0, found iterationBegin=" +
+        iterationBegin);
+    }
+    return this.predict(data, PredictType.PREDICT_LEAF, false, iterationBegin, iterationEnd,
+      strictShape);
   }
 
-  private synchronized List predict(DMatrix data, PredictType predictType, boolean training,
-                                    int iterationBegin, int iterationEnd, boolean strictShape)
-      throws XGBoostError {
+  /**
+   * Make prediction based on DMatrix.
+   *
+   * @param data           The DMatrix to be predicated
+   * @param predictType    Predict type
+   * @param training       Whether the prediction function is used as part of a training loop
+   * @param iterationBegin Beginning iteration of prediction
+   * @param iterationEnd   End iteration of prediction, Set to 0 this will become the size of
+   *                       tree model (all the trees)
+   * @param strictShape    Whether should we reshape the output with stricter rules
+   * @return A multi-dimension array
+   * @throws XGBoostError
+   */
+  private synchronized List predict(DMatrix data,
+                                    PredictType predictType,
+                                    boolean training,
+                                    int iterationBegin,
+                                    int iterationEnd,
+                                    boolean strictShape) throws XGBoostError {
 
     String conf = new PredictConfigureBuilder()
         .withType(predictType)
@@ -317,12 +339,6 @@ public class Booster implements Serializable, KryoSerializable {
     if (dim <= 0 || dim > 4) {
       throw new XGBoostError("The dimension of tensor predicated is " + dim);
     }
-
-    long numElements = 1;
-    for (int i = 0; i < dim; i++) {
-      numElements *= shape[i];
-    }
-    logger.debug("Total output " + numElements + " elements");
 
     // Is there a better way to construct the multi-dimension result ?
     ArrayList list = new ArrayList();
@@ -363,6 +379,17 @@ public class Booster implements Serializable, KryoSerializable {
     return list;
   }
 
+  /**
+   * Advanced predict function with all the options.
+   *
+   * @param data         data
+   * @param outputMargin output margin
+   * @param treeLimit    limit number of trees, 0 means all trees.
+   * @param predLeaf     prediction minimum to keep leafs
+   * @param predContribs prediction feature contributions
+   * @return predict results
+   */
+  @Deprecated
   private synchronized float[][] predict(DMatrix data,
                                          boolean outputMargin,
                                          int treeLimit,
@@ -401,6 +428,7 @@ public class Booster implements Serializable, KryoSerializable {
    * @return The leaf indices of the instance.
    * @throws XGBoostError
    */
+  @Deprecated
   public float[][] predictLeaf(DMatrix data, int treeLimit) throws XGBoostError {
     return this.predict(data, false, treeLimit, true, false);
   }
