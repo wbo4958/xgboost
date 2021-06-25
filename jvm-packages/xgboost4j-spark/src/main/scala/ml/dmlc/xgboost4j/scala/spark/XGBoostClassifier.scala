@@ -444,6 +444,12 @@ class XGBoostClassificationModel private[ml](
         s" numClasses=$numClasses, but thresholds has length ${$(thresholds).length}")
     }
 
+    val bBooster = dataset.sparkSession.sparkContext.broadcast(_booster)
+    dataset.sparkSession.sparkContext.parallelize(Seq(1)).map { _ =>
+      val dmatrx = new DMatrix(Array(1, 1, 1, 1), 1, 1)
+      bBooster.value.predict(dmatrx, false, 0, 1, true)
+    }
+
     dataset.printSchema()
     // Output selected columns only.
     // This is a bit complicated since it tries to avoid repeated computation.
