@@ -288,10 +288,10 @@ public class Booster implements Serializable, KryoSerializable {
    * @param iterationEnd   End iteration of prediction, Set to 0 this will become the size of
    *                       tree model (all the trees)
    * @param strictShape    Whether should we reshape the output with stricter rules
-   * @return A multi-dimension array
+   * @return A Tensor
    * @throws XGBoostError
    */
-  private synchronized List predict(DMatrix data,
+  private synchronized Tensor predict(DMatrix data,
                                     PredictType predictType,
                                     boolean training,
                                     int iterationBegin,
@@ -322,43 +322,7 @@ public class Booster implements Serializable, KryoSerializable {
       throw new XGBoostError("The dimension of tensor predicated is " + dim);
     }
 
-    // Is there a better way to construct the multi-dimension result ?
-    ArrayList list = new ArrayList();
-    for (int i = 0; i < shape[0]; i++) {
-      if (dim == 1) {
-        list.add(result[i]);
-        continue;
-      }
-
-      ArrayList list1 = new ArrayList();
-      for (int j = 0; j < shape[1]; j++) {
-        if (dim == 2) {
-          int index = (int) (i*shape[1] + j);
-          list1.add(result[index]);
-          continue;
-        }
-
-        ArrayList list2 = new ArrayList();
-        for (int k = 0; k < shape[2]; k++) {
-          if (dim == 3) {
-            int index = (int) (i*shape[1] + j * shape[2] + k);
-            list2.add(result[index]);
-            continue;
-          }
-
-          ArrayList list3 = new ArrayList();
-          for (int m = 0; m < shape[3]; m++) {
-            int index = (int) (i*shape[1] + j * shape[2] + k*shape[3] + m);
-            list3.add(result[index]);
-          }
-          list2.add(list3);
-        }
-        list1.add(list2);
-      }
-      list.add(list1);
-    }
-
-    return list;
+    return new Tensor(dim, shape, result);
   }
 
   /**
@@ -427,8 +391,8 @@ public class Booster implements Serializable, KryoSerializable {
    * @return A multi-dimension array
    * @throws XGBoostError
    */
-  public List predictLeaf(DMatrix data, int iterationBegin, int iterationEnd, boolean training,
-                          boolean strictShape)  throws XGBoostError {
+  public Tensor predictLeaf(DMatrix data, boolean training, int iterationBegin, int iterationEnd,
+                            boolean strictShape)  throws XGBoostError {
     if (iterationBegin != 0) {
       throw new XGBoostError("Predict leaf supports only iterationBegin=0, found iterationBegin=" +
         iterationBegin);
@@ -459,11 +423,11 @@ public class Booster implements Serializable, KryoSerializable {
    * @param iterationEnd   End iteration of prediction, Set to 0 this will become the size of
    *                       tree model (all the trees)
    * @param strictShape    Whether should we reshape the output with stricter rules
-   * @return A multi-dimension array
+   * @return A Tensor
    * @throws XGBoostError
    */
-  public List predictContrib(DMatrix data, int iterationBegin, int iterationEnd, boolean training,
-                             boolean strictShape)  throws XGBoostError {
+  public Tensor predictContrib(DMatrix data, int iterationBegin, int iterationEnd, boolean training,
+                               boolean strictShape)  throws XGBoostError {
     return this.predict(data, PredictType.PREDICT_CONTRIBUTION, training, iterationBegin,
         iterationEnd,  strictShape);
   }
@@ -477,11 +441,11 @@ public class Booster implements Serializable, KryoSerializable {
    * @param iterationEnd   End iteration of prediction, Set to 0 this will become the size of
    *                       tree model (all the trees)
    * @param strictShape    Whether should we reshape the output with stricter rules
-   * @return A multi-dimension array
+   * @return A Tensor
    * @throws XGBoostError
    */
-  public List predictOutputMargin(DMatrix data, int iterationBegin, int iterationEnd,
-                                  boolean training, boolean strictShape)  throws XGBoostError {
+  public Tensor predictOutputMargin(DMatrix data, int iterationBegin, int iterationEnd,
+                                    boolean training, boolean strictShape)  throws XGBoostError {
     return this.predict(data, PredictType.OUTPUT_MARGIN, training, iterationBegin,
       iterationEnd,  strictShape);
   }
@@ -495,11 +459,11 @@ public class Booster implements Serializable, KryoSerializable {
    * @param iterationEnd   End iteration of prediction, Set to 0 this will become the size of
    *                       tree model (all the trees)
    * @param strictShape    Whether should we reshape the output with stricter rules
-   * @return A multi-dimension array
+   * @return A Tensor
    * @throws XGBoostError
    */
-  public List predict(DMatrix data, int iterationBegin, int iterationEnd, boolean training,
-                            boolean strictShape)  throws XGBoostError {
+  public Tensor predict(DMatrix data, boolean training, int iterationBegin, int iterationEnd,
+                        boolean strictShape)  throws XGBoostError {
     return this.predict(data, PredictType.NORMAL_PREDICTION, training, iterationBegin,
       iterationEnd,  strictShape);
   }
@@ -513,10 +477,10 @@ public class Booster implements Serializable, KryoSerializable {
    * @param iterationEnd   End iteration of prediction, Set to 0 this will become the size of
    *                       tree model (all the trees)
    * @param strictShape    Whether should we reshape the output with stricter rules
-   * @return A multi-dimension array
+   * @return A Tensor
    * @throws XGBoostError
    */
-  public List predictInteractions(DMatrix data, int iterationBegin, int iterationEnd,
+  public Tensor predictInteractions(DMatrix data, int iterationBegin, int iterationEnd,
                                   boolean training, boolean strictShape)  throws XGBoostError {
     return this.predict(data, PredictType.PREDICT_FEATURE_INTERACTION, training, iterationBegin,
       iterationEnd,  strictShape);
@@ -960,7 +924,7 @@ public class Booster implements Serializable, KryoSerializable {
     }
   }
 
-  enum PredictType {
+  public enum PredictType {
     NORMAL_PREDICTION(0),
     OUTPUT_MARGIN(1),
     PREDICT_CONTRIBUTION(2),

@@ -397,7 +397,8 @@ class XGBoostClassificationModel private[ml](
     var resultSchema = fixedSchema
     if (isDefined(leafPredictionCol)) {
       resultSchema = resultSchema.add(StructField(name = $(leafPredictionCol), dataType =
-        ArrayType(FloatType, containsNull = false), nullable = false))
+        ArrayType(ArrayType(ArrayType(FloatType)), containsNull = false),
+        nullable = false))
     }
     if (isDefined(contribPredictionCol)) {
       resultSchema = resultSchema.add(StructField(name = $(contribPredictionCol), dataType =
@@ -411,7 +412,7 @@ class XGBoostClassificationModel private[ml](
     val rawPredictionItr = {
 //      broadcastBooster.value.predict(dm, outPutMargin = true, $(treeLimit)).
 //        map(Row(_)).iterator
-      broadcastBooster.value.predict(dm, 0, 0, false, false).map(Row(_)).iterator
+      broadcastBooster.value.predict(dm, false, 0, 0, true).map(Row(_)).iterator
     }
     val probabilityItr = {
       broadcastBooster.value.predict(dm, outPutMargin = false, $(treeLimit)).
@@ -419,7 +420,8 @@ class XGBoostClassificationModel private[ml](
     }
     val predLeafItr = {
       if (isDefined(leafPredictionCol)) {
-        broadcastBooster.value.predictLeaf(dm, $(treeLimit)).map(Row(_)).iterator
+//        broadcastBooster.value.predictLeaf(dm, $(treeLimit)).map(Row(_)).iterator
+        broadcastBooster.value.predictLeaf(dm, false, 0, 0, true).map(Row(_)).iterator
       } else {
         Iterator()
       }
@@ -442,11 +444,13 @@ class XGBoostClassificationModel private[ml](
         s" numClasses=$numClasses, but thresholds has length ${$(thresholds).length}")
     }
 
+    dataset.printSchema()
     // Output selected columns only.
     // This is a bit complicated since it tries to avoid repeated computation.
     var outputData = transformInternal(dataset)
     var numColsOutput = 0
 
+    outputData.printSchema()
     val rawPredictionUDF = udf { rawPrediction: mutable.WrappedArray[Float] =>
       val raw = rawPrediction.map(_.toDouble).toArray
       val rawPredictions = if (numClasses == 2) Array(-raw(0), raw(0)) else raw
@@ -488,6 +492,8 @@ class XGBoostClassificationModel private[ml](
       this.logWarning(s"$uid: ProbabilisticClassificationModel.transform() was called as NOOP" +
         " since no output columns were set.")
     }
+
+    outputData.printSchema()
     outputData
       .toDF
       .drop(col(_rawPredictionCol))

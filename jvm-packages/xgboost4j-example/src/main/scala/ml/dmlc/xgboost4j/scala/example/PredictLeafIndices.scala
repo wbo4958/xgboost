@@ -43,12 +43,10 @@ object PredictLeafIndices {
     val round = 4
     val booster = XGBoost.train(trainMat, params.toMap, round, watches.toMap)
 
-//    // predict using first 2 tree
-//    val leafIndex = booster.predictLeaf(testMat, 2)
-//    for (leafs <- leafIndex) {
-//      println(java.util.Arrays.toString(leafs))
-//    }
-
+    // predict using first 2 tree
+    val leafIndex = booster.predictLeaf(testMat, 2)
+    val x = booster.predictLeaf(testMat, false, 0, 0, true)
+    println(s"x = ${x}")
     // predict all trees
 //    val leafIndex2 = booster.predictLeafNew(testMat, 0)
 //    println(s"leafIndex2.length = ${leafIndex2.length} $leafIndex2")

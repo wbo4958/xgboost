@@ -16,12 +16,14 @@
 
 package ml.dmlc.xgboost4j.scala
 
-import com.esotericsoftware.kryo.io.{Output, Input}
+import com.esotericsoftware.kryo.io.{Input, Output}
 import com.esotericsoftware.kryo.{Kryo, KryoSerializable}
 import ml.dmlc.xgboost4j.java.{Booster => JBooster}
 import ml.dmlc.xgboost4j.java.XGBoostError
 import scala.collection.JavaConverters._
 import scala.collection.mutable
+
+import ml.dmlc.xgboost4j.java.Booster.PredictType
 
 /**
   * Booster for xgboost, this is a model API that support interactive build of a XGBoost Model
@@ -184,9 +186,26 @@ class Booster private[xgboost4j](private[xgboost4j] var booster: JBooster)
    * @throws ml.dmlc.xgboost4j.java.XGBoostError
    */
   @throws(classOf[XGBoostError])
-  def predict(data: DMatrix, iterationStart: Int, iterationEnd: Int,
-      strictShape: Boolean, training: Boolean ): Array[_] = {
-    booster.predict(data.jDMatrix, iterationStart, iterationEnd, strictShape, training).toArray
+  def predict(data: DMatrix, training: Boolean, iterationStart: Int, iterationEnd: Int,
+      strictShape: Boolean): Array[_] = {
+    val tensor = booster.predict(data.jDMatrix, training, iterationStart, iterationEnd, strictShape)
+    new Tensor(tensor).toArray
+  }
+
+  /**
+   * Predict the leaf indices
+   *
+   * @param data      dmatrix storing the input
+   * @param treeLimit Limit number of trees in the prediction; defaults to 0 (use all trees).
+   * @return predict result
+   * @throws XGBoostError native error
+   */
+  @throws(classOf[XGBoostError])
+  def predictLeaf(data: DMatrix, training: Boolean, iterationStart: Int, iterationEnd: Int,
+      strictShape: Boolean): Array[_] = {
+    val tensor = booster.predictLeaf(data.jDMatrix, training, iterationStart, iterationEnd,
+      strictShape)
+    new Tensor(tensor).toArray
   }
 
   /**

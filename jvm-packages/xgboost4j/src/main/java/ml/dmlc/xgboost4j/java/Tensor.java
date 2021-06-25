@@ -16,12 +16,71 @@
 
 package ml.dmlc.xgboost4j.java;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class Tensor {
   private final long dim;
   private final long[] shape;
+  private final float[] result;
+  private List resultList;
 
-  public Tensor(long dim, long[] shape) {
+  public Tensor(long dim, long[] shape, float[] result) {
     this.dim = dim;
     this.shape = shape;
+    this.result = result;
+  }
+
+  public long getDim() {
+    return dim;
+  }
+
+  public long[] getShape() {
+    return shape;
+  }
+
+  public float[] getRawResult() {
+    return result;
+  }
+
+  public synchronized List getResultList() {
+    if (resultList == null) {
+      // Is there a better way to construct the multi-dimension result ?
+      resultList = new ArrayList();
+      for (int i = 0; i < shape[0]; i++) {
+        if (dim == 1) {
+          resultList.add(result[i]);
+          continue;
+        }
+
+        ArrayList list1 = new ArrayList();
+        for (int j = 0; j < shape[1]; j++) {
+          if (dim == 2) {
+            int index = (int) (i * shape[1] + j);
+            list1.add(result[index]);
+            continue;
+          }
+
+          ArrayList list2 = new ArrayList();
+          for (int k = 0; k < shape[2]; k++) {
+            if (dim == 3) {
+              int index = (int) (i * shape[1] + j * shape[2] + k);
+              list2.add(result[index]);
+              continue;
+            }
+
+            ArrayList list3 = new ArrayList();
+            for (int m = 0; m < shape[3]; m++) {
+              int index = (int) (i * shape[1] + j * shape[2] + k * shape[3] + m);
+              list3.add(result[index]);
+            }
+            list2.add(list3);
+          }
+          list1.add(list2);
+        }
+        resultList.add(list1);
+      }
+    }
+    return resultList;
   }
 }
