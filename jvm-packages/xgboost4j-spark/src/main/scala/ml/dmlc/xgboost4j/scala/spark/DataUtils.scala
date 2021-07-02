@@ -16,15 +16,16 @@
 
 package ml.dmlc.xgboost4j.scala.spark
 
+import ml.dmlc.xgboost4j.java.XGBoostError
+import ml.dmlc.xgboost4j.scala.{Booster, DMatrix}
 import ml.dmlc.xgboost4j.{LabeledPoint => XGBLabeledPoint}
 
-import org.apache.spark.HashPartitioner
+import org.apache.spark.{HashPartitioner, SparkContext}
+import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.ml.feature.{LabeledPoint => MLLabeledPoint}
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vector, Vectors}
-import org.apache.spark.ml.param.Param
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{Column, DataFrame, Row}
-import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types.{FloatType, IntegerType}
 
 object DataUtils extends Serializable {
@@ -140,4 +141,34 @@ object DataUtils extends Serializable {
     repartitionRDDs(deterministicPartition, numWorkers, arrayOfRDDs)
   }
 
+  private[spark] case class PredictionDimension(predNormalDim: Int, predLeafDim: Int)
+
+  private[spark] def getPredictionDimension(
+      sparkContext: SparkContext,
+      bBooster: Broadcast[Booster],
+      strictShape: Boolean,
+      predictLeaf: Boolean): PredictionDimension = {
+
+    val ret = sparkContext.parallelize(Seq(1)).mapPartitions { _ =>
+      val feature = bBooster.value.getNumFeature.toInt
+      val dmatrx = new DMatrix((0 until feature).toArray, 1, feature)
+
+      val normalDim = bBooster.value.predict(dmatrx, false, 0, 1, strictShape)._1
+
+//      val predProb = bBooster.value.predict(dmatrx, false, 0, 1, true)._1
+
+      var leafDim = -1
+      if (predictLeaf) {
+        val ret = bBooster.value.predictLeaf(dmatrx, false, 0, 1, strictShape)
+        leafDim = ret._1
+      }
+
+      Iterator(PredictionDimension(normalDim, leafDim))
+    }.collect()
+
+    if (ret.length != 1) {
+      throw new XGBoostError("Error to get the prediction dimension")
+    }
+    ret(0)
+  }
 }

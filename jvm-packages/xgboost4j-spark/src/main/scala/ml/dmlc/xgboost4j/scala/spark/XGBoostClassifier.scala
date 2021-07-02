@@ -301,6 +301,9 @@ class XGBoostClassificationModel private[ml](
     val bBooster = dataset.sparkSession.sparkContext.broadcast(_booster)
     val appName = dataset.sparkSession.sparkContext.appName
 
+    val dims = DataUtils.getPredictionDimension(dataset.sparkSession.sparkContext, bBooster,
+      $(strictShape), isDefined(leafPredictionCol))
+
     val resultRDD = dataset.asInstanceOf[Dataset[Row]].rdd.mapPartitions { rowIterator =>
       new AbstractIterator[Row] {
         private var batchCnt = 0
@@ -410,9 +413,9 @@ class XGBoostClassificationModel private[ml](
   private def producePredictionItrs(broadcastBooster: Broadcast[Booster], dm: DMatrix):
       Array[Iterator[Row]] = {
     val rawPredictionItr = {
-//      broadcastBooster.value.predict(dm, outPutMargin = true, $(treeLimit)).
-//        map(Row(_)).iterator
-      broadcastBooster.value.predict(dm, false, 0, 0, true).map(Row(_)).iterator
+      broadcastBooster.value
+        .predict(dm, $(training), $(iterationBegin), $(iterationEnd), $(strictShape))._2
+        .map(Row(_)).iterator
     }
     val probabilityItr = {
       broadcastBooster.value.predict(dm, outPutMargin = false, $(treeLimit)).
@@ -420,8 +423,9 @@ class XGBoostClassificationModel private[ml](
     }
     val predLeafItr = {
       if (isDefined(leafPredictionCol)) {
-//        broadcastBooster.value.predictLeaf(dm, $(treeLimit)).map(Row(_)).iterator
-        broadcastBooster.value.predictLeaf(dm, false, 0, 0, true).map(Row(_)).iterator
+        broadcastBooster.value
+          .predictLeaf(dm, $(training), $(iterationBegin), $(iterationEnd), $(strictShape))._2
+          .map(Row(_)).iterator
       } else {
         Iterator()
       }
@@ -444,10 +448,8 @@ class XGBoostClassificationModel private[ml](
         s" numClasses=$numClasses, but thresholds has length ${$(thresholds).length}")
     }
 
-    val bBooster = dataset.sparkSession.sparkContext.broadcast(_booster)
-    dataset.sparkSession.sparkContext.parallelize(Seq(1)).map { _ =>
-      val dmatrx = new DMatrix(Array(1, 1, 1, 1), 1, 1)
-      bBooster.value.predict(dmatrx, false, 0, 1, true)
+    if (isDefined(leafPredictionCol)) {
+
     }
 
     dataset.printSchema()

@@ -187,9 +187,10 @@ class Booster private[xgboost4j](private[xgboost4j] var booster: JBooster)
    */
   @throws(classOf[XGBoostError])
   def predict(data: DMatrix, training: Boolean, iterationStart: Int, iterationEnd: Int,
-      strictShape: Boolean): Array[_] = {
-    val tensor = booster.predict(data.jDMatrix, training, iterationStart, iterationEnd, strictShape)
-    new Tensor(tensor).toArray
+      strictShape: Boolean): (Int, Array[_]) = {
+    val result = booster.predict(data.jDMatrix, training, iterationStart, iterationEnd, strictShape)
+    val tensor = new Tensor(result)
+    (tensor.dim, tensor.toArray)
   }
 
   /**
@@ -197,15 +198,16 @@ class Booster private[xgboost4j](private[xgboost4j] var booster: JBooster)
    *
    * @param data      dmatrix storing the input
    * @param treeLimit Limit number of trees in the prediction; defaults to 0 (use all trees).
-   * @return predict result
+   * @return dimension and the predict result
    * @throws XGBoostError native error
    */
   @throws(classOf[XGBoostError])
   def predictLeaf(data: DMatrix, training: Boolean, iterationStart: Int, iterationEnd: Int,
-      strictShape: Boolean): Array[_] = {
-    val tensor = booster.predictLeaf(data.jDMatrix, training, iterationStart, iterationEnd,
+      strictShape: Boolean): (Int, Array[_]) = {
+    val result = booster.predictLeaf(data.jDMatrix, training, iterationStart, iterationEnd,
       strictShape)
-    new Tensor(tensor).toArray
+    val tensor = new Tensor(result)
+    (tensor.dim, tensor.toArray)
   }
 
   /**
@@ -217,6 +219,7 @@ class Booster private[xgboost4j](private[xgboost4j] var booster: JBooster)
    * @throws XGBoostError native error
    */
   @throws(classOf[XGBoostError])
+  @Deprecated
   def predictLeaf(data: DMatrix, treeLimit: Int = 0): Array[Array[Float]] = {
     booster.predictLeaf(data.jDMatrix, treeLimit)
   }

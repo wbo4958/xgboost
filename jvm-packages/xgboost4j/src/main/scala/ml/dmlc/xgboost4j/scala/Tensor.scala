@@ -18,6 +18,8 @@ package ml.dmlc.xgboost4j.scala
 
 class Tensor(tensor: ml.dmlc.xgboost4j.java.Tensor) {
 
+  lazy val dim = tensor.getDim.toInt
+
   lazy val toArray: Array[_] = {
     val result = tensor.getRawResult
     val shape = tensor.getShape
