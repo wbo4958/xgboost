@@ -325,7 +325,7 @@ private[spark] trait BoosterParams extends Params {
     lambda -> 1, alpha -> 0, treeMethod -> "auto", sketchEps -> 0.03,
     scalePosWeight -> 1.0, sampleType -> "uniform", normalizeType -> "tree",
     rateDrop -> 0.0, skipDrop -> 0.0, lambdaBias -> 0, treeLimit -> 0,
-    training->false, iterationBegin->0, iterationEnd->0, strictShape->false)
+    training -> false, iterationBegin -> 0, iterationEnd -> 0, strictShape -> false)
 }
 
 private[spark] object BoosterParams {

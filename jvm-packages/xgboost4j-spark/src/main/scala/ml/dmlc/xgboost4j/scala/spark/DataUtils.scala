@@ -151,7 +151,7 @@ object DataUtils extends Serializable {
 
     val ret = sparkContext.parallelize(Seq(1)).mapPartitions { _ =>
       val feature = bBooster.value.getNumFeature.toInt
-      val dmatrx = new DMatrix((0 until feature).toArray, 1, feature)
+      val dmatrx = new DMatrix((0 until feature).map(x => x.toFloat).toArray, 1, feature)
 
       val normalDim = bBooster.value.predict(dmatrx, false, 0, 1, strictShape)._1
 
