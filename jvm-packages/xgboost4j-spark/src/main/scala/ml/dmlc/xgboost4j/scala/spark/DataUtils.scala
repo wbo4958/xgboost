@@ -26,7 +26,7 @@ import org.apache.spark.ml.feature.{LabeledPoint => MLLabeledPoint}
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vector, Vectors}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{Column, DataFrame, Row}
-import org.apache.spark.sql.types.{FloatType, IntegerType}
+import org.apache.spark.sql.types.{ArrayType, FloatType, IntegerType, StructField, StructType}
 
 object DataUtils extends Serializable {
   private[spark] implicit class XGBLabeledPointFeatures(
@@ -170,5 +170,27 @@ object DataUtils extends Serializable {
       throw new XGBoostError("Error to get the prediction dimension")
     }
     ret(0)
+  }
+
+  private def getArrayType(dim: Int): ArrayType = {
+    dim match {
+      case 1 => ArrayType(FloatType, containsNull = false)
+      case 2 => ArrayType(ArrayType(FloatType, containsNull = false), containsNull = false)
+      case 3 => ArrayType(ArrayType(ArrayType(FloatType, containsNull = false),
+        containsNull = false), containsNull = false)
+      case _ => throw new XGBoostError("Wrong dimension")
+    }
+  }
+
+  private[spark] def generateResultSchema(params: XGBoostCommonParams, fixedSchema: StructType,
+      dimension: PredictionDimension): StructType = {
+    var resultSchema = fixedSchema
+    if (params.isDefined(params.leafPredictionCol)) {
+      resultSchema = resultSchema.add(
+        StructField(name = params.get(params.leafPredictionCol).get,
+          // Calculate the dataType for 1 instance
+          dataType = getArrayType(dimension.predLeafDim - 1), nullable = false))
+    }
+    resultSchema
   }
 }

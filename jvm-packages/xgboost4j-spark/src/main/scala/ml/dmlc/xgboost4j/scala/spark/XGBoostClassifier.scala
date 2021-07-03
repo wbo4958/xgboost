@@ -358,7 +358,8 @@ class XGBoostClassificationModel private[ml](
     }
 
     bBooster.unpersist(blocking = false)
-    dataset.sparkSession.createDataFrame(resultRDD, generateResultSchema(schema))
+    dataset.sparkSession.createDataFrame(resultRDD,
+      DataUtils.generateResultSchema(this, schema, dims))
   }
 
   private def produceResultIterator(
@@ -446,10 +447,6 @@ class XGBoostClassificationModel private[ml](
       require($(thresholds).length == numClasses, this.getClass.getSimpleName +
         ".transform() called with non-matching numClasses and thresholds.length." +
         s" numClasses=$numClasses, but thresholds has length ${$(thresholds).length}")
-    }
-
-    if (isDefined(leafPredictionCol)) {
-
     }
 
     dataset.printSchema()
