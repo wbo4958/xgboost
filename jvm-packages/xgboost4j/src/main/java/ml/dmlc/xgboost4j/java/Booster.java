@@ -326,6 +326,100 @@ public class Booster implements Serializable, KryoSerializable {
   }
 
   /**
+   * Predict leaf indices given the data
+   *
+   * @param data           The DMatrix to be predicated
+   * @param training       Whether the prediction function is used as part of a training loop
+   * @param iterationBegin Beginning iteration of prediction
+   * @param iterationEnd   End iteration of prediction, Set to 0 this will become the size of
+   *                       tree model (all the trees)
+   * @param strictShape    Whether should we reshape the output with stricter rules
+   * @return A multi-dimension array
+   * @throws XGBoostError
+   */
+  public Tensor predictLeaf(DMatrix data, boolean training, int iterationBegin, int iterationEnd,
+                            boolean strictShape)  throws XGBoostError {
+    if (iterationBegin != 0) {
+      throw new XGBoostError("Predict leaf supports only iterationBegin=0, found iterationBegin=" +
+        iterationBegin);
+    }
+    return this.predict(data, PredictType.PREDICT_LEAF, training, iterationBegin, iterationEnd,
+      strictShape);
+  }
+
+  /**
+   * Output feature contributions toward predictions of given data
+   *
+   * @param data           The DMatrix to be predicated
+   * @param training       Whether the prediction function is used as part of a training loop
+   * @param iterationBegin Beginning iteration of prediction
+   * @param iterationEnd   End iteration of prediction, Set to 0 this will become the size of
+   *                       tree model (all the trees)
+   * @param strictShape    Whether should we reshape the output with stricter rules
+   * @return A Tensor
+   * @throws XGBoostError
+   */
+  public Tensor predictContrib(DMatrix data, boolean training, int iterationBegin, int iterationEnd,
+                               boolean strictShape)  throws XGBoostError {
+    return this.predict(data, PredictType.PREDICT_CONTRIBUTION, training, iterationBegin,
+      iterationEnd,  strictShape);
+  }
+
+  /**
+   * The prediction without transform
+   *
+   * @param data           The DMatrix to be predicated
+   * @param training       Whether the prediction function is used as part of a training loop
+   * @param iterationBegin Beginning iteration of prediction
+   * @param iterationEnd   End iteration of prediction, Set to 0 this will become the size of
+   *                       tree model (all the trees)
+   * @param strictShape    Whether should we reshape the output with stricter rules
+   * @return A Tensor
+   * @throws XGBoostError
+   */
+  public Tensor predictOutputMargin(DMatrix data, boolean training, int iterationBegin,
+                                    int iterationEnd, boolean strictShape)  throws XGBoostError {
+    return this.predict(data, PredictType.OUTPUT_MARGIN, training, iterationBegin,
+      iterationEnd,  strictShape);
+  }
+
+  /**
+   * Make normal prediction
+   *
+   * @param data           The DMatrix to be predicated
+   * @param training       Whether the prediction function is used as part of a training loop
+   * @param iterationBegin Beginning iteration of prediction
+   * @param iterationEnd   End iteration of prediction, Set to 0 this will become the size of
+   *                       tree model (all the trees)
+   * @param strictShape    Whether should we reshape the output with stricter rules
+   * @return A Tensor
+   * @throws XGBoostError
+   */
+  public Tensor predictNormal(DMatrix data, boolean training, int iterationBegin, int iterationEnd,
+                        boolean strictShape)  throws XGBoostError {
+    return this.predict(data, PredictType.NORMAL_PREDICTION, training, iterationBegin,
+      iterationEnd,  strictShape);
+  }
+
+  /**
+   * Make prediction on feature interactions
+   *
+   * @param data           The DMatrix to be predicated
+   * @param training       Whether the prediction function is used as part of a training loop
+   * @param iterationBegin Beginning iteration of prediction
+   * @param iterationEnd   End iteration of prediction, Set to 0 this will become the size of
+   *                       tree model (all the trees)
+   * @param strictShape    Whether should we reshape the output with stricter rules
+   * @return A Tensor
+   * @throws XGBoostError
+   */
+  public Tensor predictInteractions(DMatrix data, boolean training, int iterationBegin,
+                                    int iterationEnd, boolean strictShape)  throws XGBoostError {
+    return this.predict(data, PredictType.PREDICT_FEATURE_INTERACTION, training, iterationBegin,
+      iterationEnd,  strictShape);
+  }
+
+  /**
    * Advanced predict function with all the options.
    *
    * @param data         data
@@ -380,28 +474,6 @@ public class Booster implements Serializable, KryoSerializable {
   }
 
   /**
-   * Predict leaf indices given the data
-   *
-   * @param data           The DMatrix to be predicated
-   * @param training       Whether the prediction function is used as part of a training loop
-   * @param iterationBegin Beginning iteration of prediction
-   * @param iterationEnd   End iteration of prediction, Set to 0 this will become the size of
-   *                       tree model (all the trees)
-   * @param strictShape    Whether should we reshape the output with stricter rules
-   * @return A multi-dimension array
-   * @throws XGBoostError
-   */
-  public Tensor predictLeaf(DMatrix data, boolean training, int iterationBegin, int iterationEnd,
-                            boolean strictShape)  throws XGBoostError {
-    if (iterationBegin != 0) {
-      throw new XGBoostError("Predict leaf supports only iterationBegin=0, found iterationBegin=" +
-        iterationBegin);
-    }
-    return this.predict(data, PredictType.PREDICT_LEAF, training, iterationBegin, iterationEnd,
-      strictShape);
-  }
-
-  /**
    * Output feature contributions toward predictions of given data
    *
    * @param data The input data.
@@ -412,78 +484,6 @@ public class Booster implements Serializable, KryoSerializable {
   @Deprecated
   public float[][] predictContrib(DMatrix data, int treeLimit) throws XGBoostError {
     return this.predict(data, false, treeLimit, true, true);
-  }
-
-  /**
-   * Output feature contributions toward predictions of given data
-   *
-   * @param data           The DMatrix to be predicated
-   * @param training       Whether the prediction function is used as part of a training loop
-   * @param iterationBegin Beginning iteration of prediction
-   * @param iterationEnd   End iteration of prediction, Set to 0 this will become the size of
-   *                       tree model (all the trees)
-   * @param strictShape    Whether should we reshape the output with stricter rules
-   * @return A Tensor
-   * @throws XGBoostError
-   */
-  public Tensor predictContrib(DMatrix data, int iterationBegin, int iterationEnd, boolean training,
-                               boolean strictShape)  throws XGBoostError {
-    return this.predict(data, PredictType.PREDICT_CONTRIBUTION, training, iterationBegin,
-        iterationEnd,  strictShape);
-  }
-
-  /**
-   * The prediction without transform
-   *
-   * @param data           The DMatrix to be predicated
-   * @param training       Whether the prediction function is used as part of a training loop
-   * @param iterationBegin Beginning iteration of prediction
-   * @param iterationEnd   End iteration of prediction, Set to 0 this will become the size of
-   *                       tree model (all the trees)
-   * @param strictShape    Whether should we reshape the output with stricter rules
-   * @return A Tensor
-   * @throws XGBoostError
-   */
-  public Tensor predictOutputMargin(DMatrix data, int iterationBegin, int iterationEnd,
-                                    boolean training, boolean strictShape)  throws XGBoostError {
-    return this.predict(data, PredictType.OUTPUT_MARGIN, training, iterationBegin,
-      iterationEnd,  strictShape);
-  }
-
-  /**
-   * Make normal prediction
-   *
-   * @param data           The DMatrix to be predicated
-   * @param training       Whether the prediction function is used as part of a training loop
-   * @param iterationBegin Beginning iteration of prediction
-   * @param iterationEnd   End iteration of prediction, Set to 0 this will become the size of
-   *                       tree model (all the trees)
-   * @param strictShape    Whether should we reshape the output with stricter rules
-   * @return A Tensor
-   * @throws XGBoostError
-   */
-  public Tensor predict(DMatrix data, boolean training, int iterationBegin, int iterationEnd,
-                        boolean strictShape)  throws XGBoostError {
-    return this.predict(data, PredictType.NORMAL_PREDICTION, training, iterationBegin,
-      iterationEnd,  strictShape);
-  }
-
-  /**
-   * Make prediction on feature interactions
-   *
-   * @param data           The DMatrix to be predicated
-   * @param training       Whether the prediction function is used as part of a training loop
-   * @param iterationBegin Beginning iteration of prediction
-   * @param iterationEnd   End iteration of prediction, Set to 0 this will become the size of
-   *                       tree model (all the trees)
-   * @param strictShape    Whether should we reshape the output with stricter rules
-   * @return A Tensor
-   * @throws XGBoostError
-   */
-  public Tensor predictInteractions(DMatrix data, int iterationBegin, int iterationEnd,
-                                  boolean training, boolean strictShape)  throws XGBoostError {
-    return this.predict(data, PredictType.PREDICT_FEATURE_INTERACTION, training, iterationBegin,
-      iterationEnd,  strictShape);
   }
 
   /**

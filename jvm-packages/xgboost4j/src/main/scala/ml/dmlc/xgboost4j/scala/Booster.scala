@@ -23,8 +23,6 @@ import ml.dmlc.xgboost4j.java.XGBoostError
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 
-import ml.dmlc.xgboost4j.java.Booster.PredictType
-
 /**
   * Booster for xgboost, this is a model API that support interactive build of a XGBoost Model
   *
@@ -175,42 +173,6 @@ class Booster private[xgboost4j](private[xgboost4j] var booster: JBooster)
   }
 
   /**
-   * Make normal prediction
-   *
-   * @param data             The DMatrix to be predicated
-   * @param iterationStart   Beginning iteration of prediction
-   * @param iterationEnd     End iteration of prediction, Set to 0 this will become the size of
-   *                         tree model (all the trees)
-   * @param strictShape      Whether should we reshape the output with stricter rules
-   * @param training         Whether the prediction function is used as part of a training loop
-   * @throws ml.dmlc.xgboost4j.java.XGBoostError
-   */
-  @throws(classOf[XGBoostError])
-  def predict(data: DMatrix, training: Boolean, iterationStart: Int, iterationEnd: Int,
-      strictShape: Boolean): (Int, Array[_]) = {
-    val result = booster.predict(data.jDMatrix, training, iterationStart, iterationEnd, strictShape)
-    val tensor = new Tensor(result)
-    (tensor.dim, tensor.toArray)
-  }
-
-  /**
-   * Predict the leaf indices
-   *
-   * @param data      dmatrix storing the input
-   * @param treeLimit Limit number of trees in the prediction; defaults to 0 (use all trees).
-   * @return dimension and the predict result
-   * @throws XGBoostError native error
-   */
-  @throws(classOf[XGBoostError])
-  def predictLeaf(data: DMatrix, training: Boolean, iterationStart: Int, iterationEnd: Int,
-      strictShape: Boolean): (Int, Array[_]) = {
-    val result = booster.predictLeaf(data.jDMatrix, training, iterationStart, iterationEnd,
-      strictShape)
-    val tensor = new Tensor(result)
-    (tensor.dim, tensor.toArray)
-  }
-
-  /**
    * Predict the leaf indices
    *
    * @param data      dmatrix storing the input
@@ -235,6 +197,110 @@ class Booster private[xgboost4j](private[xgboost4j] var booster: JBooster)
   @throws(classOf[XGBoostError])
   def predictContrib(data: DMatrix, treeLimit: Int = 0) : Array[Array[Float]] = {
     booster.predictContrib(data.jDMatrix, treeLimit)
+  }
+
+  /**
+   * Make normal prediction
+   *
+   * @param data             The DMatrix to be predicated
+   * @param iterationStart   Beginning iteration of prediction
+   * @param iterationEnd     End iteration of prediction, Set to 0 this will become the size of
+   *                         tree model (all the trees)
+   * @param strictShape      Whether should we reshape the output with stricter rules
+   * @param training         Whether the prediction function is used as part of a training loop
+   * @throws ml.dmlc.xgboost4j.java.XGBoostError
+   */
+  @throws(classOf[XGBoostError])
+  def predictNormal(data: DMatrix, training: Boolean, iterationStart: Int, iterationEnd: Int,
+    strictShape: Boolean): (Int, Array[_]) = {
+    val result = booster.predictNormal(data.jDMatrix, training, iterationStart, iterationEnd,
+      strictShape)
+    val tensor = new Tensor(result)
+    (tensor.dim, tensor.toArray)
+  }
+
+  /**
+   * Predict the leaf indices
+   *
+   * @param data             The DMatrix to be predicated
+   * @param iterationStart   Beginning iteration of prediction
+   * @param iterationEnd     End iteration of prediction, Set to 0 this will become the size of
+   *                         tree model (all the trees)
+   * @param strictShape      Whether should we reshape the output with stricter rules
+   * @param training         Whether the prediction function is used as part of a training loop
+   * @return dimension and the predict result
+   * @throws XGBoostError native error
+   */
+  @throws(classOf[XGBoostError])
+  def predictLeaf(data: DMatrix, training: Boolean, iterationStart: Int, iterationEnd: Int,
+    strictShape: Boolean): (Int, Array[_]) = {
+    val result = booster.predictLeaf(data.jDMatrix, training, iterationStart, iterationEnd,
+      strictShape)
+    val tensor = new Tensor(result)
+    (tensor.dim, tensor.toArray)
+  }
+
+  /**
+   * Predict the leaf indices
+   *
+   * @param data             The DMatrix to be predicated
+   * @param iterationStart   Beginning iteration of prediction
+   * @param iterationEnd     End iteration of prediction, Set to 0 this will become the size of
+   *                         tree model (all the trees)
+   * @param strictShape      Whether should we reshape the output with stricter rules
+   * @param training         Whether the prediction function is used as part of a training loop
+   * @return dimension and the predict result
+   * @throws XGBoostError native error
+   */
+  @throws(classOf[XGBoostError])
+  def predictContrib(data: DMatrix, training: Boolean, iterationStart: Int, iterationEnd: Int,
+    strictShape: Boolean): (Int, Array[_]) = {
+    val result = booster.predictContrib(data.jDMatrix, training, iterationStart, iterationEnd,
+      strictShape)
+    val tensor = new Tensor(result)
+    (tensor.dim, tensor.toArray)
+  }
+
+  /**
+   * Make prediction on feature interactions
+   *
+   * @param data             The DMatrix to be predicated
+   * @param iterationStart   Beginning iteration of prediction
+   * @param iterationEnd     End iteration of prediction, Set to 0 this will become the size of
+   *                         tree model (all the trees)
+   * @param strictShape      Whether should we reshape the output with stricter rules
+   * @param training         Whether the prediction function is used as part of a training loop
+   * @return dimension and the predict result
+   * @throws XGBoostError native error
+   */
+  @throws(classOf[XGBoostError])
+  def predictInteractions(data: DMatrix, training: Boolean, iterationStart: Int, iterationEnd: Int,
+    strictShape: Boolean): (Int, Array[_]) = {
+    val result = booster.predictInteractions(data.jDMatrix, training, iterationStart, iterationEnd,
+      strictShape)
+    val tensor = new Tensor(result)
+    (tensor.dim, tensor.toArray)
+  }
+
+  /**
+   * Predict the leaf indices
+   *
+   * @param data             The DMatrix to be predicated
+   * @param iterationStart   Beginning iteration of prediction
+   * @param iterationEnd     End iteration of prediction, Set to 0 this will become the size of
+   *                         tree model (all the trees)
+   * @param strictShape      Whether should we reshape the output with stricter rules
+   * @param training         Whether the prediction function is used as part of a training loop
+   * @return dimension and the predict result
+   * @throws XGBoostError native error
+   */
+  @throws(classOf[XGBoostError])
+  def predictOutputMargin(data: DMatrix, training: Boolean, iterationStart: Int, iterationEnd: Int,
+    strictShape: Boolean): (Int, Array[_]) = {
+    val result = booster.predictOutputMargin(data.jDMatrix, training, iterationStart, iterationEnd,
+      strictShape)
+    val tensor = new Tensor(result)
+    (tensor.dim, tensor.toArray)
   }
 
   /**

@@ -19,10 +19,17 @@ package ml.dmlc.xgboost4j.java;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * A Tensor to hold the prediction result.
+ */
 public class Tensor {
+  // Dimension of Tensor
   private final long dim;
+  // Shape of Tensor
   private final long[] shape;
+  // The raw result predicted by XGBoost
   private final float[] result;
+  // The List type result for Java
   private List resultList;
 
   public Tensor(long dim, long[] shape, float[] result) {
@@ -31,18 +38,30 @@ public class Tensor {
     this.result = result;
   }
 
+  /**
+   * Get the dimension of Tensor
+   */
   public long getDim() {
     return dim;
   }
 
+  /**
+   * Get the shape of Tensor
+   */
   public long[] getShape() {
     return shape;
   }
 
+  /**
+   * Get the raw prediction result
+   */
   public float[] getRawResult() {
     return result;
   }
 
+  /**
+   * Convert the raw result to the List type
+   */
   public synchronized List getResultList() {
     if (resultList == null) {
       // Is there a better way to construct the multi-dimension result ?
