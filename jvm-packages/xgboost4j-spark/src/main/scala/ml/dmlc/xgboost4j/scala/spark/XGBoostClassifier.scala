@@ -397,25 +397,11 @@ class XGBoostClassificationModel private[ml](
     }
   }
 
-  private def generateResultSchema(fixedSchema: StructType): StructType = {
-    var resultSchema = fixedSchema
-    if (isDefined(leafPredictionCol)) {
-      resultSchema = resultSchema.add(StructField(name = $(leafPredictionCol), dataType =
-        ArrayType(ArrayType(ArrayType(FloatType)), containsNull = false),
-        nullable = false))
-    }
-    if (isDefined(contribPredictionCol)) {
-      resultSchema = resultSchema.add(StructField(name = $(contribPredictionCol), dataType =
-        ArrayType(FloatType, containsNull = false), nullable = false))
-    }
-    resultSchema
-  }
-
   private def producePredictionItrs(broadcastBooster: Broadcast[Booster], dm: DMatrix):
       Array[Iterator[Row]] = {
     val rawPredictionItr = {
       broadcastBooster.value
-        .predict(dm, $(training), $(iterationBegin), $(iterationEnd), $(strictShape))._2
+        .predictNormal(dm, $(training), $(iterationBegin), $(iterationEnd), $(strictShape))._2
         .map(Row(_)).iterator
     }
     val probabilityItr = {
@@ -433,7 +419,9 @@ class XGBoostClassificationModel private[ml](
     }
     val predContribItr = {
       if (isDefined(contribPredictionCol)) {
-        broadcastBooster.value.predictContrib(dm, $(treeLimit)).map(Row(_)).iterator
+        broadcastBooster.value
+          .predictContrib(dm, $(training), $(iterationBegin), $(iterationEnd), $(strictShape))._2
+          .map(Row(_)).iterator
       } else {
         Iterator()
       }
