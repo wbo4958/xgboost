@@ -180,8 +180,8 @@ class XGBoostClassifier (
       set(objectiveType, "classification")
     }
 
-    val _numClasses = $(numClass)
-//    if (isDefined(numClass) && $(numClass) != _numClasses) {
+    val _numClasses = if ($(objective) == "binary:logistic") 2 else $(numClass)
+    //    if (isDefined(numClass) && $(numClass) != _numClasses) {
 //      throw new Exception("The number of classes in dataset doesn't match " +
 //        "\'num_class\' in xgboost params.")
 //    }
