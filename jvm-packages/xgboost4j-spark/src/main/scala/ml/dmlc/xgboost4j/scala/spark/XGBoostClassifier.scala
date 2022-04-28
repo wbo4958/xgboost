@@ -180,11 +180,11 @@ class XGBoostClassifier (
       set(objectiveType, "classification")
     }
 
-    val _numClasses = getNumClasses(dataset)
-    if (isDefined(numClass) && $(numClass) != _numClasses) {
-      throw new Exception("The number of classes in dataset doesn't match " +
-        "\'num_class\' in xgboost params.")
-    }
+    val _numClasses = $(numClass)
+//    if (isDefined(numClass) && $(numClass) != _numClasses) {
+//      throw new Exception("The number of classes in dataset doesn't match " +
+//        "\'num_class\' in xgboost params.")
+//    }
 
     // Packing with all params plus params user defined
     val derivedXGBParamMap = xgboostParams ++ MLlib2XGBoostParams
