@@ -43,6 +43,8 @@ class DataBatch {
   static class BatchIterator implements Iterator<DataBatch> {
     private final Iterator<LabeledPoint> base;
     private final int batchSize;
+    private int count = 0;
+    private long sum = 0;
 
     BatchIterator(Iterator<LabeledPoint> base, int batchSize) {
       this.base = base;
@@ -60,6 +62,7 @@ class DataBatch {
         int numRows = 0;
         int numElem = 0;
         int numCol  = -1;
+        long begin = System.currentTimeMillis();
         List<LabeledPoint> batch = new ArrayList<>(batchSize);
         while (base.hasNext() && batch.size() < batchSize) {
           LabeledPoint labeledPoint = base.next();
@@ -100,6 +103,10 @@ class DataBatch {
         }
 
         rowOffset[batch.size()] = offset;
+        long during = System.currentTimeMillis() - begin;
+        sum += during;
+        System.out.println(count + "_DataBatch during: " + during + " sum: " + sum);
+        count++;
         return new DataBatch(rowOffset, weight, label, featureIndex, featureValue, numCol);
       } catch (RuntimeException runtimeError) {
         logger.error(runtimeError);

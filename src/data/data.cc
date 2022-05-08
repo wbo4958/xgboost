@@ -5,6 +5,7 @@
 #include <dmlc/registry.h>
 #include <array>
 #include <cstring>
+#include <time.h>
 
 #include "dmlc/io.h"
 #include "xgboost/data.h"
