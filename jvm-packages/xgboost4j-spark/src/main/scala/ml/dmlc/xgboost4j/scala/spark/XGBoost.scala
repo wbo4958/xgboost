@@ -308,7 +308,7 @@ object XGBoost extends Serializable {
       val start = System.currentTimeMillis()
       watches = buildWatchesAndCheck(buildWatches)
       val duration = System.currentTimeMillis() - start
-      logger.info("Time to build DMatrix: " + duration)
+      logger.info("bobby Time to build DMatrix: " + duration)
     }
 
     val taskId = TaskContext.getPartitionId().toString
@@ -341,6 +341,7 @@ object XGBoost extends Serializable {
         logger.info("Leveraging gpu device " + gpuId + " to train")
         params = params + ("gpu_id" -> gpuId)
       }
+      val start = System.currentTimeMillis()
       val booster = if (makeCheckpoint) {
         SXGBoost.trainAndSaveCheckpoint(
           watches.toMap("train"), params, numRounds,
@@ -351,6 +352,8 @@ object XGBoost extends Serializable {
           watches.toMap, metrics, obj, eval,
           earlyStoppingRound = numEarlyStoppingRounds, prevBooster)
       }
+      val duration = System.currentTimeMillis() - start
+      logger.info("bobby Time to train DMatrix: " + duration)
       if (TaskContext.get().partitionId() == 0) {
         Iterator(booster -> watches.toMap.keys.zip(metrics).toMap)
       } else {
