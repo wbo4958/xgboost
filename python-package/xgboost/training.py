@@ -175,6 +175,7 @@ def train(
 
     bst = cb_container.before_training(bst)
 
+    print("bobby num_boost_round ", num_boost_round)
     for i in range(start_iteration, num_boost_round):
         if cb_container.before_iteration(bst, i, dtrain, evals):
             break
