@@ -305,7 +305,10 @@ object XGBoost extends Serializable {
     var watches: Watches = null
     if (!buildDMatrixInRabit) {
       // for CPU pipeline, we need to build DMatrix out of rabit context
+      val start = System.currentTimeMillis()
       watches = buildWatchesAndCheck(buildWatches)
+      val duration = System.currentTimeMillis() - start
+      logger.info("Time to build DMatrix: " + duration)
     }
 
     val taskId = TaskContext.getPartitionId().toString
