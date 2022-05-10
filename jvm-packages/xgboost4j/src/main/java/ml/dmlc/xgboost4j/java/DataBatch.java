@@ -76,6 +76,8 @@ class DataBatch {
           numRows++;
         }
 
+        long mid = System.currentTimeMillis();
+
         long[] rowOffset = new long[numRows + 1];
         float[] label = new float[numRows];
         int[] featureIndex = new int[numElem];
@@ -103,9 +105,13 @@ class DataBatch {
         }
 
         rowOffset[batch.size()] = offset;
-        long during = System.currentTimeMillis() - begin;
+        long end = System.currentTimeMillis();
+        long during = end - begin;
+        long iterDuring = mid - begin;
+        long batchDuring = end - mid;
         sum += during;
-        System.out.println(count + "_DataBatch during: " + during + " sum: " + sum);
+        System.out.println(count + "_DataBatch iterDuring: " + iterDuring + " batchDuring:" +
+          batchDuring + " sum: " + sum);
         count++;
         return new DataBatch(rowOffset, weight, label, featureIndex, featureValue, numCol);
       } catch (RuntimeException runtimeError) {
