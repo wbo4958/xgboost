@@ -170,8 +170,24 @@ class XGBoostClassifier (
     PreXGBoost.transformSchema(this, schema)
   }
 
+  var operator: Option[Operator] = None
+
+  def setIntValue(x: Int): this.type = {
+    println(s"setIntValue x = ${x}")
+    this
+  }
+
+  def setCustomizeOperator(op: Operator): this.type = {
+    operator = Some(op)
+    this
+  }
+
   override protected def train(dataset: Dataset[_]): XGBoostClassificationModel = {
 
+    operator.map { op =>
+      println("call python operation")
+      op.doOperation(1, 2)
+    }
     if (!isDefined(evalMetric) || $(evalMetric).isEmpty) {
       set(evalMetric, setupDefaultEvalMetric())
     }

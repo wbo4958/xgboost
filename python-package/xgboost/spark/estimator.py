@@ -149,6 +149,12 @@ class XGBoostClassifier(_XGBoostClassifierBase):
         kwargs = self._input_kwargs  # pylint: disable=no-member
         self._set(**kwargs)
 
+    def addCustomizedOperator(self, operator):
+        self._call_java("setCustomizeOperator", operator)
+
+    def setIntValue(self, x):
+        self._call_java("setIntValue", x)
+
     def _create_model(
         self, java_model: py4j.java_gateway.JavaObject
     ) -> "XGBoostClassificationModel":
