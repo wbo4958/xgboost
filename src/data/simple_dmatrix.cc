@@ -131,10 +131,9 @@ SimpleDMatrix::SimpleDMatrix(AdapterT* adapter, float missing, int nthread) {
   adapter->BeforeFirst();
   // Iterate over batches of input data
   double sum = 0.0f;
+  std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
   while (adapter->Next()) {
     auto& batch = adapter->Value();
-    time_t start,end;
-    time (&start);
     auto batch_max_columns = sparse_page_->Push(batch, missing, ctx_.Threads());
     inferred_num_columns = std::max(batch_max_columns, inferred_num_columns);
     total_batch_size += batch.Size();
@@ -147,10 +146,6 @@ SimpleDMatrix::SimpleDMatrix(AdapterT* adapter, float missing, int nthread) {
         shape[0] += batch.Size();
       });
     }
-    time (&end);
-    double dif = difftime (end,start);
-    sum += dif;
-    std::cout << "build Elasped time: " << dif  << " sum: " << sum << std::endl;
     if (batch.Weights() != nullptr) {
       auto& weights = info_.weights_.HostVector();
       weights.insert(weights.end(), batch.Weights(), batch.Weights() + batch.Size());
@@ -172,6 +167,8 @@ SimpleDMatrix::SimpleDMatrix(AdapterT* adapter, float missing, int nthread) {
       }
     }
   }
+  std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+  std::cout << "bobby Time to build DMatrix: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "[ms]" << std::endl;
 
   if (last_group_id != default_max) {
     if (group_size > info_.group_ptr_.back()) {
