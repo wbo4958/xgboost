@@ -112,7 +112,7 @@ class DataBatch {
         sumBatch += end - mid;
         sum += end - begin;
         System.out.println(count + "_DataBatch iterDuring: " + sumIter + " batchDuring:" +
-           sumBatch + " sum: " + sum);
+            sumBatch + " sum: " + sum);
         count++;
         return new DataBatch(rowOffset, weight, label, featureIndex, featureValue, numCol);
       } catch (RuntimeException runtimeError) {
