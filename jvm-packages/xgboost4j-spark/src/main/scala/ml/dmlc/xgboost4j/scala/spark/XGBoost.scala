@@ -554,12 +554,9 @@ private object Watches {
       }
       accepted
     }
-    val begin = System.currentTimeMillis()
     val trainMatrix = new DMatrix(trainPoints, cacheDirName.map(_ + "/train").orNull)
     val testMatrix = new DMatrix(testPoints.iterator, cacheDirName.map(_ + "/test").orNull)
     val during = System.currentTimeMillis() - begin
-
-    println(s"build dmatrix time: " + during)
 
     val trainMargin = fromBaseMarginsToArray(trainBaseMargins.result().iterator)
     val testMargin = fromBaseMarginsToArray(testBaseMargins.result().iterator)
