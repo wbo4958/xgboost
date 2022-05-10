@@ -16,6 +16,6 @@
 
 package ml.dmlc.xgboost4j.scala.spark
 
-trait Operator {
+trait Operator extends Serializable {
   def doOperation(i: Int, j: Int): Int
 }

@@ -209,7 +209,7 @@ class XGBoostClassifier (
 
     // All non-null param maps in XGBoostClassifier are in derivedXGBParamMap.
     val (_booster, _metrics) = XGBoost.trainDistributed(dataset.sparkSession.sparkContext,
-      buildTrainingData, derivedXGBParamMap)
+      buildTrainingData, derivedXGBParamMap, operator)
 
     val model = new XGBoostClassificationModel(uid, _numClasses, _booster)
     val summary = XGBoostTrainingSummary(_metrics)

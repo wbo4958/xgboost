@@ -25,7 +25,8 @@ import types
 from typing import Optional
 
 import py4j
-from pyspark import keyword_only
+from pyspark import keyword_only, SparkContext
+from pyspark.java_gateway import ensure_callback_server_started
 from pyspark.ml.common import inherit_doc
 
 from .internal import _XGBoostClassifierBase, _XGBoostClassificationModelBase
@@ -149,7 +150,8 @@ class XGBoostClassifier(_XGBoostClassifierBase):
         kwargs = self._input_kwargs  # pylint: disable=no-member
         self._set(**kwargs)
 
-    def addCustomizedOperator(self, operator):
+    def addCustomizedOperator(self, sc: SparkContext, operator):
+        ensure_callback_server_started(gw=sc._gateway)
         self._call_java("setCustomizeOperator", operator)
 
     def setIntValue(self, x):

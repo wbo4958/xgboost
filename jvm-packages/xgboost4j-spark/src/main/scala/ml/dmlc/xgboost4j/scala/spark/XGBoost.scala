@@ -386,7 +386,8 @@ object XGBoost extends Serializable {
   private[spark] def trainDistributed(
       sc: SparkContext,
       buildTrainingData: XGBoostExecutionParams => (Boolean, RDD[() => Watches], Option[RDD[_]]),
-      params: Map[String, Any]):
+      params: Map[String, Any],
+      op: Option[Operator] = None):
     (Booster, Map[String, Array[Float]]) = {
 
     logger.info(s"Running XGBoost ${spark.VERSION} with parameters:\n${params.mkString("\n")}")
@@ -421,6 +422,11 @@ object XGBoost extends Serializable {
             optionWatches = Some(iter.next())
           }
 
+          op.map { operator =>
+            val partitionId = TaskContext.getPartitionId()
+            println(s" partitionId: ${partitionId} in task")
+            operator.doOperation(6, 10)
+          }
           optionWatches.map { buildWatches => buildDistributedBooster(buildDMatrixInRabit,
             buildWatches, xgbExecParams, rabitEnv, xgbExecParams.obj,
             xgbExecParams.eval, prevBooster)}
