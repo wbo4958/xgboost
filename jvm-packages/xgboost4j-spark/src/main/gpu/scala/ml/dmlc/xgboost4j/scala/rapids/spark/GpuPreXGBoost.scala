@@ -19,9 +19,9 @@ package ml.dmlc.xgboost4j.scala.rapids.spark
 import scala.collection.Iterator
 import scala.collection.JavaConverters._
 
-import com.nvidia.spark.rapids.{GpuColumnVector}
-import ml.dmlc.xgboost4j.gpu.java.CudfColumnBatch
-import ml.dmlc.xgboost4j.java.nvidia.spark.GpuColumnBatch
+import com.nvidia.spark.rapids.GpuColumnVector
+import ml.dmlc.xgboost4j.java.CudfColumnBatch
+import ml.dmlc.xgboost4j.java.spark.GpuColumnBatch
 import ml.dmlc.xgboost4j.scala.{Booster, DMatrix, DeviceQuantileDMatrix}
 import ml.dmlc.xgboost4j.scala.spark.params.XGBoostEstimatorCommon
 import ml.dmlc.xgboost4j.scala.spark.{PreXGBoost, PreXGBoostProvider, Watches, XGBoost, XGBoostClassificationModel, XGBoostClassifier, XGBoostExecutionParams, XGBoostRegressionModel, XGBoostRegressor}

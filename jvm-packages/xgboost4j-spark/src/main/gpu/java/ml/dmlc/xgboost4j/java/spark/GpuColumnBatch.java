@@ -14,13 +14,14 @@
  limitations under the License.
  */
 
-package ml.dmlc.xgboost4j.java.nvidia.spark;
+package ml.dmlc.xgboost4j.java.spark;
 
 import java.util.List;
 
+import org.apache.spark.sql.types.StructType;
+
 import ai.rapids.cudf.ColumnVector;
 import ai.rapids.cudf.Table;
-import org.apache.spark.sql.types.*;
 
 /**
  * Wrapper of CudfTable with schema for scala
