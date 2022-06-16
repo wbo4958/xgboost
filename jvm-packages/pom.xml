@@ -80,8 +80,10 @@
                 </property>
             </activation>
             <modules>
-                <module>xgboost4j-gpu</module>
-                <module>xgboost4j-spark-gpu</module>
+              <module>xgboost4j</module>
+              <module>xgboost4j-gpu</module>
+              <module>xgboost4j-spark</module>
+              <module>xgboost4j-spark-gpu</module>
             </modules>
         </profile>
 
