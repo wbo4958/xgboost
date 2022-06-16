@@ -125,8 +125,8 @@ if __name__ == "__main__":
             run(f'"{sys.executable}" mapfeat.py')
             run(f'"{sys.executable}" mknfold.py machine.txt 1')
 
-    xgboost4j = 'xgboost4j-gpu' if cli_args.use_cuda == 'ON' else 'xgboost4j'
-    xgboost4j_spark = 'xgboost4j-spark-gpu' if cli_args.use_cuda == 'ON' else 'xgboost4j-spark'
+    xgboost4j = 'xgboost4j'
+    xgboost4j_spark = 'xgboost4j-spark'
 
     print("copying native library")
     library_name, os_folder = {
