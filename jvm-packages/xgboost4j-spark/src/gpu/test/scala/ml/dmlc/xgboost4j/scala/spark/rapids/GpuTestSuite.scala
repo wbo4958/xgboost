@@ -14,7 +14,7 @@
  limitations under the License.
  */
 
-package ml.dmlc.xgboost4j.scala.rapids.spark
+package ml.dmlc.xgboost4j.scala.spark.rapids
 
 import java.nio.file.{Files, Path}
 import java.sql.{Date, Timestamp}

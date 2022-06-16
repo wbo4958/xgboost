@@ -14,7 +14,7 @@
  limitations under the License.
  */
 
-package ml.dmlc.xgboost4j.scala.rapids.spark
+package ml.dmlc.xgboost4j.scala.spark.rapids
 
 import ai.rapids.cudf.Table
 import com.nvidia.spark.rapids.ColumnarRdd
