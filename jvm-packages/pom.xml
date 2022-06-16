@@ -87,7 +87,7 @@
                 <execution>
                   <id>add-profile-gpu-src</id>
                   <goals><goal>add-source</goal></goals>
-                  <phase>none</phase>  <!--Disable it for all submodules, only xgboost4j and xgboost4j-spark need to enable it -->
+                  <phase>generate-sources</phase>
                   <configuration>
                     <sources>
                       <source>${project.basedir}/src/gpu/main/java</source>
@@ -99,7 +99,7 @@
                 <execution>
                   <id>add-profile-gpu-resource</id>
                   <goals><goal>add-resource</goal></goals>
-                  <phase>none</phase>  <!--Disable it for all submodules, only xgboost4j and xgboost4j-spark need to enable it -->
+                  <phase>generate-sources</phase>
                   <configuration>
                     <resources>
                       <resource>
@@ -111,7 +111,7 @@
                 <execution>
                   <id>add-profile-gpu-test-src</id>
                   <goals><goal>add-test-source</goal></goals>
-                  <phase>none</phase>  <!--Disable it for all submodules, only xgboost4j and xgboost4j-spark need to enable it -->
+                  <phase>generate-test-sources</phase>
                   <configuration>
                     <sources>
                       <source>${project.basedir}/src/gpu/test/scala</source>
