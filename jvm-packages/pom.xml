@@ -90,10 +90,9 @@
                   <phase>none</phase>  <!--Disable it for all submodules, only xgboost4j and xgboost4j-spark need to enable it -->
                   <configuration>
                     <sources>
-                      <source>${project.basedir}/src/main/gpu/java</source>
-                      <source>${project.basedir}/src/main/gpu/scala</source>
-                      <source>${project.basedir}../xgboost4j/src/main/gpu/java</source>
-                      <source>${project.basedir}../xgboost4j/src/main/gpu/scala</source>
+                      <source>${project.basedir}/src/gpu/main/java</source>
+                      <source>${project.basedir}/src/gpu/main/scala</source>
+                      <source>${project.basedir}../xgboost4j/src/gpu/main/java</source>
                     </sources>
                   </configuration>
                 </execution>
@@ -115,10 +114,9 @@
                   <phase>none</phase>  <!--Disable it for all submodules, only xgboost4j and xgboost4j-spark need to enable it -->
                   <configuration>
                     <sources>
-                      <source>${project.basedir}/src/gpu/main/java</source>
-                      <source>${project.basedir}/src/gpu/main/scala</source>
-                      <source>${project.basedir}../xgboost4j/src/gpu/main/java</source>
-                      <source>${project.basedir}../xgboost4j/src/gpu/main/scala</source>
+                      <source>${project.basedir}/src/gpu/test/scala</source>
+                      <source>${project.basedir}../xgboost4j/src/gpu/test/java</source>
+                      <source>${project.basedir}../xgboost4j/src/gpu/test/scala</source>
                     </sources>
                   </configuration>
                 </execution>
