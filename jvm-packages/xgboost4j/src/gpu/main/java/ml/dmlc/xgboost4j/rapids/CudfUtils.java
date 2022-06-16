@@ -14,7 +14,7 @@
  limitations under the License.
  */
 
-package ml.dmlc.xgboost4j.java;
+package ml.dmlc.xgboost4j.rapids;
 
 import java.util.ArrayList;
 

@@ -20,7 +20,7 @@ import scala.collection.mutable.ArrayBuffer
 
 import ai.rapids.cudf.Table
 import org.scalatest.FunSuite
-import ml.dmlc.xgboost4j.java.CudfColumnBatch
+import ml.dmlc.xgboost4j.rapids.CudfColumnBatch
 
 class DeviceQuantileDMatrixSuite extends FunSuite {
 

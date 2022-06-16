@@ -14,12 +14,13 @@
  limitations under the License.
  */
 
-package ml.dmlc.xgboost4j.java;
+package ml.dmlc.xgboost4j.rapids;
 
 import ai.rapids.cudf.BaseDeviceMemoryBuffer;
 import ai.rapids.cudf.BufferType;
 import ai.rapids.cudf.ColumnVector;
 import ai.rapids.cudf.DType;
+import ml.dmlc.xgboost4j.java.Column;
 
 /**
  * This class is composing of base data with Apache Arrow format from Cudf ColumnVector.
