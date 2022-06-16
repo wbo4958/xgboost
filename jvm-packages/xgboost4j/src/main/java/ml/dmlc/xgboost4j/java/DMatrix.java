@@ -19,7 +19,6 @@ import java.util.Iterator;
 
 import ml.dmlc.xgboost4j.LabeledPoint;
 import ml.dmlc.xgboost4j.java.util.BigDenseMatrix;
-
 /**
  * DMatrix for xgboost.
  *

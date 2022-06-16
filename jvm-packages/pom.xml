@@ -71,19 +71,19 @@
         </profile>
 
         <!-- gpu profile with both cpu and gpu test suites -->
-        <profile>
-            <id>gpu</id>
-            <activation>
-                <property>
-                    <name>use.cuda</name>
-                    <value>ON</value>
-                </property>
-            </activation>
-            <modules>
-              <module>xgboost4j</module>
-              <module>xgboost4j-spark</module>
-            </modules>
-        </profile>
+<!--        <profile>-->
+<!--            <id>gpu</id>-->
+<!--            <activation>-->
+<!--                <property>-->
+<!--                    <name>use.cuda</name>-->
+<!--                    <value>ON</value>-->
+<!--                </property>-->
+<!--            </activation>-->
+<!--            <modules>-->
+<!--              <module>xgboost4j</module>-->
+<!--              <module>xgboost4j-spark</module>-->
+<!--            </modules>-->
+<!--        </profile>-->
 
 
       <profile>
