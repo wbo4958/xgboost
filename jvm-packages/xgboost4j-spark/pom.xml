@@ -30,6 +30,10 @@
                 <id>add-xgboost4j-spark-gpu-src</id>
                 <phase>generate-sources</phase> <!-- add extra source code before compile -->
               </execution>
+              <execution>
+                <id>add-xgboost4j-spark-gpu-resource</id>
+                <phase>generate-resources</phase> <!-- add extra source code before compile -->
+              </execution>
             </executions>
           </plugin>
         </plugins>

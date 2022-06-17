@@ -14,7 +14,7 @@
  limitations under the License.
  */
 
-package ml.dmlc.xgboost4j.gpu.java;
+package ml.dmlc.xgboost4j.java.rapids;
 
 import java.io.File;
 import java.util.HashMap;
@@ -37,8 +37,6 @@ import ml.dmlc.xgboost4j.java.DMatrix;
 import ml.dmlc.xgboost4j.java.DeviceQuantileDMatrix;
 import ml.dmlc.xgboost4j.java.XGBoost;
 import ml.dmlc.xgboost4j.java.XGBoostError;
-import ml.dmlc.xgboost4j.java.rapids.CudfColumn;
-import ml.dmlc.xgboost4j.java.rapids.CudfColumnBatch;
 
 /**
  * Tests the BoosterTest trained by DMatrix

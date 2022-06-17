@@ -87,7 +87,7 @@
                 <execution>
                   <id>add-xgboost4j-gpu-src</id>
                   <goals><goal>add-source</goal></goals>
-                  <phase>generate-sources</phase>
+                  <phase>none</phase> <!-- only xgboost4j needs to enable it -->
                   <configuration>
                     <sources>
                       <source>${project.basedir}/src/gpu/main/java</source>
@@ -97,7 +97,7 @@
                 <execution>
                   <id>add-xgboost4j-spark-gpu-src</id>
                   <goals><goal>add-source</goal></goals>
-                  <phase>generate-sources</phase>
+                  <phase>none</phase>  <!-- only xgboost4j-spark needs to enable it -->
                   <configuration>
                     <sources>
                       <source>${project.basedir}/src/gpu/main/java</source>
@@ -106,13 +106,13 @@
                   </configuration>
                 </execution>
                 <execution>
-                  <id>add-profile-gpu-resource</id>
+                  <id>add-xgboost4j-spark-gpu-resource</id>
                   <goals><goal>add-resource</goal></goals>
-                  <phase>generate-sources</phase>
+                  <phase>none</phase> <!-- only xgboost4j-spark needs to enable it -->
                   <configuration>
                     <resources>
                       <resource>
-                        <directory>${project.basedir}/../xgboost4j-spark/src/gpu/main/resources</directory>
+                        <directory>${project.basedir}/src/gpu/main/resources</directory>
                       </resource>
                     </resources>
                   </configuration>
