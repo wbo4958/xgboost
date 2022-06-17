@@ -85,14 +85,23 @@
               <artifactId>build-helper-maven-plugin</artifactId>
               <executions>
                 <execution>
-                  <id>add-profile-gpu-src</id>
+                  <id>add-xgboost4j-gpu-src</id>
+                  <goals><goal>add-source</goal></goals>
+                  <phase>generate-sources</phase>
+                  <configuration>
+                    <sources>
+                      <source>${project.basedir}/src/gpu/main/java</source>
+                    </sources>
+                  </configuration>
+                </execution>
+                <execution>
+                  <id>add-xgboost4j-spark-gpu-src</id>
                   <goals><goal>add-source</goal></goals>
                   <phase>generate-sources</phase>
                   <configuration>
                     <sources>
                       <source>${project.basedir}/src/gpu/main/java</source>
                       <source>${project.basedir}/src/gpu/main/scala</source>
-                      <source>${project.basedir}../xgboost4j/src/gpu/main/java</source>
                     </sources>
                   </configuration>
                 </execution>
@@ -103,20 +112,29 @@
                   <configuration>
                     <resources>
                       <resource>
-                        <directory>${project.basedir}/src/gpu/main/resources</directory>
+                        <directory>${project.basedir}/../xgboost4j-spark/src/gpu/main/resources</directory>
                       </resource>
                     </resources>
                   </configuration>
                 </execution>
                 <execution>
-                  <id>add-profile-gpu-test-src</id>
+                  <id>add-xgboost4j-test-src</id>
                   <goals><goal>add-test-source</goal></goals>
-                  <phase>generate-test-sources</phase>
+                  <phase>none</phase> <!-- Disable it for all submodules, only xgboost4j needs to enable it -->
+                  <configuration>
+                    <sources>
+                      <source>${project.basedir}/src/gpu/test/java</source>
+                      <source>${project.basedir}/src/gpu/test/scala</source>
+                    </sources>
+                  </configuration>
+                </execution>
+                <execution>
+                  <id>add-xgboost4j-spark-test-src</id>
+                  <goals><goal>add-test-source</goal></goals>
+                  <phase>none</phase> <!-- Disable it for all submodules, only xgboost4j-spark needs to enable it -->
                   <configuration>
                     <sources>
                       <source>${project.basedir}/src/gpu/test/scala</source>
-                      <source>${project.basedir}../xgboost4j/src/gpu/test/java</source>
-                      <source>${project.basedir}../xgboost4j/src/gpu/test/scala</source>
                     </sources>
                   </configuration>
                 </execution>

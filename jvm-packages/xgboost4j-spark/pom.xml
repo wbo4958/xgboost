@@ -18,6 +18,20 @@
                     <skipAssembly>false</skipAssembly>
                 </configuration>
             </plugin>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>build-helper-maven-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>add-xgboost4j-spark-test-src</id>
+                <phase>generate-sources</phase> <!-- add extra source code before compile -->
+              </execution>
+              <execution>
+                <id>add-xgboost4j-spark-gpu-src</id>
+                <phase>generate-sources</phase> <!-- add extra source code before compile -->
+              </execution>
+            </executions>
+          </plugin>
         </plugins>
     </build>
     <dependencies>
