@@ -14,7 +14,7 @@
  limitations under the License.
  */
 
-package ml.dmlc.xgboost4j.java.spark;
+package ml.dmlc.xgboost4j.java.spark.rapids;
 
 import java.util.List;
 
