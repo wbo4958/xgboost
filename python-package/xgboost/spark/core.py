@@ -37,7 +37,7 @@ from xgboost.training import train as worker_train
 import xgboost
 from xgboost import XGBClassifier, XGBRegressor
 
-from .data import alias, create_dmatrix_from_partitions, stack_series
+from .data import alias, create_dmatrix_from_partitions, stack_series, create_dmatrix_from_cuda_array_inferface
 from .model import (
     SparkXGBModelReader,
     SparkXGBModelWriter,
@@ -626,9 +626,13 @@ class _SparkXGBEstimator(Estimator, _SparkXGBParams, MLReadable, MLWritable):
             _rabit_args = _get_args_from_message_list(messages)
             evals_result = {}
             with RabitContext(_rabit_args, context):
-                dtrain, dvalid = create_dmatrix_from_partitions(
-                    pandas_df_iter, features_cols_names, gpu_id, dmatrix_kwargs
+                # dtrain, dvalid = create_dmatrix_from_partitions(
+                #     pandas_df_iter, features_cols_names, gpu_id, dmatrix_kwargs
+                # )
+                dtrain, dvalid = create_dmatrix_from_cuda_array_inferface(
+                    pandas_df_iter, features_cols_names, gpu_id
                 )
+
                 if dvalid is not None:
                     dval = [(dtrain, "training"), (dvalid, "validation")]
                 else:

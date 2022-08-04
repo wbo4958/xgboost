@@ -101,6 +101,67 @@ class PartIter(DataIter):
         self._iter = 0
 
 
+def create_dmatrix_from_cuda_array_inferface(
+    iterator: Iterator[pd.DataFrame],
+    feature_cols: Optional[Sequence[str]],
+    gpu_id: Optional[int],
+) -> Tuple[DMatrix, Optional[DMatrix]]:
+    if feature_cols is None:
+        raise RuntimeError("Constructing DMatrix from cuda array interface "
+                           "requires features_cols being set")
+
+    import json
+    import base64
+    import cupy
+    import ctypes
+
+    def ctypes2cupy(cptr, length, dtype):
+        """Convert a ctypes pointer array to a cupy array."""
+        # pylint: disable=import-error
+        import cupy
+        from cupy.cuda.memory import MemoryPointer
+        from cupy.cuda.memory import UnownedMemory
+
+        CUPY_TO_CTYPES_MAPPING = {
+            cupy.float64: ctypes.c_double,
+            cupy.float32: ctypes.c_float,
+            cupy.uint32: ctypes.c_uint,
+            cupy.int32: ctypes.c_int,
+        }
+        if dtype not in CUPY_TO_CTYPES_MAPPING:
+            raise RuntimeError(f"Supported types: {CUPY_TO_CTYPES_MAPPING.keys()}")
+        addr = cptr  # ctypes.cast(cptr, ctypes.c_void_p).value
+        # pylint: disable=c-extension-no-member,no-member
+        device = cupy.cuda.runtime.pointerGetAttributes(addr).device
+        # The owner field is just used to keep the memory alive with ref count.  As
+        # unowned's life time is scoped within this function we don't need that.
+        unownd = UnownedMemory(
+            addr, length * ctypes.sizeof(CUPY_TO_CTYPES_MAPPING[dtype]), owner=None
+        )
+        memptr = MemoryPointer(unownd, 0)
+        # pylint: disable=unexpected-keyword-arg
+        mem = cupy.ndarray((length,), dtype=dtype, memptr=memptr)
+        assert mem.device.id == device
+        arr = cupy.array(mem, copy=True)
+        return arr
+
+    for pdf in iterator:
+        print(f"-------------- {pdf}")
+        json_str = json.loads(pdf.iloc[0, 0])
+        ipc_handle_str = json_str['gpuDataPtr']
+        ipc_handle_bytes = base64.b64decode(ipc_handle_str)
+        d_ptr = cupy.cuda.runtime.ipcOpenMemHandle(ipc_handle_bytes)
+        print(f"Pandas Dataframe row is: {json_str}")
+        for column in json_str["serializedColumns"]:
+            data_offset = column["dataOffset"]
+            row_count = column['size']
+            array = ctypes2cupy(d_ptr + data_offset, row_count, np.int32)
+            print(f"Gpu Data is: {array}")
+
+    # TODO construct iterative DMatrix
+    return DMatrix(np.array([1, 2, 3, 4, 5]), label=np.array([1, 2, 3, 4, 5])), None
+
+
 def create_dmatrix_from_partitions(
     iterator: Iterator[pd.DataFrame],
     feature_cols: Optional[Sequence[str]],
