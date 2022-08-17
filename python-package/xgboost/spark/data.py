@@ -145,18 +145,22 @@ def create_dmatrix_from_cuda_array_inferface(
         arr = cupy.array(mem, copy=True)
         return arr
 
+    # for pdf in iterator:
+    #     print(f"-------------- {pdf}")
+    #     json_str = json.loads(pdf.iloc[0, 0])
+    #     ipc_handle_str = json_str['gpuDataPtr']
+    #     ipc_handle_bytes = base64.b64decode(ipc_handle_str)
+    #     d_ptr = cupy.cuda.runtime.ipcOpenMemHandle(ipc_handle_bytes)
+    #     print(f"Pandas Dataframe row is: {json_str}")
+    #     for column in json_str["serializedColumns"]:
+    #         data_offset = column["dataOffset"]
+    #         row_count = column['size']
+    #         array = ctypes2cupy(d_ptr + data_offset, row_count, np.int32)
+    #         print(f"Gpu Data is: {array}")
+
     for pdf in iterator:
-        print(f"-------------- {pdf}")
-        json_str = json.loads(pdf.iloc[0, 0])
-        ipc_handle_str = json_str['gpuDataPtr']
-        ipc_handle_bytes = base64.b64decode(ipc_handle_str)
-        d_ptr = cupy.cuda.runtime.ipcOpenMemHandle(ipc_handle_bytes)
-        print(f"Pandas Dataframe row is: {json_str}")
-        for column in json_str["serializedColumns"]:
-            data_offset = column["dataOffset"]
-            row_count = column['size']
-            array = ctypes2cupy(d_ptr + data_offset, row_count, np.int32)
-            print(f"Gpu Data is: {array}")
+        print(f"the bytes of metadata is {pdf.loc[0, 'metadata']}")
+        print(f"the bytes of ipchandle is {pdf.loc[0, 'ipchandle']}")
 
     # TODO construct iterative DMatrix
     return DMatrix(np.array([1, 2, 3, 4, 5]), label=np.array([1, 2, 3, 4, 5])), None
