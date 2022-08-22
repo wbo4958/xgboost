@@ -41,6 +41,7 @@ from .data import (
     _read_csr_matrix_from_unwrapped_spark_vec,
     alias,
     create_dmatrix_from_partitions,
+    create_dmatrix_from_cuda_ipc,
     stack_series,
 )
 from .model import (
@@ -701,7 +702,7 @@ class _SparkXGBEstimator(Estimator, _SparkXGBParams, MLReadable, MLWritable):
         use_gpu = self.getOrDefault(self.use_gpu)
 
         is_local = _is_local(_get_spark_session().sparkContext)
-
+        use_cuda_ipc = True
         def _train_booster(pandas_df_iter):
             """Takes in an RDD partition and outputs a booster for that partition after
             going through the Rabit Ring protocol
@@ -732,13 +733,21 @@ class _SparkXGBEstimator(Estimator, _SparkXGBParams, MLReadable, MLWritable):
             _rabit_args = _get_args_from_message_list(messages)
             evals_result = {}
             with RabitContext(_rabit_args, context):
-                dtrain, dvalid = create_dmatrix_from_partitions(
-                    pandas_df_iter,
-                    features_cols_names,
-                    gpu_id,
-                    dmatrix_kwargs,
-                    enable_sparse_data_optim=enable_sparse_data_optim,
-                )
+                if use_cuda_ipc:
+                    dtrain, dvalid = create_dmatrix_from_cuda_ipc(
+                        pandas_df_iter,
+                        features_cols_names,
+                        gpu_id,
+                        dmatrix_kwargs,
+                    )
+                else:
+                    dtrain, dvalid = create_dmatrix_from_partitions(
+                        pandas_df_iter,
+                        features_cols_names,
+                        gpu_id,
+                        dmatrix_kwargs,
+                        enable_sparse_data_optim=enable_sparse_data_optim,
+                    )
                 if dvalid is not None:
                     dval = [(dtrain, "training"), (dvalid, "validation")]
                 else:

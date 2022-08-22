@@ -2,6 +2,7 @@
 from collections import defaultdict, namedtuple
 from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence, Tuple
 
+import cudf
 import numpy as np
 import pandas as pd
 from scipy.sparse import csr_matrix
@@ -61,6 +62,53 @@ def cache_partitions(
         if valid is not None:
             make_blob(valid, True)
 
+class CudaIpcMessageIter(DataIter):
+    """Iterator for creating Quantile DMatrix from partitions."""
+
+    def __init__(self, data: List, device_id: Optional[int], feature_names: List) -> None:
+        self._iter = 0
+        self._device_id = device_id
+        self._data = data
+        self._feature_names = feature_names
+
+        super().__init__()
+
+    def _fetch(self) -> Optional[pd.DataFrame]:
+        if self._device_id is not None:
+            import cudf  # pylint: disable=import-error
+            import cupy as cp  # pylint: disable=import-error
+            import pyarrow as pa
+
+            # We must set the device after import cudf, which will change the device id to 0
+            # See https://github.com/rapidsai/cudf/issues/11386
+            cp.cuda.runtime.setDevice(self._device_id)
+            buf = pa.py_buffer(self._data[self._iter])
+            table = cudf.DataFrame.import_ipc(buf)
+            print(f"---------------- table columns {table.columns}")
+            return table
+
+        raise RuntimeError("device is None")
+    def next(self, input_data: Callable) -> int:
+        if self._iter == len(self._data):
+            return 0
+
+        table = self._fetch()
+        data = cudf.DataFrame([table[n] for n in self._feature_names]).T
+        label = cudf.DataFrame(table[alias.label])
+        print(f"======= {data}")
+        print(f"======= {label}")
+
+        input_data(
+            data=data,
+            label=label,
+            weight=None,
+            base_margin=None,
+        )
+        self._iter += 1
+        return 1
+
+    def reset(self) -> None:
+        self._iter = 0
 
 class PartIter(DataIter):
     """Iterator for creating Quantile DMatrix from partitions."""
@@ -83,7 +131,9 @@ class PartIter(DataIter):
             # We must set the device after import cudf, which will change the device id to 0
             # See https://github.com/rapidsai/cudf/issues/11386
             cp.cuda.runtime.setDevice(self._device_id)
-            return cudf.DataFrame(data[self._iter])
+            table = cudf.DataFrame(data[self._iter])
+            print(f"---------------- table columns {table.columns}")
+            return table
 
         return data[self._iter]
 
@@ -145,6 +195,24 @@ def _read_csr_matrix_from_unwrapped_spark_vec(part: pd.DataFrame) -> csr_matrix:
     return csr_matrix(
         (csr_values_arr, csr_indices_arr, csr_indptr_arr), shape=(len(part), n_features)
     )
+
+
+def create_dmatrix_from_cuda_ipc(
+    iterator: Iterator[pd.DataFrame],
+    feature_cols: Optional[Sequence[str]],
+    gpu_id: Optional[int],
+    kwargs: Dict[str, Any],
+) -> Tuple[DMatrix, Optional[DMatrix]]:
+    all_ipc_data = []
+    for part in iterator:
+        ipc_message = part.iloc[0, 0]
+        print(f"xxx {ipc_message}")
+        all_ipc_data.append(ipc_message)
+
+    it = CudaIpcMessageIter(all_ipc_data, gpu_id, feature_cols)
+    dtrain = DeviceQuantileDMatrix(it, **kwargs)
+    # TODO add valid
+    return dtrain, None
 
 
 def create_dmatrix_from_partitions(
