@@ -62,8 +62,11 @@ def cache_partitions(
         if valid is not None:
             make_blob(valid, True)
 
+
 class CudaIpcMessageIter(DataIter):
-    """Iterator for creating Quantile DMatrix from partitions."""
+    """Iterator for creating Quantile DMatrix from CUDA IPC.
+    The IPC message is storing in the first element of the pandas.DataFrame,
+    We first need to extract it and re-construct to cudf.DataFrame with zero-copying"""
 
     def __init__(self, data: List, device_id: Optional[int], feature_names: List) -> None:
         self._iter = 0
@@ -84,31 +87,32 @@ class CudaIpcMessageIter(DataIter):
             cp.cuda.runtime.setDevice(self._device_id)
             buf = pa.py_buffer(self._data[self._iter])
             table = cudf.DataFrame.import_ipc(buf)
-            print(f"---------------- table columns {table.columns}")
             return table
 
         raise RuntimeError("device is None")
+
     def next(self, input_data: Callable) -> int:
         if self._iter == len(self._data):
             return 0
 
         table = self._fetch()
-        data = cudf.DataFrame([table[n] for n in self._feature_names]).T
-        label = cudf.DataFrame(table[alias.label])
-        print(f"======= {data}")
-        print(f"======= {label}")
+        data = table[self._feature_names]
+        label = table[[alias.label]]
+        weight = None
+        base_margin = None
 
         input_data(
             data=data,
             label=label,
-            weight=None,
-            base_margin=None,
+            weight=weight,
+            base_margin=base_margin,
         )
         self._iter += 1
         return 1
 
     def reset(self) -> None:
         self._iter = 0
+
 
 class PartIter(DataIter):
     """Iterator for creating Quantile DMatrix from partitions."""
@@ -132,7 +136,6 @@ class PartIter(DataIter):
             # See https://github.com/rapidsai/cudf/issues/11386
             cp.cuda.runtime.setDevice(self._device_id)
             table = cudf.DataFrame(data[self._iter])
-            print(f"---------------- table columns {table.columns}")
             return table
 
         return data[self._iter]
@@ -206,7 +209,7 @@ def create_dmatrix_from_cuda_ipc(
     all_ipc_data = []
     for part in iterator:
         ipc_message = part.iloc[0, 0]
-        print(f"xxx {ipc_message}")
+        print(f"got the ipc message")
         all_ipc_data.append(ipc_message)
 
     it = CudaIpcMessageIter(all_ipc_data, gpu_id, feature_cols)

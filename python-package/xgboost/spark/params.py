@@ -86,3 +86,17 @@ class HasQueryIdCol(Params):
         "query id column name",
         typeConverter=TypeConverters.toString,
     )
+
+
+class HasUseCudaIpc(Params):
+    """
+    This is a Params based class that is extended by _SparkXGBParams
+    and holds the variable to store the base margin column part of XGboost.
+    """
+
+    use_cuda_ipc = Param(
+        Params._dummy(),
+        "use_cuda_ipc",
+        "This stores the name for the column of the base margin",
+        typeConverter=TypeConverters.toBoolean,
+    )

@@ -56,6 +56,7 @@ from .params import (
     HasEnableSparseDataOptim,
     HasFeaturesCols,
     HasQueryIdCol,
+    HasUseCudaIpc,
 )
 from .utils import (
     RabitContext,
@@ -89,6 +90,7 @@ _pyspark_specific_params = [
     "features_cols",
     "enable_sparse_data_optim",
     "qid_col",
+    "use_cuda_ipc",  # communication between java and python with zero-copying
 ]
 
 _non_booster_params = ["missing", "n_estimators", "feature_types", "feature_weights"]
@@ -144,6 +146,7 @@ class _SparkXGBParams(
     HasFeaturesCols,
     HasEnableSparseDataOptim,
     HasQueryIdCol,
+    HasUseCudaIpc,
 ):
     num_workers = Param(
         Params._dummy(),
@@ -702,7 +705,9 @@ class _SparkXGBEstimator(Estimator, _SparkXGBParams, MLReadable, MLWritable):
         use_gpu = self.getOrDefault(self.use_gpu)
 
         is_local = _is_local(_get_spark_session().sparkContext)
-        use_cuda_ipc = True
+        if self.isDefined(self.use_cuda_ipc):
+            use_cuda_ipc = self.getOrDefault(self.use_cuda_ipc)
+
         def _train_booster(pandas_df_iter):
             """Takes in an RDD partition and outputs a booster for that partition after
             going through the Rabit Ring protocol
