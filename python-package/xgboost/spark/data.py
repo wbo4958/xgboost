@@ -73,13 +73,7 @@ class CudaIpcMessageIter(DataIter):
         self._device_id = device_id
         self._data = data
         self._feature_names = feature_names
-        self._cached_table = []
         super().__init__()
-
-    def save_tables(self):
-        table = cudf.concat(self._cached_table)
-        table.to_parquet("/tmp/ipc.parquet")
-        pass
 
     def _fetch(self) -> Optional[pd.DataFrame]:
         if self._device_id is not None:
@@ -92,7 +86,7 @@ class CudaIpcMessageIter(DataIter):
             cp.cuda.runtime.setDevice(self._device_id)
             buf = pa.py_buffer(self._data[self._iter])
             table = cudf.DataFrame.import_ipc(buf)
-            self._cached_table.append(table)
+            table.to_parquet(f"/tmp/ipc/ipc_{self._iter}.parquet")
             return table
 
         raise RuntimeError("device is None")
@@ -127,13 +121,8 @@ class PartIter(DataIter):
         self._iter = 0
         self._device_id = device_id
         self._data = data
-        self._cached_tables = []
 
         super().__init__()
-
-    def save_tables(self):
-        table = cudf.concat(self._cached_tables)
-        table.to_parquet("/tmp/data_copying.parquet")
 
     def _fetch(self, data: Optional[Sequence[pd.DataFrame]]) -> Optional[pd.DataFrame]:
         if not data:
@@ -147,7 +136,7 @@ class PartIter(DataIter):
             # See https://github.com/rapidsai/cudf/issues/11386
             cp.cuda.runtime.setDevice(self._device_id)
             table = cudf.DataFrame(data[self._iter])
-            self._cached_tables.append(table)
+            table.to_parquet(f"/tmp/data_moving/data_moving_{self._iter}.parquet")
             return table
 
         return data[self._iter]
@@ -226,7 +215,6 @@ def create_dmatrix_from_cuda_ipc(
 
     it = CudaIpcMessageIter(all_ipc_data, gpu_id, feature_cols)
     dtrain = DeviceQuantileDMatrix(it, **kwargs)
-    it.save_tables()
     # TODO add valid
     return dtrain, None
 
@@ -330,7 +318,6 @@ def create_dmatrix_from_partitions(
         cache_partitions(iterator, append_dqm)
         it = PartIter(train_data, gpu_id)
         dtrain = DeviceQuantileDMatrix(it, **kwargs)
-        it.save_tables()
 
     dvalid = make(valid_data, kwargs) if len(valid_data) != 0 else None
 
