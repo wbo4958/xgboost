@@ -295,10 +295,47 @@ void ProcessSlidingWindow(AdapterBatch const &batch, MetaInfo const &info,
                                  &cuts_ptr,
                                  &column_sizes_scan,
                                  &sorted_entries);
+
+  auto cuts_ptr_h = cuts_ptr.HostVector();
+  std::cout << "cuts ptr ------------------ num_cuts: " << num_cuts << std::endl;
+  for(uint64_t i : cuts_ptr_h) {
+      std::cout << i <<  " " << std::endl;
+  }
+  std::cout << "cuts ptr -- end----------------" << std::endl;
+
+    thrust::host_vector<size_t> column_sizes_scan_h = column_sizes_scan;
+    std::cout << "The column_sizes_scan_h : " << std::endl;
+    for (int i = 0; i < column_sizes_scan_h.size(); i++) {
+        std::cout << "column_sizes_scan_h: " << column_sizes_scan_h[i] << " ";
+    }
+    std::cout << "----------------------------------" << std::endl;
+
+  thrust::host_vector<Entry> sorted_entries_h = sorted_entries;
+  std::cout << "++++++++ The Entry without sorting: ++++++++++ " << std::endl;
+  for (int i = 0; i < sorted_entries_h.size(); i++) {
+      if (i % 4 == 0) {
+          std::cout << std::endl;
+      }
+      std::cout << sorted_entries_h[i].fvalue << " ";
+
+  }
+
+
   dh::XGBDeviceAllocator<char> alloc;
   thrust::sort(thrust::cuda::par(alloc), sorted_entries.begin(),
                sorted_entries.end(), detail::EntryCompareOp());
 
+    thrust::host_vector<Entry> sorted_entries_h_again = sorted_entries;
+    std::cout << std::endl;
+    std::cout << "------------The Entry with sorting: -----------------" << std::endl;
+    std::cout << "------------The Entry with sorting: -----------------" << std::endl;
+    for (int i = 0; i < sorted_entries_h_again.size(); i++) {
+        std::cout << sorted_entries_h_again[i].fvalue << " ";
+        if (i % 150 == 0 && i != 0) {
+            std::cout << std::endl;
+        }
+    }
+    std::cout << std::endl;
   if (sketch_container->HasCategorical()) {
     auto d_cuts_ptr = cuts_ptr.DeviceSpan();
     detail::RemoveDuplicatedCategories(device, info, d_cuts_ptr, &sorted_entries, nullptr,
@@ -311,6 +348,10 @@ void ProcessSlidingWindow(AdapterBatch const &batch, MetaInfo const &info,
   sketch_container->Push(dh::ToSpan(sorted_entries),
                          dh::ToSpan(column_sizes_scan), d_cuts_ptr,
                          h_cuts_ptr.back());
+
+  std::cout << std::endl;
+  std::cout << "-----------------the sketch_container ----------------- " << std::endl;
+
   sorted_entries.clear();
   sorted_entries.shrink_to_fit();
 }
@@ -414,6 +455,8 @@ void AdapterDeviceSketch(Batch batch, int num_bins,
   size_t num_rows = batch.NumRows();
   size_t num_cols = batch.NumCols();
   size_t num_cuts_per_feature = detail::RequiredSampleCutsPerColumn(num_bins, num_rows);
+  std::cout << "AdapterDeviceSketch num_rows: " << num_rows << " num_cols: " << num_cols <<
+  " num_cuts_per_feature: " << num_cuts_per_feature << std::endl;
   auto device = sketch_container->DeviceIdx();
   bool weighted = !info.weights_.Empty();
 

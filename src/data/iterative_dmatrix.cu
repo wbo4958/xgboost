@@ -86,6 +86,8 @@ void IterativeDMatrix::InitFromCUDA(Context const* ctx, BatchParam const& p,
                           }));
     nnz += thrust::reduce(thrust::cuda::par(alloc), row_counts.begin(), row_counts.end());
     batches++;
+    std::cout << "nnz: " << nnz << " batch_rows: " << batch_rows <<
+    " accumulated_rows: " << accumulated_rows << std::endl;
   } while (iter.Next());
   iter.Reset();
 
@@ -106,12 +108,15 @@ void IterativeDMatrix::InitFromCUDA(Context const* ctx, BatchParam const& p,
     sketch_containers.shrink_to_fit();
 
     final_sketch.MakeCuts(ctx, &cuts, this->info_.IsColumnSplit());
+    final_sketch.show();
   } else {
     GetCutsFromRef(ctx, ref, Info().num_col_, p, &cuts);
   }
 
   this->info_.num_row_ = accumulated_rows;
   this->info_.num_nonzero_ = nnz;
+
+  cuts.show();
 
   auto init_page = [this, &cuts, row_stride, accumulated_rows, get_device]() {
     if (!ellpack_) {
@@ -164,6 +169,8 @@ void IterativeDMatrix::InitFromCUDA(Context const* ctx, BatchParam const& p,
     this->info_.num_nonzero_ = nnz;
     CHECK_EQ(proxy->Info().labels.Size(), 0);
   }
+
+  ellpack_->Impl()->show();
 
   iter.Reset();
   // Synchronise worker columns

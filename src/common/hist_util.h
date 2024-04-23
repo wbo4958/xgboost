@@ -65,6 +65,27 @@ class HistogramCuts {
   // storing minimum value in a sketch set.
   HostDeviceVector<float> min_vals_;  // NOLINT
 
+  void show() {
+      auto cut_values_h = cut_values_.HostVector();
+      std::cout << "HistogramCuts, cut_values_h: " << std::endl;
+      for (auto v : cut_values_h) {
+          std::cout << v << " ";
+      }
+      std::cout << std::endl;
+      auto cut_ptrs_h = cut_ptrs_.HostVector();
+      std::cout << "cut_ptrs_: " << std::endl;
+      for (auto v : cut_ptrs_h) {
+          std::cout << v << " ";
+      }
+      std::cout << std::endl;
+      auto min_vals_h = min_vals_.HostVector();
+      std::cout << "min_vals_h: " << std::endl;
+      for (auto v : min_vals_h) {
+          std::cout << v << " ";
+      }
+      std::cout << std::endl;
+  }
+
   HistogramCuts();
   HistogramCuts(HistogramCuts const& that) { this->Copy(that); }
 

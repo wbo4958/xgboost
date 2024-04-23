@@ -210,6 +210,10 @@ class EllpackPageImpl {
   [[nodiscard]] EllpackDeviceAccessor GetHostAccessor(
       common::Span<FeatureType const> feature_types = {}) const;
 
+  void show() {
+      std::cout << "ELLpack is_dense: " << is_dense << " row_stride: " << row_stride
+      << " base_rowid: " << base_rowid << " n_rows: " << n_rows << std::endl;
+  }
  private:
   /*!
    * \brief Compress a single page of CSR data into ELLPACK.

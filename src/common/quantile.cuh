@@ -4,6 +4,7 @@
 #ifndef XGBOOST_COMMON_QUANTILE_CUH_
 #define XGBOOST_COMMON_QUANTILE_CUH_
 
+#include <thrust/host_vector.h>
 #include "xgboost/span.h"
 #include "xgboost/data.h"
 #include "device_helpers.cuh"
@@ -87,6 +88,26 @@ class SketchContainer {
   }
 
  public:
+    void show() {
+      std::cout << "SketchContainer, rows: " << this->num_rows_
+      << "cols: " << this->num_columns_
+      << std::endl;
+
+      thrust::host_vector<SketchEntry> entry_h = this->Current();
+      std::cout << "entries in SketchContainer!" << std::endl;
+      for (auto v : entry_h) {
+          std::cout << v << std::endl;
+      }
+      std::cout << std::endl;
+
+      auto columns_ptr_h = columns_ptr_.HostVector();
+
+      std::cout << "columns_ptr in SketchContainer!" << std::endl;
+      for (auto v: columns_ptr_h) {
+          std::cout << v << " ";
+      }
+      std::cout << std::endl;
+  }
   /* \breif GPU quantile structure, with sketch data for each columns.
    *
    * \param max_bin     Maximum number of bins per columns

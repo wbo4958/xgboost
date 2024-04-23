@@ -310,6 +310,7 @@ void SketchContainer::Push(Span<Entry const> entries, Span<size_t> columns_ptr,
   Span<SketchEntry> out;
   dh::device_vector<SketchEntry> cuts;
   bool first_window = this->Current().empty();
+  std::cout << "SketchContainer::Push " << total_cuts << std::endl;
   if (!first_window) {
     cuts.resize(total_cuts);
     out = dh::ToSpan(cuts);
@@ -413,6 +414,7 @@ void SketchContainer::Prune(size_t to) {
   auto const& h_feature_types = feature_types_.ConstHostSpan();
   for (bst_feature_t i = 0; i < num_columns_; ++i) {
     size_t length = this->Column(i).size();
+    std::cout << "column: " << i << " SketchContainer Prune len: " << length << " maxBins: " << to << std::endl;
     length = std::min(length, to);
     if (IsCat(h_feature_types, i)) {
       length = this->Column(i).size();
@@ -588,6 +590,7 @@ void SketchContainer::MakeCuts(Context const* ctx, HistogramCuts* p_cuts, bool i
   // Sync between workers.
   this->AllReduce(ctx, is_column_split);
 
+  std::cout << "MakeCuts prune to " << num_bins_ + 1 << std::endl;
   // Prune to final number of bins.
   this->Prune(num_bins_ + 1);
   this->FixError();

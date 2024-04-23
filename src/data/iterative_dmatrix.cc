@@ -183,10 +183,14 @@ void IterativeDMatrix::InitFromCPU(Context const* ctx, BatchParam const& p,
       CHECK_EQ(n_features, num_cols()) << "Inconsistent number of columns.";
     }
     size_t batch_size = num_rows();
+
     batch_nnz.push_back(nnz_cnt());
     nnz += batch_nnz.back();
     accumulated_rows += batch_size;
     n_batches++;
+
+    std::cout << "nnz: " << nnz << " batch_size: " << batch_size << std::endl;
+
   } while (iter.Next());
   iter.Reset();
 
@@ -199,6 +203,7 @@ void IterativeDMatrix::InitFromCPU(Context const* ctx, BatchParam const& p,
   })) << "Something went wrong during iteration.";
 
   CHECK_GE(n_features, 1) << "Data must has at least 1 column.";
+  std::cout << "Total nnz: " << nnz << " accumulated_rows: " << accumulated_rows << std::endl;
 
   /**
    * Generate quantiles
