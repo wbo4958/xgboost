@@ -330,6 +330,9 @@ void ProcessSlidingWindow(AdapterBatch const &batch, MetaInfo const &info,
     std::cout << "------------The Entry with sorting: -----------------" << std::endl;
     std::cout << "------------The Entry with sorting: -----------------" << std::endl;
     for (int i = 0; i < sorted_entries_h_again.size(); i++) {
+        if (i%150 == 0) {
+            std::cout << std::endl;
+        }
         std::cout << sorted_entries_h_again[i].fvalue << " ";
         if (i % 150 == 0 && i != 0) {
             std::cout << std::endl;

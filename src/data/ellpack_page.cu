@@ -180,7 +180,10 @@ struct WriteCompressedEllpackFunctor {
         bin_idx = accessor.SearchBin<true>(e.value, e.column_idx);
       } else {
         bin_idx = accessor.SearchBin<false>(e.value, e.column_idx);
+          printf("bin: %d (%d, %d), %f %d\n", bin_idx, int(e.row_idx), int(e.column_idx), e.value, output_position);
       }
+//      printf("WriteCompressedEllpackFunctor write entry [%d, %f] to location: %zu, bin_idx: %u\n",
+//             int(e.column_idx), e.value, output_position, bin_idx);
       writer.AtomicWriteSymbol(d_buffer, bin_idx, output_position);
     }
     return 0;
@@ -238,6 +241,7 @@ void CopyDataToEllpack(const AdapterBatchT& batch, common::Span<FeatureType cons
 
   auto device_accessor = dst->GetDeviceAccessor(device);
   common::CompressedBufferWriter writer(device_accessor.NumSymbols());
+  std::cout << "num symbols: " << device_accessor.NumSymbols() << " num bits:" << writer.symbol_bits_ << std::endl;
   auto d_compressed_buffer = dst->gidx_buffer.DevicePointer();
 
   // We redirect the scan output into this functor to do the actual writing

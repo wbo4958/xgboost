@@ -53,7 +53,7 @@ inline XGBOOST_DEVICE size_t SymbolBits(size_t num_symbols) {
  */
 
 class CompressedBufferWriter {
-  size_t symbol_bits_;
+public: size_t symbol_bits_;
 
  public:
   XGBOOST_DEVICE explicit CompressedBufferWriter(size_t num_symbols)
