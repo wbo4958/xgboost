@@ -51,10 +51,9 @@ class CommunicatorContext(CCtx):  # pylint: disable=too-few-public-methods
         super().__init__(**args)
 
 
-def _start_tracker(context: BarrierTaskContext, n_workers: int) -> Dict[str, Any]:
+def _start_tracker(host: str, n_workers: int) -> Dict[str, Any]:
     """Start Rabit tracker with n_workers"""
     env: Dict[str, Any] = {"DMLC_NUM_WORKER": n_workers}
-    host = _get_host_ip(context)
     rabit_context = RabitTracker(host_ip=host, n_workers=n_workers, sortby="task")
     env.update(rabit_context.worker_envs())
     rabit_context.start(n_workers)
@@ -64,9 +63,9 @@ def _start_tracker(context: BarrierTaskContext, n_workers: int) -> Dict[str, Any
     return env
 
 
-def _get_rabit_args(context: BarrierTaskContext, n_workers: int) -> Dict[str, Any]:
+def _get_rabit_args(host: str, n_workers: int) -> Dict[str, Any]:
     """Get rabit context arguments to send to each worker."""
-    env = _start_tracker(context, n_workers)
+    env = _start_tracker(host, n_workers)
     return env
 
 
