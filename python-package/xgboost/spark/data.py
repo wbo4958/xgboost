@@ -49,7 +49,8 @@ def cache_partitions(
 
     has_validation: Optional[bool] = None
 
-    for part in iterator:
+    for iter in iterator:
+        part = iter.to_pandas()
         if has_validation is None:
             has_validation = alias.valid in part.columns
         if has_validation is True:
@@ -210,6 +211,7 @@ def create_dmatrix_from_partitions(  # pylint: disable=too-many-arguments
 
     def append_m(part: pd.DataFrame, name: str, is_valid: bool) -> None:
         nonlocal n_features
+        # print(part[name])
         if name == alias.data or name in part.columns:
             if (
                 name == alias.data

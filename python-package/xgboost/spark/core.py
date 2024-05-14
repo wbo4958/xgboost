@@ -23,6 +23,7 @@ from typing import (
 
 import numpy as np
 import pandas as pd
+import pyarrow
 from pyspark import RDD, SparkConf, SparkContext, cloudpickle
 from pyspark.ml import Estimator, Model
 from pyspark.ml.functions import array_to_vector, vector_to_array
@@ -1153,16 +1154,17 @@ class _SparkXGBEstimator(Estimator, _SparkXGBParams, MLReadable, MLWritable):
             context.barrier()
 
             if context.partitionId() == 0:
-                yield pd.DataFrame(
+                yield pyarrow.RecordBatch.from_pandas(pd.DataFrame(
                     data={
                         "config": [booster.save_config()],
                         "booster": [booster.save_raw("json").decode("utf-8")],
                     }
                 )
+                )
 
         def _run_job() -> Tuple[str, str]:
             rdd = (
-                dataset.mapInPandas(
+                dataset.mapInArrow(
                     _train_booster,  # type: ignore
                     schema="config string, booster string",
                 )
