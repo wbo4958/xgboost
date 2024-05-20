@@ -177,6 +177,15 @@ class RegTree : public Model {
       this->SetSplit(split_ind, split_cond, default_left);
     }
 
+    void show() {
+      std::cout << "parent: " << parent_ << " left: " << cleft_ << " right: " << cright_ << " sindex: " << sindex_;
+      if (IsLeaf()) {
+        std::cout << " leaf: " << info_.leaf_value << std::endl;
+      } else {
+        std::cout << " split: " << info_.split_cond << std::endl;
+      }
+    }
+
     /*! \brief index of left child */
     [[nodiscard]] XGBOOST_DEVICE int LeftChild() const { return this->cleft_; }
     /*! \brief index of right child */

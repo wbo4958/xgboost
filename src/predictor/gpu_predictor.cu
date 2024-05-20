@@ -891,6 +891,24 @@ class GPUPredictor : public xgboost::Predictor {
 
     bool use_shared = false;
     size_t entry_start = 0;
+    std::cout << "GPUPredictor PredictInternal: tree_beg: " << model.tree_beg_ <<
+        " tree_end: " << model.tree_end_ << " features: " << batch.NumFeatures() <<
+        " num_group: " << model.num_group << std::endl;
+    for (auto seg: model.tree_segments.ConstHostVector()) {
+      std::cout << "seg " << seg;
+    }
+    std::cout << std::endl;
+
+    for (auto group: model.tree_group.ConstHostVector()) {
+      std::cout << "tree_group: " << group;
+    }
+    std::cout << std::endl;
+
+    std::cout << "Before PredictKernel, showing the nodes" << std::endl;
+    for (auto node: model.nodes.ConstHostVector()) {
+      node.show();
+    }
+
     dh::LaunchKernel {GRID_SIZE, BLOCK_THREADS} (
         PredictKernel<EllpackLoader, EllpackDeviceAccessor>, batch,
         model.nodes.ConstDeviceSpan(), out_preds->DeviceSpan().subspan(batch_offset),
@@ -901,6 +919,11 @@ class GPUPredictor : public xgboost::Predictor {
         model.categories.ConstDeviceSpan(), model.tree_beg_, model.tree_end_,
         batch.NumFeatures(), num_rows, entry_start, use_shared,
         model.num_group, nan(""));
+
+    std::cout << "After PredictKernel, showing the nodes" << std::endl;
+    for (auto node: model.nodes.ConstHostVector()) {
+      node.show();
+    }
   }
 
   void DevicePredictInternal(DMatrix* dmat, HostDeviceVector<float>* out_preds,

@@ -253,6 +253,11 @@ void GBTree::DoBoost(DMatrix* p_fmat, linalg::Matrix<GradientPair>* in_gpair,
     for (bst_target_t gid = 0; gid < n_groups; ++gid) {
       node_position.clear();
       CopyGradient(ctx_, in_gpair, gid, &tmp);
+      std::cout << "DoBoost for group id: " << gid << " and the gradient is: " << std::endl;
+      for (auto gpair : tmp.Data()->ConstHostVector()) {
+        std::cout << gpair.GetGrad() << "," << gpair.GetHess() << " ";
+      }
+      std::cout << std::endl;
       TreesOneGroup ret;
       BoostNewTrees(&tmp, p_fmat, gid, &node_position, &ret);
       UpdateTreeLeaf(p_fmat, predt->predictions, obj, gid, node_position, &ret);
@@ -325,6 +330,7 @@ void GBTree::BoostNewTrees(linalg::Matrix<GradientPair>* gpair, DMatrix* p_fmat,
   // Rescale learning rate according to the size of trees
   auto lr = tree_param_.learning_rate;
   tree_param_.learning_rate /= static_cast<float>(new_trees.size());
+  std::cout << "Learning rate: " << tree_param_.learning_rate << std::endl;
   for (auto& up : updaters_) {
     up->Update(&tree_param_, gpair, p_fmat,
                common::Span<HostDeviceVector<bst_node_t>>{*out_position}, new_trees);
@@ -515,6 +521,7 @@ void GBTree::PredictBatchImpl(DMatrix* p_fmat, PredictionCacheEntry* out_preds, 
 
   auto [tree_begin, tree_end] = detail::LayerToTree(model_, layer_begin, layer_end);
   CHECK_LE(tree_end, model_.trees.size()) << "Invalid number of trees.";
+  std::cout << "tree_begin: " << tree_begin << " tree_end: " << tree_end << " version: " << out_preds->version << std::endl;
   if (tree_end > tree_begin) {
     predictor->PredictBatch(p_fmat, out_preds, model_, tree_begin, tree_end);
   }

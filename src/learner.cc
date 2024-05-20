@@ -437,6 +437,7 @@ class LearnerConfiguration : public Learner {
     }
     CHECK(!std::isnan(mparam_.base_score));
     CHECK(!std::isinf(mparam_.base_score));
+    std::cout << "base_score " << mparam_.base_score << std::endl;
   }
 
  public:
@@ -1281,8 +1282,21 @@ class LearnerImpl : public LearnerIO {
     TrainingObserver::Instance().Observe(predt.predictions, "Predictions");
     monitor_.Stop("PredictRaw");
 
+    std::cout << "Showing prediction, note that it's base score for the first time. And it's the leaf value of "
+                 "the feature in the tree nodes " << std::endl;
+    for (auto item: predt.predictions.ConstHostVector()) {
+      std::cout << item << " ";
+    }
+    std::cout << std::endl;
+
     monitor_.Start("GetGradient");
     GetGradient(predt.predictions, train->Info(), iter, &gpair_);
+
+    for (auto gpair: gpair_.Data()->ConstHostVector()) {
+      std::cout << gpair.GetGrad() << ", " << gpair.GetHess() << " ";
+    }
+    std::cout << std::endl;
+
     monitor_.Stop("GetGradient");
     TrainingObserver::Instance().Observe(*gpair_.Data(), "Gradients");
 
