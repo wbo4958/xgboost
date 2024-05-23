@@ -1,5 +1,6 @@
 # pylint: disable=protected-access
 """Utilities for processing spark partitions."""
+import time
 from collections import defaultdict, namedtuple
 from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence, Tuple, Union
 
@@ -49,7 +50,12 @@ def cache_partitions(
 
     has_validation: Optional[bool] = None
 
+    sum = 0
+    start = time.time()
     for part in iterator:
+        end = time.time()
+        sum += end - start
+
         if has_validation is None:
             has_validation = alias.valid in part.columns
         if has_validation is True:
@@ -64,6 +70,9 @@ def cache_partitions(
         make_blob(train, False)
         if valid is not None:
             make_blob(valid, True)
+        start = time.time()
+    get_logger("XGBoost-PySpark").warning("Data transferring from JVM to Python takes {} seconds".format(round(sum, 2)))
+
 
 
 class PartIter(DataIter):
@@ -76,6 +85,7 @@ class PartIter(DataIter):
         self._device_id = device_id
         self._data = data
         self._kwargs = kwargs
+        self._logger = get_logger("XGBoost-PySpark")
 
         super().__init__(release_data=True)
 
@@ -84,13 +94,17 @@ class PartIter(DataIter):
             return None
 
         if self._device_id is not None:
+            start = time.time()
             import cudf  # pylint: disable=import-error
             import cupy as cp  # pylint: disable=import-error
 
             # We must set the device after import cudf, which will change the device id to 0
             # See https://github.com/rapidsai/cudf/issues/11386
             cp.cuda.runtime.setDevice(self._device_id)  # pylint: disable=I1101
-            return cudf.DataFrame(data[self._iter])
+            df = cudf.DataFrame(data[self._iter])
+            end = time.time()
+            self._logger.warning("_fetch (copy data from pandas Dataframe to CUDF takes {} seconds".format(round(end - start, 2)))
+            return df
 
         return data[self._iter]
 
@@ -302,18 +316,22 @@ def create_dmatrix_from_partitions(  # pylint: disable=too-many-arguments
 
     meta, params = split_params()
 
+    start = time.time()
+    cache_partitions(iterator, append_fn)
+    end = time.time()
+    get_logger("XGBoost-PySpark").warning("cache_partitions takes {} seconds".format(round(end - start, 2)))
+
+    start = time.time()
     if feature_cols is not None and use_qdm:
-        cache_partitions(iterator, append_fn)
         dtrain: DMatrix = make_qdm(train_data, dev_ordinal, meta, None, params)
     elif feature_cols is not None and not use_qdm:
-        cache_partitions(iterator, append_fn)
         dtrain = make(train_data, kwargs)
     elif feature_cols is None and use_qdm:
-        cache_partitions(iterator, append_fn)
         dtrain = make_qdm(train_data, dev_ordinal, meta, None, params)
     else:
-        cache_partitions(iterator, append_fn)
         dtrain = make(train_data, kwargs)
+    end = time.time()
+    get_logger("XGBoost-PySpark").warning("make_qdm takes {} seconds".format(round(end - start, 2)))
 
     # Using has_validation_col here to indicate if there is validation col
     # instead of getting it from iterator, since the iterator may be empty
