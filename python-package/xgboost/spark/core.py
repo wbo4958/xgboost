@@ -7,6 +7,7 @@ import base64
 import json
 import logging
 import os
+import time
 from collections import namedtuple
 from typing import (
     Any,
@@ -1107,6 +1108,7 @@ class _SparkXGBEstimator(Estimator, _SparkXGBParams, MLReadable, MLWritable):
             evals_result: Dict[str, Any] = {}
             with CommunicatorContext(context, **_rabit_args):
                 with xgboost.config_context(verbosity=verbosity):
+                    start = time.time()
                     dtrain, dvalid = create_dmatrix_from_partitions(
                         pandas_df_iter,
                         feature_prop.features_cols_names,
@@ -1116,10 +1118,14 @@ class _SparkXGBEstimator(Estimator, _SparkXGBParams, MLReadable, MLWritable):
                         enable_sparse_data_optim=feature_prop.enable_sparse_data_optim,
                         has_validation_col=feature_prop.has_validation_col,
                     )
+                    end = time.time()
+                    get_logger(_LOG_TAG, log_level).info("create_dmatrix_from_partitions "
+                                                         "takes {} seconds".format(round(end - start, 2)))
                 if dvalid is not None:
                     dval = [(dtrain, "training"), (dvalid, "validation")]
                 else:
                     dval = None
+                start = time.time()
                 booster = worker_train(
                     params=booster_params,
                     dtrain=dtrain,
@@ -1127,6 +1133,8 @@ class _SparkXGBEstimator(Estimator, _SparkXGBParams, MLReadable, MLWritable):
                     evals_result=evals_result,
                     **train_call_kwargs_params,
                 )
+                end = time.time()
+                get_logger(_LOG_TAG, log_level).info("worker_train takes {} seconds".format(round(end - start, 2)))
             context.barrier()
 
             if context.partitionId() == 0:
