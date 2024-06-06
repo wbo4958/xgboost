@@ -716,8 +716,9 @@ class _SparkXGBEstimator(Estimator, _SparkXGBParams, MLReadable, MLWritable):
         start += len("== Optimized Logical Plan ==") + 1
         num_workers = self.getOrDefault(self.num_workers)
         if (
-            query_plan[start : start + len("Repartition")] == "Repartition"
-            and num_workers == num_partitions
+            #query_plan[start : start + len("Repartition")] == "Repartition"
+            #and
+            num_workers == num_partitions
         ):
             return True
         return False
