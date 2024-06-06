@@ -17,17 +17,17 @@
 package ml.dmlc.xgboost4j.scala.spark
 
 import ml.dmlc.xgboost4j.java.XGBoostError
-import ml.dmlc.xgboost4j.scala.{Booster, DMatrix}
 import ml.dmlc.xgboost4j.scala.spark.params.{NewHasGroupCol, SparkParams, XGBoostParams}
+import ml.dmlc.xgboost4j.scala.{Booster, DMatrix}
 import ml.dmlc.xgboost4j.{LabeledPoint => XGBLabeledPoint}
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vector}
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.XGBoostSchemaUtils
 import org.apache.spark.ml.{Estimator, Model}
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.functions.col
-import org.apache.spark.sql.types.{DoubleType, FloatType, IntegerType, StructType}
-import org.apache.spark.sql.{DataFrame, Dataset, Row}
+import org.apache.spark.sql.functions.{col, lit}
+import org.apache.spark.sql.types.{FloatType, StructType}
+import org.apache.spark.sql.{Column, DataFrame, Dataset, Row}
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -36,9 +36,9 @@ private[spark] abstract class XGBoostEstimator[
   M <: XGBoostModel[M]
 ] extends Estimator[M] with XGBoostParams with SparkParams {
 
-  private val WEIGHT = "weight"
-  private val BASE_MARGIN = "base_margin"
-  private val GROUP = "group"
+  private lazy val defaultBaseMarginColumn = lit(Float.NaN)
+  private lazy val defaultWeightColumn = lit(1.0f)
+  private lazy val defaultGroupColumn = lit(-1.0f)
 
   /**
    * Pre-convert input double data to floats to align with XGBoost's internal float-based
@@ -48,12 +48,12 @@ private[spark] abstract class XGBoostEstimator[
    * @param name    which column will be casted to float if possible.
    * @return Dataset
    */
-  private def castToFloatIfNeeded(dataset: Dataset[_], name: String): Dataset[_] = {
-    if (dataset.schema(name) == DoubleType) {
-      val meta = dataset.schema(name).metadata
-      dataset.withColumn(name, col(name).as(name, meta).cast(FloatType))
+  private def castToFloatIfNeeded(schema: StructType, name: String): Column = {
+    if (!schema(name).dataType.isInstanceOf[FloatType]) {
+      val meta = schema(name).metadata
+      col(name).as(name, meta).cast(FloatType)
     } else {
-      dataset
+      col(name)
     }
   }
 
@@ -63,42 +63,48 @@ private[spark] abstract class XGBoostEstimator[
    * @param dataset
    * @return
    */
-  private def preprocess(dataset: Dataset[_]): (Dataset[_], ArrayBuffer[String]) = {
+  private def preprocess(dataset: Dataset[_]): (Dataset[_], Boolean, Boolean) = {
     // Columns to be selected for XGBoost
-    val selectedCols: ArrayBuffer[String] = ArrayBuffer.empty
-    val extraColumnsOrder: ArrayBuffer[String] = ArrayBuffer.empty
+    val selectedCols: ArrayBuffer[Column] = ArrayBuffer.empty
+    var hasGroup = false
+    // TODO support array type
+    var featureIsVector = true
 
+    val schema = dataset.schema
     // TODO, support columnar and array.
-    selectedCols.append(getLabelCol)
-    selectedCols.append(getFeaturesCol)
+    selectedCols.append(castToFloatIfNeeded(schema, getLabelCol))
+    selectedCols.append(col(getFeaturesCol))
 
-    var input: Dataset[_] = castToFloatIfNeeded(dataset, getLabelCol)
-
-    if (isDefined(weightCol) && getWeightCol.nonEmpty) {
-      selectedCols.append(getWeightCol)
-      extraColumnsOrder.append(WEIGHT)
-      input = castToFloatIfNeeded(input, getWeightCol)
+    val weight = if (isDefined(weightCol) && getWeightCol.nonEmpty) {
+      castToFloatIfNeeded(schema, getWeightCol)
+    } else {
+      defaultWeightColumn
     }
+    selectedCols.append(weight)
 
-    if (isDefined(baseMarginCol) && getBaseMarginCol.nonEmpty) {
-      selectedCols.append(getBaseMarginCol)
-      extraColumnsOrder.append(WEIGHT)
-      input = castToFloatIfNeeded(input, getBaseMarginCol)
+    val baseMargin = if (isDefined(baseMarginCol) && getBaseMarginCol.nonEmpty) {
+      castToFloatIfNeeded(schema, getBaseMarginCol)
+    } else {
+      defaultBaseMarginColumn
     }
+    selectedCols.append(baseMargin)
+
 
     this match {
       case p: NewHasGroupCol =>
         // Cast group col to IntegerType if necessary
-        if (isDefined(p.groupCol) && $(p.groupCol).nonEmpty) {
-          val groupName = p.getGroupCol
-          if (!input.schema(groupName).dataType.isInstanceOf[IntegerType]) {
-            val meta = input.schema(groupName).metadata
-            input = input.withColumn(groupName, col(groupName).as(groupName, meta).cast(FloatType))
-          }
-          extraColumnsOrder.append(GROUP)
-          selectedCols.append(groupName)
+        val group = if (isDefined(p.groupCol) && $(p.groupCol).nonEmpty) {
+          castToFloatIfNeeded(schema, p.getGroupCol)
+        } else {
+          defaultGroupColumn
         }
+        hasGroup = true
+        selectedCols.append(group)
+
+      case _ =>
     }
+
+    var input = dataset.select(selectedCols: _*)
 
     // TODO,
     //  1. add a parameter to force repartition,
@@ -110,7 +116,7 @@ private[spark] abstract class XGBoostEstimator[
     } else {
       input.repartition(numWorkers)
     }
-    (input, extraColumnsOrder)
+    (input, hasGroup, featureIsVector)
   }
 
   /**
@@ -120,28 +126,23 @@ private[spark] abstract class XGBoostEstimator[
    * @param columnsOrder the order of columns including weight/group/base margin ...
    * @return RDD
    */
-  def toRdd(dataset: Dataset[_], columnsOrder: ArrayBuffer[String]): RDD[Watches] = {
+  def toRdd(dataset: Dataset[_], hasGroup: Boolean, featureIsVector: Boolean): RDD[Watches] = {
 
     // 1. to XGBLabeledPoint
     val labeledPointRDD = dataset.rdd.map {
-      case row@Row(label: Float, features: Vector) =>
+      case row: Row =>
+        val label = row.getFloat(0)
+        val features = row.getAs[Vector](1)
+        val weight = row.getFloat(2)
+        val baseMargin = row.getFloat(3)
+        val group = if (hasGroup) {
+          row.getInt(4)
+        } else {
+          -1
+        }
         val (size, indices, values) = features match {
           case v: SparseVector => (v.size, v.indices, v.values.map(_.toFloat))
           case v: DenseVector => (v.size, null, v.values.map(_.toFloat))
-        }
-
-        var weight: Float = 1f
-        var group: Int = -1
-        var baseMargin: Float = Float.NaN
-        columnsOrder.zipWithIndex foreach {
-          case (name, pos) =>
-            val index = pos + 2
-            name match {
-              case WEIGHT => weight = row.getFloat(index)
-              case GROUP => group = row.getInt(index)
-              case BASE_MARGIN => baseMargin = row.getFloat(index)
-              case _ => throw new XGBoostError("Unsupported column " + name)
-            }
         }
         XGBLabeledPoint(label, size, indices, values, weight, group, baseMargin)
     }
@@ -156,12 +157,13 @@ private[spark] abstract class XGBoostEstimator[
   def createModel(booster: Booster, metrics: Map[String, Array[Float]]): M
 
   override def fit(dataset: Dataset[_]): M = {
-    val (input, columnsOrder) = preprocess(dataset)
-    val rdd = toRdd(input, columnsOrder)
+    val (input, hasGroup, featureIsVector) = preprocess(dataset)
+    val rdd = toRdd(input, hasGroup, featureIsVector )
 
     val paramMap = Map(
       "num_rounds" -> 10,
-      "num_workers" -> 1
+      "num_workers" -> 1,
+      "num_round" -> 1
     )
 
     val (booster, metrics) = NewXGBoost.train(

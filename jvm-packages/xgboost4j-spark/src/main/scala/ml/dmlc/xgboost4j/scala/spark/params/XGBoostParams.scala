@@ -52,6 +52,10 @@ private[spark] trait SparkParams extends Params
 
   final def getNumWorkers: Int = $(numWorkers)
 
+  def setNumWorkers(value: Int): this.type = set(numWorkers, value)
+
+  def setLabelCol(value: String): this.type = set(labelCol, value)
+
 }
 
 private[spark] trait XGBoostParams extends Params {

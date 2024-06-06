@@ -31,7 +31,7 @@ import org.apache.commons.io.IOUtils
 
 trait PerTest extends BeforeAndAfterEach { self: AnyFunSuite =>
 
-  protected val numWorkers: Int = min(Runtime.getRuntime.availableProcessors(), 4)
+  protected val numWorkers: Int = 1
 
   @transient private var currentSession: SparkSession = _
 
