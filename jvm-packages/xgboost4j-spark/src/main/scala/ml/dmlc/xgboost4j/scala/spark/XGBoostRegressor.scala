@@ -50,9 +50,9 @@ class XGBoostRegressor (
 
   def setWeightCol(value: String): this.type = set(weightCol, value)
 
-  def setBaseMarginCol(value: String): this.type = set(baseMarginCol, value)
+//  def setBaseMarginCol(value: String): this.type = set(baseMarginCol, value)
 
-  def setGroupCol(value: String): this.type = set(groupCol, value)
+//  def setGroupCol(value: String): this.type = set(groupCol, value)
 
   // setters for general params
   def setNumRound(value: Int): this.type = set(numRound, value)

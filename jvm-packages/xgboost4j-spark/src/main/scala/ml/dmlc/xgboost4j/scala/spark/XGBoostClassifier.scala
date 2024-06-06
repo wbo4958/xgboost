@@ -48,7 +48,7 @@ class XGBoostClassifier (
 
   def setWeightCol(value: String): this.type = set(weightCol, value)
 
-  def setBaseMarginCol(value: String): this.type = set(baseMarginCol, value)
+//  def setBaseMarginCol(value: String): this.type = set(baseMarginCol, value)
 
   def setNumClass(value: Int): this.type = set(numClass, value)
 

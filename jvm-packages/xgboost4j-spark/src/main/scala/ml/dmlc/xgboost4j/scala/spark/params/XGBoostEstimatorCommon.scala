@@ -25,7 +25,8 @@ import org.apache.spark.sql.types.StructType
 
 private[scala] sealed trait XGBoostEstimatorCommon extends GeneralParams with LearningTaskParams
   with BoosterParams with RabitParams with ParamMapFuncs with NonParamVariables with HasWeightCol
-  with HasBaseMarginCol with HasLeafPredictionCol with HasContribPredictionCol with HasFeaturesCol
+  with NewHasBaseMarginCol with HasLeafPredictionCol with HasContribPredictionCol
+  with HasFeaturesCol
   with HasLabelCol with HasFeaturesCols with HasHandleInvalid {
 
   def needDeterministicRepartitioning: Boolean = {
@@ -116,4 +117,4 @@ private[scala] sealed trait XGBoostEstimatorCommon extends GeneralParams with Le
 
 private[scala] trait XGBoostClassifierParams extends XGBoostEstimatorCommon with HasNumClass
 
-private[scala] trait XGBoostRegressorParams extends XGBoostEstimatorCommon with HasGroupCol
+private[scala] trait XGBoostRegressorParams extends XGBoostEstimatorCommon with NewHasGroupCol

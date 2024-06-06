@@ -18,7 +18,7 @@ package ml.dmlc.xgboost4j.scala.spark
 
 import ml.dmlc.xgboost4j.java.XGBoostError
 import ml.dmlc.xgboost4j.scala.{Booster, DMatrix}
-import ml.dmlc.xgboost4j.scala.spark.params.{HasGroupCol, SparkParams, XGBoostParams}
+import ml.dmlc.xgboost4j.scala.spark.params.{NewHasGroupCol, SparkParams, XGBoostParams}
 import ml.dmlc.xgboost4j.{LabeledPoint => XGBLabeledPoint}
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vector}
 import org.apache.spark.ml.param.ParamMap
@@ -34,7 +34,7 @@ import scala.collection.mutable.ArrayBuffer
 private[spark] abstract class XGBoostEstimator[
   Learner <: XGBoostEstimator[Learner, M],
   M <: XGBoostModel[M]
-] extends Estimator with XGBoostParams with SparkParams {
+] extends Estimator[M] with XGBoostParams with SparkParams {
 
   private val WEIGHT = "weight"
   private val BASE_MARGIN = "base_margin"
@@ -87,7 +87,7 @@ private[spark] abstract class XGBoostEstimator[
     }
 
     this match {
-      case p: HasGroupCol =>
+      case p: NewHasGroupCol =>
         // Cast group col to IntegerType if necessary
         if (isDefined(p.groupCol) && $(p.groupCol).nonEmpty) {
           val groupName = p.getGroupCol
@@ -161,7 +161,7 @@ private[spark] abstract class XGBoostEstimator[
 
     val paramMap = Map(
       "num_rounds" -> 10,
-      "num_workers" -> 1,
+      "num_workers" -> 1
     )
 
     val (booster, metrics) = NewXGBoost.train(
@@ -178,7 +178,7 @@ private[spark] abstract class XGBoostEstimator[
       XGBoostSchemaUtils.checkNumericType(schema, $(weightCol))
     }
     this match {
-      case p: HasGroupCol =>
+      case p: NewHasGroupCol =>
         if (isDefined(p.groupCol) && $(p.groupCol).nonEmpty) {
           XGBoostSchemaUtils.checkNumericType(schema, p.getGroupCol)
         }
