@@ -17,7 +17,7 @@
 package ml.dmlc.xgboost4j.scala.spark.params
 
 import org.apache.spark.ml.param.{IntParam, Param, ParamValidators, Params}
-import org.apache.spark.ml.param.shared.{HasFeaturesCol, HasLabelCol, HasWeightCol}
+import org.apache.spark.ml.param.shared.{HasFeaturesCol, HasLabelCol, HasPredictionCol, HasRawPredictionCol, HasWeightCol}
 
 
 trait NewHasBaseMarginCol extends Params {
@@ -44,7 +44,7 @@ trait NewHasGroupCol extends Params {
 
 private[spark] trait SparkParams extends Params
   with HasFeaturesCol with HasLabelCol with NewHasBaseMarginCol
-  with HasWeightCol {
+  with HasWeightCol with HasPredictionCol with HasRawPredictionCol {
 
   final val numWorkers = new IntParam(this, "numWorkers", "number of workers used to run xgboost",
     ParamValidators.gtEq(1))

@@ -40,6 +40,8 @@ class NewXGBoostClassifierSuite extends AnyFunSuite with PerTest with TmpFolderP
 
 //    est.fit(arrayInput)
     val model = est.fit(dataset)
+
+    model.transform(dataset).show()
   }
 
 }

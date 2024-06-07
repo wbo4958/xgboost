@@ -17,6 +17,7 @@
 package ml.dmlc.xgboost4j.scala.spark
 
 import ml.dmlc.xgboost4j.scala.spark.params.{NewHasGroupCol, SparkParams, XGBoostParams}
+import ml.dmlc.xgboost4j.scala.spark.util.DataUtils.MLVectorToXGBLabeledPoint
 import ml.dmlc.xgboost4j.scala.{Booster, DMatrix}
 import ml.dmlc.xgboost4j.{LabeledPoint => XGBLabeledPoint}
 import org.apache.spark.ml.linalg.Vector
@@ -24,9 +25,9 @@ import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.XGBoostSchemaUtils
 import org.apache.spark.ml.{Estimator, Model}
 import org.apache.spark.rdd.RDD
+import org.apache.spark.sql._
 import org.apache.spark.sql.functions.col
-import org.apache.spark.sql.types.{FloatType, StructType}
-import org.apache.spark.sql.{Column, DataFrame, Dataset, Row}
+import org.apache.spark.sql.types.{ArrayType, FloatType, StructField, StructType}
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -88,7 +89,6 @@ private[spark] abstract class XGBoostEstimator[
     } else {
       None
     }
-
 
     var groupName: Option[String] = None
     this match {
@@ -203,10 +203,47 @@ private[spark] abstract class XGBoostModel[M <: XGBoostModel[M]](
 
   def summary: XGBoostTrainingSummary = trainingSummary
 
-  override def transform(dataset: Dataset[_]): DataFrame = {
-    dataset.asInstanceOf[DataFrame]
-  }
+  /**
+   * Predict label for the given features.
+   * This method is used to implement `transform()` and output [[predictionCol]].
+   */
+  //  def predict(features: Vector): Double
+
+  //  def predictRaw(features: Vector): Vector
 
   override def transformSchema(schema: StructType): StructType = schema
+
+  override def transform(dataset: Dataset[_]): DataFrame = {
+
+    val spark = dataset.sparkSession
+    val outputSchema = transformSchema(dataset.schema, logging = true)
+
+    // Broadcast the booster to each executor.
+    val bBooster = spark.sparkContext.broadcast(booster)
+
+    val featureIndex = dataset.schema.fieldIndex(getFeaturesCol)
+
+    // TODO configurable
+    val inferBatchSize = 32 << 10
+    var schema = StructType(dataset.schema.fields ++
+      Seq(StructField(name = XGBoostClassificationModel._rawPredictionCol, dataType =
+        ArrayType(FloatType, containsNull = false), nullable = false)))
+
+    val outputData = dataset.toDF().mapPartitions { rowIter =>
+
+      rowIter.grouped(inferBatchSize).flatMap { batchRow =>
+        val features = batchRow.iterator.map(row => row.getAs[Vector](featureIndex))
+        val dm = new DMatrix(features.map(_.asXGB))
+        val rawIter = bBooster.value.predict(dm).map(Row(_))
+        batchRow.zip(rawIter).map { case (original, raw) =>
+          Row.fromSeq(original.toSeq ++ raw.toSeq)
+        }
+      }
+
+    }(Encoders.row(schema))
+
+    outputData.toDF()
+  }
+
 
 }
