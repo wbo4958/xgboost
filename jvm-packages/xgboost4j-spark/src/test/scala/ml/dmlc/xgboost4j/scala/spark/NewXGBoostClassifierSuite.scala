@@ -9,22 +9,16 @@ class NewXGBoostClassifierSuite extends AnyFunSuite with PerTest with TmpFolderP
 
   test("test NewXGBoostClassifierSuite") {
     // Define the schema for the fake data
-    val schema = StructType(
-      StructField("feature1", DoubleType, nullable = false) ::
-        StructField("feature2", DoubleType, nullable = false) ::
-        StructField("feature3", DoubleType, nullable = false) ::
-        StructField("label", DoubleType, nullable = false) :: Nil
-    )
-    val features = Array("feature1", "feature2", "feature3")
+    val features = Array("feature1", "feature2", "feature3", "feature4")
 
     val spark = ss
     import spark.implicits._
     val df = Seq(
-      (1.0, 2.0, 3.0, 0.0, 30),
-      (2.0, 3.0, 4.0, 0.0, 31),
-      (3.0, 4.0, 5.0, 1.0, 32),
-      (4.0, 5.0, 6.0, 1.0, 33),
-    ).toDF("feature1", "feature2", "feature3", "label", "base_margin")
+      (1.0, 0.0, 0.0, 0.0, 0.0, 30),
+      (2.0, 3.0, 4.0, 4.0, 0.0, 31),
+      (3.0, 4.0, 5.0, 5.0, 1.0, 32),
+      (4.0, 5.0, 6.0, 6.0, 1.0, 33),
+    ).toDF("feature1", "feature2", "feature3", "feature4", "label", "base_margin")
 
     // Select the features and label columns
     val labelCol = "label"
@@ -44,8 +38,8 @@ class NewXGBoostClassifierSuite extends AnyFunSuite with PerTest with TmpFolderP
       .setBaseMarginCol("base_margin")
     //    val est = new XGBoostClassifier().setLabelCol(labelCol)
 
-    est.fit(arrayInput)
-
+//    est.fit(arrayInput)
+    est.fit(dataset)
   }
 
 }
