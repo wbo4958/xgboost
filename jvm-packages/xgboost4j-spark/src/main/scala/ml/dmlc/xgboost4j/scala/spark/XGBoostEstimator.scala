@@ -34,10 +34,10 @@ import scala.collection.mutable.ArrayBuffer
 /**
  * Hold the column indexes used to get the column index
  */
-private case class ColumnIndexes(label: Int, features: Int,
-                                 weight: Option[Int] = None,
-                                 baseMargin: Option[Int] = None,
-                                 group: Option[Int] = None)
+private case class ColumnIndexes(label: String, features: String,
+                                 weight: Option[String] = None,
+                                 baseMargin: Option[String] = None,
+                                 group: Option[String] = None)
 
 private[spark] abstract class XGBoostEstimator[
   Learner <: XGBoostEstimator[Learner, M],
@@ -113,13 +113,12 @@ private[spark] abstract class XGBoostEstimator[
     } else {
       input.repartition(numWorkers)
     }
-    val finalSchema = input.schema
     val columnIndexes = ColumnIndexes(
-      finalSchema.fieldIndex(getLabelCol),
-      finalSchema.fieldIndex(getFeaturesCol),
-      weight = weightName.map(finalSchema.fieldIndex),
-      baseMargin = baseMarginName.map(finalSchema.fieldIndex),
-      group = groupName.map(finalSchema.fieldIndex))
+      getLabelCol,
+      getFeaturesCol,
+      weight = weightName,
+      baseMargin = baseMarginName,
+      group = groupName)
     (input, columnIndexes)
   }
 
@@ -135,11 +134,13 @@ private[spark] abstract class XGBoostEstimator[
     // 1. to XGBLabeledPoint
     val labeledPointRDD = dataset.rdd.map {
       case row: Row =>
-        val label = row.getFloat(columnIndexes.label)
+        val label = row.getFloat(row.fieldIndex(columnIndexes.label))
         val features = row.getAs[Vector](columnIndexes.features)
-        val weight = columnIndexes.weight.map(row.getFloat).getOrElse(-1.0f)
-        val baseMargin = columnIndexes.baseMargin.map(row.getFloat).getOrElse(Float.NaN)
-        val group = columnIndexes.group.map(row.getFloat).getOrElse(-1.0f)
+        val weight = columnIndexes.weight.map(v => row.getFloat(row.fieldIndex(v))).getOrElse(-1.0f)
+        val baseMargin = columnIndexes.baseMargin.map(v =>
+          row.getFloat(row.fieldIndex(v))).getOrElse(Float.NaN)
+        val group = columnIndexes.group.map(v =>
+          row.getFloat(row.fieldIndex(v))).getOrElse(-1.0f)
 
         // TODO support sparse vector.
         // TODO support array
@@ -221,23 +222,76 @@ private[spark] abstract class XGBoostModel[M <: XGBoostModel[M]](
     // Broadcast the booster to each executor.
     val bBooster = spark.sparkContext.broadcast(booster)
 
-    val featureIndex = dataset.schema.fieldIndex(getFeaturesCol)
+    val featureName = getFeaturesCol
+
+    // Be careful about the order of columns
+    var schema = dataset.schema
+
+    var hasRawPredictionCol = false
+    if (isDefined(rawPredictionCol) && getRawPredictionCol.nonEmpty) {
+      schema = schema.add(
+        StructField(XGBoostClassificationModel._rawPredictionCol, ArrayType(FloatType)))
+      hasRawPredictionCol = true
+    }
+
+    var hasProbabilityCol = false
+    if (isDefined(probabilityCol) && getProbabilityCol.nonEmpty) {
+      schema = schema.add(
+        StructField(XGBoostClassificationModel._probabilityCol, ArrayType(FloatType)))
+      hasProbabilityCol = true
+    }
+
+    var hasLeafPredictionCol = false
+    if (isDefined(leafPredictionCol) && getLeafPredictionCol.nonEmpty) {
+      schema = schema.add(StructField(getLeafPredictionCol, ArrayType(FloatType)))
+      hasLeafPredictionCol = true
+    }
+
+    var hasContribPredictionCol = false
+    if (isDefined(contribPredictionCol) && getContribPredictionCol.nonEmpty) {
+      schema = schema.add(StructField(getContribPredictionCol, ArrayType(FloatType)))
+      hasContribPredictionCol = true
+    }
+
 
     // TODO configurable
     val inferBatchSize = 32 << 10
-    var schema = StructType(dataset.schema.fields ++
-      Seq(StructField(name = XGBoostClassificationModel._rawPredictionCol, dataType =
-        ArrayType(FloatType, containsNull = false), nullable = false)))
-
     val outputData = dataset.toDF().mapPartitions { rowIter =>
 
       rowIter.grouped(inferBatchSize).flatMap { batchRow =>
-        val features = batchRow.iterator.map(row => row.getAs[Vector](featureIndex))
+        val features = batchRow.iterator.map(row => row.getAs[Vector](
+          row.fieldIndex(featureName)))
         val dm = new DMatrix(features.map(_.asXGB))
-        val rawIter = bBooster.value.predict(dm).map(Row(_))
-        batchRow.zip(rawIter).map { case (original, raw) =>
-          Row.fromSeq(original.toSeq ++ raw.toSeq)
+
+        var tmpIter = batchRow.map(_.toSeq)
+        if (hasRawPredictionCol) {
+          val rawIter = bBooster.value.predict(dm)
+          tmpIter = tmpIter.zip(rawIter).map { case (a, b) =>
+            a ++ Seq(b)
+          }
         }
+        tmpIter.map(Row.fromSeq)
+//
+//        tmpIter = if (hasLeafPredictionCol) {
+//          val leafIter = bBooster.value.predictLeaf(dm)
+//          batchRow.zip(leafIter).map { case (a, b) =>
+//            a.toSeq ++ b.toSeq
+//          }.toIterator
+//        }
+//
+//        tmpIter = if (hasContribPredictionCol) {
+//          val contribIter = bBooster.value.predictContrib(dm).map(Row(_))
+//          batchRow.zip(contribIter).map { case (a, b) =>
+//            a.toSeq ++ b.toSeq
+//          }.toIterator
+//        }
+//
+//        tmpIter
+//
+//
+//        batchRow.zip(rawIter).map { case (original, raw) =>
+//          Row.fromSeq(original.toSeq ++ raw.toSeq)
+//        }
       }
 
     }(Encoders.row(schema))

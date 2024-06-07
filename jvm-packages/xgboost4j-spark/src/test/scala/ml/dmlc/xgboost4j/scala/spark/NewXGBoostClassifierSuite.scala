@@ -36,10 +36,13 @@ class NewXGBoostClassifierSuite extends AnyFunSuite with PerTest with TmpFolderP
       .setNumWorkers(1)
       .setLabelCol(labelCol)
       .setBaseMarginCol("base_margin")
+      .setRawPredictionCol("raw")
+      .setProbabilityCol("")
     //    val est = new XGBoostClassifier().setLabelCol(labelCol)
 
 //    est.fit(arrayInput)
     val model = est.fit(dataset)
+    model.setProbabilityCol("")
 
     model.transform(dataset).show()
   }
