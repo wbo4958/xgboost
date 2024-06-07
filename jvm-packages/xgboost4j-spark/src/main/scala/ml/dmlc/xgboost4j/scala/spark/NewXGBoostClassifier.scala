@@ -25,14 +25,19 @@ class NewXGBoostClassifier(override val uid: String)
 
   def this() = this(Identifiable.randomUID("xgbc"))
 
-
-  override def createModel(booster: Booster, metrics: Map[String, Array[Float]]):
-    NewXGBoostClassificationModel = {
-    new NewXGBoostClassificationModel()
+  override protected def createModel(booster: Booster, summary: XGBoostTrainingSummary):
+  NewXGBoostClassificationModel = {
+    new NewXGBoostClassificationModel(uid, booster, summary)
   }
 }
 
 
-class NewXGBoostClassificationModel() extends XGBoostModel[NewXGBoostClassificationModel] {
+class NewXGBoostClassificationModel(
+                                     uid: String,
+                                     booster: Booster,
+                                     trainingSummary: XGBoostTrainingSummary
+                                   )
+  extends XGBoostModel[NewXGBoostClassificationModel](uid, booster, trainingSummary) {
+
 
 }

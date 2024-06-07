@@ -24,7 +24,7 @@ import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.XGBoostSchemaUtils
 import org.apache.spark.ml.{Estimator, Model}
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.functions.{col, lit}
+import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types.{FloatType, StructType}
 import org.apache.spark.sql.{Column, DataFrame, Dataset, Row}
 
@@ -42,10 +42,6 @@ private[spark] abstract class XGBoostEstimator[
   Learner <: XGBoostEstimator[Learner, M],
   M <: XGBoostModel[M]
 ] extends Estimator[M] with XGBoostParams with SparkParams {
-
-  private lazy val defaultBaseMarginColumn = lit(Float.NaN)
-  private lazy val defaultWeightColumn = lit(1.0f)
-  private lazy val defaultGroupColumn = lit(-1.0f)
 
   /**
    * Pre-convert input double data to floats to align with XGBoost's internal float-based
@@ -158,7 +154,7 @@ private[spark] abstract class XGBoostEstimator[
     }
   }
 
-  def createModel(booster: Booster, metrics: Map[String, Array[Float]]): M
+  protected def createModel(booster: Booster, summary: XGBoostTrainingSummary): M
 
   override def fit(dataset: Dataset[_]): M = {
     val (input, columnIndexes) = preprocess(dataset)
@@ -173,7 +169,8 @@ private[spark] abstract class XGBoostEstimator[
     val (booster, metrics) = NewXGBoost.train(
       dataset.sparkSession.sparkContext, rdd, paramMap)
 
-    createModel(booster, metrics)
+    val summary = XGBoostTrainingSummary(metrics)
+    createModel(booster, summary)
   }
 
   override def copy(extra: ParamMap): Learner = defaultCopy(extra)
@@ -194,9 +191,17 @@ private[spark] abstract class XGBoostEstimator[
 
 }
 
-private[spark] abstract class XGBoostModel[M <: XGBoostModel[M]]
-  extends Model[M] with XGBoostParams with SparkParams {
+private[spark] abstract class XGBoostModel[M <: XGBoostModel[M]](
+                                                                  override val uid: String,
+                                                                  protected val booster: Booster,
+                                                                  protected val trainingSummary: XGBoostTrainingSummary) extends Model[M]
+  with XGBoostParams with SparkParams {
+
   override def copy(extra: ParamMap): M = defaultCopy(extra)
+
+  def nativeBooster: Booster = booster
+
+  def summary: XGBoostTrainingSummary = trainingSummary
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     dataset.asInstanceOf[DataFrame]
@@ -204,5 +209,4 @@ private[spark] abstract class XGBoostModel[M <: XGBoostModel[M]]
 
   override def transformSchema(schema: StructType): StructType = schema
 
-  override val uid: String = "1"
 }

@@ -39,7 +39,7 @@ class NewXGBoostClassifierSuite extends AnyFunSuite with PerTest with TmpFolderP
     //    val est = new XGBoostClassifier().setLabelCol(labelCol)
 
 //    est.fit(arrayInput)
-    est.fit(dataset)
+    val model = est.fit(dataset)
   }
 
 }
