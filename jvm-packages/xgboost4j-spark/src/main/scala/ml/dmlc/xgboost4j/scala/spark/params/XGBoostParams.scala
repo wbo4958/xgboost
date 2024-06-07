@@ -16,8 +16,8 @@
 
 package ml.dmlc.xgboost4j.scala.spark.params
 
+import org.apache.spark.ml.param.shared._
 import org.apache.spark.ml.param.{IntParam, Param, ParamValidators, Params}
-import org.apache.spark.ml.param.shared.{HasFeaturesCol, HasLabelCol, HasPredictionCol, HasProbabilityCol, HasRawPredictionCol, HasWeightCol}
 
 
 trait NewHasBaseMarginCol extends Params {
@@ -44,8 +44,7 @@ trait NewHasGroupCol extends Params {
 
 private[spark] trait SparkParams extends Params
   with HasFeaturesCol with HasLabelCol with NewHasBaseMarginCol
-  with HasWeightCol with HasPredictionCol with HasRawPredictionCol
-  with HasProbabilityCol with HasLeafPredictionCol with HasContribPredictionCol {
+  with HasWeightCol with HasPredictionCol with HasLeafPredictionCol with HasContribPredictionCol {
 
   final val numWorkers = new IntParam(this, "numWorkers", "number of workers used to run xgboost",
     ParamValidators.gtEq(1))
@@ -57,6 +56,12 @@ private[spark] trait SparkParams extends Params
 
   def setLabelCol(value: String): this.type = set(labelCol, value)
 
+  def setLeafPredictionCol(value: String): this.type = set(leafPredictionCol, value)
+
+  def setContribPredictionCol(value: String): this.type = set(contribPredictionCol, value)
+}
+
+private[spark] trait ClassifierParams extends HasRawPredictionCol with HasProbabilityCol {
   def setRawPredictionCol(value: String): this.type = set(rawPredictionCol, value)
 
   def setProbabilityCol(value: String): this.type = set(probabilityCol, value)

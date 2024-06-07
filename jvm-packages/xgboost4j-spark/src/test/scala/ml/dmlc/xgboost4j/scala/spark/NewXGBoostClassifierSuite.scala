@@ -42,8 +42,9 @@ class NewXGBoostClassifierSuite extends AnyFunSuite with PerTest with TmpFolderP
 
 //    est.fit(arrayInput)
     val model = est.fit(dataset)
-    model.setProbabilityCol("")
-
+//    model.setProbabilityCol("")
+    model.setLeafPredictionCol("leaf")
+    model.setContribPredictionCol("conb")
     model.transform(dataset).show()
   }
 

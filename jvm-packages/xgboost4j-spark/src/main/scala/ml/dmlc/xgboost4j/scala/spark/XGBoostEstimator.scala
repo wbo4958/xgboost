@@ -22,6 +22,7 @@ import ml.dmlc.xgboost4j.scala.{Booster, DMatrix}
 import ml.dmlc.xgboost4j.{LabeledPoint => XGBLabeledPoint}
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.param.ParamMap
+import org.apache.spark.ml.param.shared.HasRawPredictionCol
 import org.apache.spark.ml.util.XGBoostSchemaUtils
 import org.apache.spark.ml.{Estimator, Model}
 import org.apache.spark.rdd.RDD
@@ -228,17 +229,15 @@ private[spark] abstract class XGBoostModel[M <: XGBoostModel[M]](
     var schema = dataset.schema
 
     var hasRawPredictionCol = false
-    if (isDefined(rawPredictionCol) && getRawPredictionCol.nonEmpty) {
-      schema = schema.add(
-        StructField(XGBoostClassificationModel._rawPredictionCol, ArrayType(FloatType)))
-      hasRawPredictionCol = true
-    }
 
-    var hasProbabilityCol = false
-    if (isDefined(probabilityCol) && getProbabilityCol.nonEmpty) {
-      schema = schema.add(
-        StructField(XGBoostClassificationModel._probabilityCol, ArrayType(FloatType)))
-      hasProbabilityCol = true
+    this match {
+      case p: HasRawPredictionCol =>
+        if (isDefined(p.rawPredictionCol) && p.getRawPredictionCol.nonEmpty) {
+          schema = schema.add(
+            StructField(XGBoostClassificationModel._rawPredictionCol, ArrayType(FloatType)))
+          hasRawPredictionCol = true
+        }
+      case _ =>
     }
 
     var hasLeafPredictionCol = false
@@ -261,37 +260,33 @@ private[spark] abstract class XGBoostModel[M <: XGBoostModel[M]](
       rowIter.grouped(inferBatchSize).flatMap { batchRow =>
         val features = batchRow.iterator.map(row => row.getAs[Vector](
           row.fieldIndex(featureName)))
+
+        // DMatrix used to prediction
         val dm = new DMatrix(features.map(_.asXGB))
 
         var tmpIter = batchRow.map(_.toSeq)
+
         if (hasRawPredictionCol) {
-          val rawIter = bBooster.value.predict(dm)
-          tmpIter = tmpIter.zip(rawIter).map { case (a, b) =>
+          val retIter = bBooster.value.predict(dm, outPutMargin = false)
+          tmpIter = tmpIter.zip(retIter).map { case (a, b) =>
+            a ++ Seq(b)
+          }
+        }
+
+        if (hasLeafPredictionCol) {
+          val retIter = bBooster.value.predictLeaf(dm)
+          tmpIter = tmpIter.zip(retIter).map { case (a, b) =>
+            a ++ Seq(b)
+          }
+        }
+
+        if (hasContribPredictionCol) {
+          val retIter = bBooster.value.predictContrib(dm)
+          tmpIter = tmpIter.zip(retIter).map { case (a, b) =>
             a ++ Seq(b)
           }
         }
         tmpIter.map(Row.fromSeq)
-//
-//        tmpIter = if (hasLeafPredictionCol) {
-//          val leafIter = bBooster.value.predictLeaf(dm)
-//          batchRow.zip(leafIter).map { case (a, b) =>
-//            a.toSeq ++ b.toSeq
-//          }.toIterator
-//        }
-//
-//        tmpIter = if (hasContribPredictionCol) {
-//          val contribIter = bBooster.value.predictContrib(dm).map(Row(_))
-//          batchRow.zip(contribIter).map { case (a, b) =>
-//            a.toSeq ++ b.toSeq
-//          }.toIterator
-//        }
-//
-//        tmpIter
-//
-//
-//        batchRow.zip(rawIter).map { case (original, raw) =>
-//          Row.fromSeq(original.toSeq ++ raw.toSeq)
-//        }
       }
 
     }(Encoders.row(schema))
