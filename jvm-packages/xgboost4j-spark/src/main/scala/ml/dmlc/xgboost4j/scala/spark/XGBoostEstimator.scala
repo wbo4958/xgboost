@@ -153,7 +153,7 @@ private[spark] abstract class XGBoostEstimator[
 
     labeledPointRDD.mapPartitions { iter =>
       // TODO  1. support external memory 2. rework or remove Watches
-      val watches = new Watches(Array(new DMatrix(iter)), Array("training"), None)
+      val watches = new Watches(Array(new DMatrix(iter)), Array("train"), None)
       Iterator.single(watches)
     }
   }
