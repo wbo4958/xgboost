@@ -229,6 +229,8 @@ trait HasBaseMarginCol extends Params {
 
   /** @group getParam */
   final def getBaseMarginCol: String = $(baseMarginCol)
+
+  def setBaseMarginCol(value: String): this.type = set(baseMarginCol, value)
 }
 
 trait HasGroupCol extends Params {

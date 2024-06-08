@@ -16,7 +16,7 @@
 
 package ml.dmlc.xgboost4j.scala.spark
 
-import ml.dmlc.xgboost4j.scala.spark.params.{NewHasGroupCol, SparkParams, XGBoostParams}
+import ml.dmlc.xgboost4j.scala.spark.params.{HasGroupCol, SparkParams, XGBoostParams}
 import ml.dmlc.xgboost4j.scala.spark.util.DataUtils.MLVectorToXGBLabeledPoint
 import ml.dmlc.xgboost4j.scala.{Booster, DMatrix}
 import ml.dmlc.xgboost4j.{LabeledPoint => XGBLabeledPoint}
@@ -43,7 +43,7 @@ private case class ColumnIndexes(label: String, features: String,
 private[spark] abstract class XGBoostEstimator[
   Learner <: XGBoostEstimator[Learner, M],
   M <: XGBoostModel[M]
-] extends Estimator[M] with XGBoostParams with SparkParams {
+] extends Estimator[M] with XGBoostParams[Learner] with SparkParams[Learner] {
 
   /**
    * Pre-convert input double data to floats to align with XGBoost's internal float-based
@@ -93,7 +93,7 @@ private[spark] abstract class XGBoostEstimator[
 
     var groupName: Option[String] = None
     this match {
-      case p: NewHasGroupCol =>
+      case p: HasGroupCol =>
         // Cast group col to IntegerType if necessary
         if (isDefined(p.groupCol) && $(p.groupCol).nonEmpty) {
           selectedCols.append(castToFloatIfNeeded(schema, p.getGroupCol))
@@ -163,16 +163,15 @@ private[spark] abstract class XGBoostEstimator[
     val rdd = toRdd(input, columnIndexes)
 
     val paramMap = Map(
-      "num_rounds" -> 10,
       "num_workers" -> 1,
-      "num_round" -> 1
+      "num_round" -> 100
     )
 
     val (booster, metrics) = NewXGBoost.train(
       dataset.sparkSession.sparkContext, rdd, paramMap)
 
     val summary = XGBoostTrainingSummary(metrics)
-    createModel(booster, summary)
+    copyValues(createModel(booster, summary))
   }
 
   override def copy(extra: ParamMap): Learner = defaultCopy(extra)
@@ -183,7 +182,7 @@ private[spark] abstract class XGBoostEstimator[
       XGBoostSchemaUtils.checkNumericType(schema, $(weightCol))
     }
     this match {
-      case p: NewHasGroupCol =>
+      case p: HasGroupCol =>
         if (isDefined(p.groupCol) && $(p.groupCol).nonEmpty) {
           XGBoostSchemaUtils.checkNumericType(schema, p.getGroupCol)
         }
@@ -196,10 +195,10 @@ private[spark] abstract class XGBoostEstimator[
 private[spark] abstract class XGBoostModel[M <: XGBoostModel[M]](
                                                                   override val uid: String,
                                                                   protected val booster: Booster,
-                                                                  protected val trainingSummary: XGBoostTrainingSummary) extends Model[M]
-  with XGBoostParams with SparkParams {
+                                                                  protected val trainingSummary: XGBoostTrainingSummary)
+  extends Model[M] with XGBoostParams[M] with SparkParams[M] {
 
-  override def copy(extra: ParamMap): M = defaultCopy(extra)
+  override def copy(extra: ParamMap): M = defaultCopy(extra).asInstanceOf[M]
 
   def nativeBooster: Booster = booster
 
@@ -229,7 +228,6 @@ private[spark] abstract class XGBoostModel[M <: XGBoostModel[M]](
     var schema = dataset.schema
 
     var hasRawPredictionCol = false
-
     this match {
       case p: HasRawPredictionCol =>
         if (isDefined(p.rawPredictionCol) && p.getRawPredictionCol.nonEmpty) {

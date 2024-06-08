@@ -19,54 +19,63 @@ package ml.dmlc.xgboost4j.scala.spark.params
 import org.apache.spark.ml.param.shared._
 import org.apache.spark.ml.param.{IntParam, Param, ParamValidators, Params}
 
+/**
+ * XGBoost spark-specific parameters which should not be passed
+ * into the xgboost library
+ *
+ * @tparam T should be the XGBoost estimators or models
+ */
+private[spark] trait SparkParams[T <: Params] extends Params
+  with HasFeaturesCol with HasLabelCol with HasBaseMarginCol with HasWeightCol
+  with HasPredictionCol with HasLeafPredictionCol with HasContribPredictionCol {
 
-trait NewHasBaseMarginCol extends Params {
-  final val baseMarginCol: Param[String] = new Param[String](this, "baseMarginCol",
-    "Initial prediction (aka base margin) column name.")
-
-  /** @group getParam */
-  final def getBaseMarginCol: String = $(baseMarginCol)
-
-  def setBaseMarginCol(value: String): this.type = set(baseMarginCol, value)
-}
-
-trait NewHasGroupCol extends Params {
-
-  final val groupCol: Param[String] = new Param[String](this, "groupCol",
-    "group column name for ranker.")
-
-  final def getGroupCol: String = $(groupCol)
-
-  def setGroupCol(value: String): this.type = set(groupCol, value)
-
-}
-
-
-private[spark] trait SparkParams extends Params
-  with HasFeaturesCol with HasLabelCol with NewHasBaseMarginCol
-  with HasWeightCol with HasPredictionCol with HasLeafPredictionCol with HasContribPredictionCol {
-
-  final val numWorkers = new IntParam(this, "numWorkers", "number of workers used to run xgboost",
+  final val numWorkers = new IntParam(this, "numWorkers", "Number of workers used to train xgboost",
     ParamValidators.gtEq(1))
   setDefault(numWorkers, 1)
 
   final def getNumWorkers: Int = $(numWorkers)
 
-  def setNumWorkers(value: Int): this.type = set(numWorkers, value)
+  def setNumWorkers(value: Int): T = set(numWorkers, value).asInstanceOf[T]
 
-  def setLabelCol(value: String): this.type = set(labelCol, value)
+  def setFeaturesCol(value: String): T = set(featuresCol, value).asInstanceOf[T]
 
-  def setLeafPredictionCol(value: String): this.type = set(leafPredictionCol, value)
+  def setLabelCol(value: String): T = set(labelCol, value).asInstanceOf[T]
 
-  def setContribPredictionCol(value: String): this.type = set(contribPredictionCol, value)
+  def setWeightCol(value: String): T = set(weightCol, value).asInstanceOf[T]
+
+  def setLeafPredictionCol(value: String): T = set(leafPredictionCol, value).asInstanceOf[T]
+
+  def setContribPredictionCol(value: String): T = set(contribPredictionCol, value).asInstanceOf[T]
 }
 
-private[spark] trait ClassifierParams extends HasRawPredictionCol with HasProbabilityCol {
-  def setRawPredictionCol(value: String): this.type = set(rawPredictionCol, value)
+/**
+ * XGBoost classification spark-specific parameters which should not be passed
+ * into the xgboost library
+ *
+ * @tparam T should be XGBoostClassifier or XGBoostClassificationModel
+ */
+private[spark] trait ClassificationParams[T <: Params] extends HasRawPredictionCol
+  with HasProbabilityCol {
 
-  def setProbabilityCol(value: String): this.type = set(probabilityCol, value)
+  def setRawPredictionCol(value: String): T = set(rawPredictionCol, value).asInstanceOf[T]
+
+  def setProbabilityCol(value: String): T = set(probabilityCol, value).asInstanceOf[T]
 }
 
-private[spark] trait XGBoostParams extends Params {
+/**
+ * XGBoost ranking spark-specific parameters
+ *
+ * @tparam T should be XGBoostRanker or XGBoostRankingModel
+ */
+private[spark] trait RankerParams[T <: Params] extends HasGroupCol {
+  def setGroupCol(value: String): T = set(groupCol, value).asInstanceOf[T]
+}
+
+/**
+ * XGBoost-specific parameters to pass into xgboost libraray
+ *
+ * @tparam T should be the XGBoost estimators or models
+ */
+private[spark] trait XGBoostParams[T <: Params] extends Params {
 
 }

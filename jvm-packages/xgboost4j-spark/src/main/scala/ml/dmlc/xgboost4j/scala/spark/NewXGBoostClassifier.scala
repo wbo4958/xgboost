@@ -17,12 +17,12 @@
 package ml.dmlc.xgboost4j.scala.spark
 
 import ml.dmlc.xgboost4j.scala.Booster
-import ml.dmlc.xgboost4j.scala.spark.params.ClassifierParams
+import ml.dmlc.xgboost4j.scala.spark.params.ClassificationParams
 import org.apache.spark.ml.util.{DefaultParamsWritable, Identifiable}
 
 class NewXGBoostClassifier(override val uid: String)
   extends XGBoostEstimator[NewXGBoostClassifier, NewXGBoostClassificationModel]
-    with ClassifierParams with DefaultParamsWritable {
+    with ClassificationParams[NewXGBoostClassifier] with DefaultParamsWritable {
 
   def this() = this(Identifiable.randomUID("xgbc"))
 
@@ -39,7 +39,7 @@ class NewXGBoostClassificationModel(
                                      trainingSummary: XGBoostTrainingSummary
                                    )
   extends XGBoostModel[NewXGBoostClassificationModel](uid, booster, trainingSummary)
-  with ClassifierParams {
+  with ClassificationParams[NewXGBoostClassificationModel] {
 
 
 }

@@ -25,7 +25,7 @@ import org.apache.spark.sql.types.StructType
 
 private[scala] sealed trait XGBoostEstimatorCommon extends GeneralParams with LearningTaskParams
   with BoosterParams with RabitParams with ParamMapFuncs with NonParamVariables with HasWeightCol
-  with NewHasBaseMarginCol with HasLeafPredictionCol with HasContribPredictionCol
+  with HasBaseMarginCol with HasLeafPredictionCol with HasContribPredictionCol
   with HasFeaturesCol
   with HasLabelCol with HasFeaturesCols with HasHandleInvalid {
 
@@ -117,4 +117,4 @@ private[scala] sealed trait XGBoostEstimatorCommon extends GeneralParams with Le
 
 private[scala] trait XGBoostClassifierParams extends XGBoostEstimatorCommon with HasNumClass
 
-private[scala] trait XGBoostRegressorParams extends XGBoostEstimatorCommon with NewHasGroupCol
+private[scala] trait XGBoostRegressorParams extends XGBoostEstimatorCommon with HasGroupCol

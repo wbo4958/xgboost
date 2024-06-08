@@ -62,12 +62,19 @@ object DataUtils extends Serializable {
      * This is needed for constructing a [[ml.dmlc.xgboost4j.scala.DMatrix]]
      * for prediction.
      */
+      // TODO support sparsevector
     def asXGB: XGBLabeledPoint = v match {
       case v: DenseVector =>
         XGBLabeledPoint(0.0f, v.size, null, v.values.map(_.toFloat))
       case v: SparseVector =>
-        XGBLabeledPoint(0.0f, v.size, v.indices, v.values.map(_.toFloat))
+        XGBLabeledPoint(0.0f, v.size, v.indices, v.toDense.values.map(_.toFloat))
     }
+//        def asXGB: XGBLabeledPoint = v match {
+//      case v: DenseVector =>
+//        XGBLabeledPoint(0.0f, v.size, null, v.values.map(_.toFloat))
+//      case v: SparseVector =>
+//        XGBLabeledPoint(0.0f, v.size, v.indices, v.values.map(_.toFloat))
+//    }
   }
 
   private def attachPartitionKey(
