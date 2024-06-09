@@ -171,11 +171,7 @@ private[spark] trait GeneralParams extends Params {
   final val trackerConf = new TrackerConfParam(this, "trackerConf", "Rabit tracker configurations")
   setDefault(trackerConf, TrackerConf())
 
-  /** Random seed for the C++ part of XGBoost and train/test splitting. */
-  final val seed = new LongParam(this, "seed", "random seed")
-  setDefault(seed, 0L)
 
-  final def getSeed: Long = $(seed)
 
   /** Feature's name, it will be set to DMatrix and Booster, and in the final native json model.
    * In native code, the parameter name is feature_name.

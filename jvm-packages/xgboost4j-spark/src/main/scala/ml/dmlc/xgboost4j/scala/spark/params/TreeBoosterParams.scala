@@ -16,7 +16,7 @@
 
 package ml.dmlc.xgboost4j.scala.spark.params
 
-import org.apache.spark.ml.param.{BooleanParam, DoubleParam, FloatParam, IntParam, Param, ParamValidators, Params}
+import org.apache.spark.ml.param._
 
 /**
  * TreeBoosterParams defines the XGBoost TreeBooster parameters for Spark
@@ -120,56 +120,117 @@ private[spark] trait TreeBoosterParams extends Params {
 
   def setColsampleBylevel(value: Double): this.type = set(colsampleBylevel, value)
 
-    final val colsampleBynode = new DoubleParam(this, "colsampleBynode", "Subsample ratio of " +
-      "columns for each node (split). Subsampling occurs once every time a new split is " +
-      "evaluated. Columns are subsampled from the set of columns chosen for the current level.",
+  final val colsampleBynode = new DoubleParam(this, "colsampleBynode", "Subsample ratio of " +
+    "columns for each node (split). Subsampling occurs once every time a new split is " +
+    "evaluated. Columns are subsampled from the set of columns chosen for the current level.",
     ParamValidators.inRange(0, 1, lowerInclusive = false, upperInclusive = true))
 
   final def getColsampleBynode: Double = $(colsampleBynode)
 
   def setColsampleBynode(value: Double): this.type = set(colsampleBynode, value)
 
-  ////////////////////////////////////////////////////////////////////////////////
-
-  setDefault(eta -> 0.3, gamma -> 0, maxDepth -> 6, minChildWeight -> 1, maxDeltaStep -> 0,
-    subsample -> 1, samplingMethod -> "uniform", colsampleBytree -> 1, colsampleBylevel -> 1,
-    colsampleBynode->1)
-
-  final val maxLeaves = new IntParam(this, "maxLeaves",
-    "Maximum number of nodes to be added. Only relevant when grow_policy=lossguide is set.",
-    (value: Int) => value >= 0)
-
-  final def getMaxLeaves: Int = $(maxLeaves)
-
-
   /**
    * L2 regularization term on weights, increase this value will make model more conservative.
    * [default=1]
    */
-  final val lambda = new DoubleParam(this, "lambda", "L2 regularization term on weights, " +
-    "increase this value will make model more conservative.", (value: Double) => value >= 0)
+  final val lambda = new DoubleParam(this, "lambda", "L2 regularization term on weights. " +
+    "Increasing this value will make model more conservative.", ParamValidators.gtEq(0))
 
   final def getLambda: Double = $(lambda)
 
-  /**
-   * L1 regularization term on weights, increase this value will make model more conservative.
-   * [default=0]
-   */
-  final val alpha = new DoubleParam(this, "alpha", "L1 regularization term on weights, increase " +
-    "this value will make model more conservative.", (value: Double) => value >= 0)
+  final val alpha = new DoubleParam(this, "alpha", "L1 regularization term on weights. " +
+    "Increasing this value will make model more conservative.", ParamValidators.gtEq(0))
 
   final def getAlpha: Double = $(alpha)
 
-  /**
-   * The tree construction algorithm used in XGBoost. options:
-   * {'auto', 'exact', 'approx','gpu_hist'} [default='auto']
-   */
   final val treeMethod = new Param[String](this, "treeMethod",
     "The tree construction algorithm used in XGBoost, options: " +
       "{'auto', 'exact', 'approx', 'hist', 'gpu_hist'}",
-    (value: String) => BoosterParams.supportedTreeMethods.contains(value))
+    ParamValidators.inArray(BoosterParams.supportedTreeMethods.toArray))
 
   final def getTreeMethod: String = $(treeMethod)
+
+  final val scalePosWeight = new DoubleParam(this, "scalePosWeight", "Control the balance of " +
+    "positive and negative weights, useful for unbalanced classes. A typical value to consider: " +
+    "sum(negative instances) / sum(positive instances)")
+
+  final def getScalePosWeight: Double = $(scalePosWeight)
+
+  final val updater = new Param[String](this, "updater", "A comma separated string defining the " +
+    "sequence of tree updaters to run, providing a modular way to construct and to modify the " +
+    "trees. This is an advanced parameter that is usually set automatically, depending on some " +
+    "other parameters. However, it could be also set explicitly by a user. " +
+    "The following updaters exist:\n" +
+    "grow_colmaker: non-distributed column-based construction of trees.\n" +
+    "grow_histmaker: distributed tree construction with row-based data splitting based on " +
+    "global proposal of histogram counting.\n" +
+    "grow_quantile_histmaker: Grow tree using quantized histogram.\n" +
+    "grow_gpu_hist: Enabled when tree_method is set to hist along with device=cuda.\n" +
+    "grow_gpu_approx: Enabled when tree_method is set to approx along with device=cuda.\n" +
+    "sync: synchronizes trees in all distributed nodes.\n" +
+    "refresh: refreshes tree's statistics and or leaf values based on the current data. Note " +
+    "that no random subsampling of data rows is performed.\n" +
+    "prune: prunes the splits where loss < min_split_loss (or gamma) and nodes that have depth " +
+    "greater than max_depth.",
+    (value: String) => value.split(",").forall(
+      ParamValidators.inArray(BoosterParams.supportedUpdaters.toArray)))
+
+  final def getUpdater: String = $(updater)
+
+  final val refreshLeaf = new Param[Boolean](this, "refreshLeaf", "This is a parameter of the " +
+    "refresh updater. When this flag is 1, tree leafs as well as tree nodes' stats are updated. " +
+    "When it is 0, only node stats are updated.")
+
+  final def getRefreshLeaf: Boolean = $(refreshLeaf)
+
+  // TODO set updater/refreshLeaf defaul value
+  final val processType = new Param[String](this, "processType", "A type of boosting process to " +
+    "run. options: {default, update}",
+    ParamValidators.inArray(Array("default", "update")))
+
+  final def getProcessType: String = $(processType)
+
+  final val growPolicy = new Param[String](this, "growPolicy", "Controls a way new nodes are " +
+    "added to the tree. Currently supported only if tree_method is set to hist or approx. " +
+    "Choices: depthwise, lossguide. depthwise: split at nodes closest to the root. " +
+    "lossguide: split at nodes with highest loss change.",
+    ParamValidators.inArray(Array("depthwise", "lossguide")))
+
+  final def getGrowPolicy: String = $(growPolicy)
+
+
+  final val maxLeaves = new IntParam(this, "maxLeaves", "Maximum number of nodes to be added. " +
+    "Not used by exact tree method", ParamValidators.gtEq(0))
+
+  final def getMaxLeaves: Int = $(maxLeaves)
+
+  final val maxBins = new IntParam(this, "maxBin", "Maximum number of discrete bins to bucket " +
+    "continuous features. Increasing this number improves the optimality of splits at the cost " +
+    "of higher computation time. Only used if tree_method is set to hist or approx.",
+    ParamValidators.gt(0))
+
+  final def getMaxBins: Int = $(maxBins)
+
+  final val numParallelTree = new IntParam(this, "numParallelTree", "Number of parallel trees " +
+    "constructed during each iteration. This option is used to support boosted random forest.",
+    ParamValidators.gt(0))
+
+  final def getNumParallelTree: Int = $(numParallelTree)
+
+  final val maxCachedHistNode = new IntParam(this, "maxCachedHistNode", "Maximum number of " +
+    "cached nodes for CPU histogram.",
+    ParamValidators.gt(0))
+
+  final def getMaxCachedHistNode: Int = $(maxCachedHistNode)
+
+  ////////////////////////////////////////////////////////////////////////////////
+
+  setDefault(eta -> 0.3, gamma -> 0, maxDepth -> 6, minChildWeight -> 1, maxDeltaStep -> 0,
+    subsample -> 1, samplingMethod -> "uniform", colsampleBytree -> 1, colsampleBylevel -> 1,
+    colsampleBynode -> 1, lambda -> 1, alpha -> 0, treeMethod -> "auto", scalePosWeight -> 1,
+    processType->"default", growPolicy->"depthwise", maxLeaves->0, maxBins->256, numParallelTree->1,
+  maxCachedHistNode->65536)
+
 
   /**
    * The device for running XGBoost algorithms, options: cpu, cuda
@@ -181,115 +242,7 @@ private[spark] trait TreeBoosterParams extends Params {
 
   final def getDevice: String = $(device)
 
-  /**
-   * growth policy for fast histogram algorithm
-   */
-  final val growPolicy = new Param[String](this, "growPolicy",
-    "Controls a way new nodes are added to the tree. Currently supported only if" +
-      " tree_method is set to hist. Choices: depthwise, lossguide. depthwise: split at nodes" +
-      " closest to the root. lossguide: split at nodes with highest loss change.",
-    (value: String) => BoosterParams.supportedGrowthPolicies.contains(value))
 
-  final def getGrowPolicy: String = $(growPolicy)
 
-  /**
-   * maximum number of bins in histogram
-   */
-  final val maxBins = new IntParam(this, "maxBin", "maximum number of bins in histogram",
-    (value: Int) => value > 0)
 
-  final def getMaxBins: Int = $(maxBins)
-
-  /**
-   * whether to build histograms using single precision floating point values
-   */
-  final val singlePrecisionHistogram = new BooleanParam(this, "singlePrecisionHistogram",
-    "whether to use single precision to build histograms")
-
-  final def getSinglePrecisionHistogram: Boolean = $(singlePrecisionHistogram)
-
-  /**
-   * Control the balance of positive and negative weights, useful for unbalanced classes. A typical
-   * value to consider: sum(negative cases) / sum(positive cases).   [default=1]
-   */
-  final val scalePosWeight = new DoubleParam(this, "scalePosWeight", "Control the balance of " +
-    "positive and negative weights, useful for unbalanced classes. A typical value to consider:" +
-    " sum(negative cases) / sum(positive cases)")
-
-  final def getScalePosWeight: Double = $(scalePosWeight)
-
-  // Dart boosters
-
-  /**
-   * Parameter for Dart booster.
-   * Type of sampling algorithm. "uniform": dropped trees are selected uniformly.
-   * "weighted": dropped trees are selected in proportion to weight. [default="uniform"]
-   */
-  final val sampleType = new Param[String](this, "sampleType", "type of sampling algorithm, " +
-    "options: {'uniform', 'weighted'}",
-    (value: String) => BoosterParams.supportedSampleType.contains(value))
-
-  final def getSampleType: String = $(sampleType)
-
-  /**
-   * Parameter of Dart booster.
-   * type of normalization algorithm, options: {'tree', 'forest'}. [default="tree"]
-   */
-  final val normalizeType = new Param[String](this, "normalizeType", "type of normalization" +
-    " algorithm, options: {'tree', 'forest'}",
-    (value: String) => BoosterParams.supportedNormalizeType.contains(value))
-
-  final def getNormalizeType: String = $(normalizeType)
-
-  /**
-   * Parameter of Dart booster.
-   * dropout rate. [default=0.0] range: [0.0, 1.0]
-   */
-  final val rateDrop = new DoubleParam(this, "rateDrop", "dropout rate", (value: Double) =>
-    value >= 0 && value <= 1)
-
-  final def getRateDrop: Double = $(rateDrop)
-
-  /**
-   * Parameter of Dart booster.
-   * probability of skip dropout. If a dropout is skipped, new trees are added in the same manner
-   * as gbtree. [default=0.0] range: [0.0, 1.0]
-   */
-  final val skipDrop = new DoubleParam(this, "skipDrop", "probability of skip dropout. If" +
-    " a dropout is skipped, new trees are added in the same manner as gbtree.",
-    (value: Double) => value >= 0 && value <= 1)
-
-  final def getSkipDrop: Double = $(skipDrop)
-
-  // linear booster
-  /**
-   * Parameter of linear booster
-   * L2 regularization term on bias, default 0(no L1 reg on bias because it is not important)
-   */
-  final val lambdaBias = new DoubleParam(this, "lambdaBias", "L2 regularization term on bias, " +
-    "default 0 (no L1 reg on bias because it is not important)", (value: Double) => value >= 0)
-
-  final def getLambdaBias: Double = $(lambdaBias)
-
-  final val treeLimit = new IntParam(this, name = "treeLimit",
-    doc = "number of trees used in the prediction; defaults to 0 (use all trees).")
-  setDefault(treeLimit, 0)
-
-  final def getTreeLimit: Int = $(treeLimit)
-
-  final val monotoneConstraints = new Param[String](this, name = "monotoneConstraints",
-    doc = "a list in length of number of features, 1 indicate monotonic increasing, - 1 means " +
-      "decreasing, 0 means no constraint. If it is shorter than number of features, 0 will be " +
-      "padded ")
-
-  final def getMonotoneConstraints: String = $(monotoneConstraints)
-
-  final val interactionConstraints = new Param[String](this,
-    name = "interactionConstraints",
-    doc = "Constraints for interaction representing permitted interactions. The constraints" +
-      " must be specified in the form of a nest list, e.g. [[0, 1], [2, 3, 4]]," +
-      " where each inner list is a group of indices of features that are allowed to interact" +
-      " with each other. See tutorial for more information")
-
-  final def getInteractionConstraints: String = $(interactionConstraints)
 }
