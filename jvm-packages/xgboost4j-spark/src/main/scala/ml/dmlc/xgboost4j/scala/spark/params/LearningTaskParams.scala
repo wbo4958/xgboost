@@ -22,7 +22,8 @@ import scala.collection.immutable.HashSet
 
 /**
  * Specify the learning task and the corresponding learning objective.
- * More details can be found at https://xgboost.readthedocs.io/en/stable/parameter.html#learning-task-parameters
+ * More details can be found at
+ * https://xgboost.readthedocs.io/en/stable/parameter.html#learning-task-parameters
  */
 private[spark] trait LearningTaskParams extends Params {
 
@@ -96,8 +97,25 @@ private[spark] trait LearningTaskParams extends Params {
 
   final def getLambdarankNumPairPerSample: Double = $(lambdarankNumPairPerSample)
 
+  final val lambdarankUnbiased = new Param[Boolean](this, "lambdarankUnbiased", "Specify " +
+    "whether do we need to debias input click data.")
+
+  final def getLambdarankUnbiased: Boolean = $(lambdarankUnbiased)
+
+  final val lambdarankBiasNorm = new DoubleParam(this, "lambdarankBiasNorm", "Lp " +
+    "normalization for position debiasing, default is L2. Only relevant when " +
+    "lambdarankUnbiased is set to true.")
+
+  final def getLambdarankBiasNorm: Double = $(lambdarankBiasNorm)
+
+  final val ndcgExpGain = new Param[Boolean](this, "ndcgExpGain", "Whether we should " +
+    "use exponential gain function for NDCG.")
+
+  final def getNdcgExpGain: Boolean = $(ndcgExpGain)
+
   setDefault(objective -> "reg:squarederror", seed -> 0, seedPerIteration -> false,
-    tweedieVariancePower -> 1.5, huberSlope -> 1, lambdarankPairMethod -> "mean")
+    tweedieVariancePower -> 1.5, huberSlope -> 1, lambdarankPairMethod -> "mean",
+    lambdarankUnbiased -> false, lambdarankBiasNorm -> 2, ndcgExpGain -> true)
 
 }
 
