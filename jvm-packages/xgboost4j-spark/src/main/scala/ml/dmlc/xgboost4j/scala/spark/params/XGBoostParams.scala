@@ -16,8 +16,82 @@
 
 package ml.dmlc.xgboost4j.scala.spark.params
 
+import org.apache.spark.ml.param._
 import org.apache.spark.ml.param.shared._
-import org.apache.spark.ml.param.{IntParam, Param, ParamValidators, Params}
+
+trait HasLeafPredictionCol extends Params {
+  /**
+   * Param for leaf prediction column name.
+   *
+   * @group param
+   */
+  final val leafPredictionCol: Param[String] = new Param[String](this, "leafPredictionCol",
+    "name of the predictLeaf results")
+
+  /** @group getParam */
+  final def getLeafPredictionCol: String = $(leafPredictionCol)
+}
+
+trait HasContribPredictionCol extends Params {
+  /**
+   * Param for contribution prediction column name.
+   *
+   * @group param
+   */
+  final val contribPredictionCol: Param[String] = new Param[String](this, "contribPredictionCol",
+    "name of the predictContrib results")
+
+  /** @group getParam */
+  final def getContribPredictionCol: String = $(contribPredictionCol)
+}
+
+trait HasBaseMarginCol extends Params {
+
+  /**
+   * Param for initial prediction (aka base margin) column name.
+   *
+   * @group param
+   */
+  final val baseMarginCol: Param[String] = new Param[String](this, "baseMarginCol",
+    "Initial prediction (aka base margin) column name.")
+
+  /** @group getParam */
+  final def getBaseMarginCol: String = $(baseMarginCol)
+
+  def setBaseMarginCol(value: String): this.type = set(baseMarginCol, value)
+}
+
+trait HasGroupCol extends Params {
+
+  final val groupCol: Param[String] = new Param[String](this, "groupCol", "group column name.")
+
+  /** @group getParam */
+  final def getGroupCol: String = $(groupCol)
+
+}
+
+
+/**
+ * Trait for shared param featuresCols.
+ */
+trait HasFeaturesCols extends Params {
+  /**
+   * Param for the names of feature columns.
+   *
+   * @group param
+   */
+  final val featuresCols: StringArrayParam = new StringArrayParam(this, "featuresCols",
+    "an array of feature column names.")
+
+  /** @group getParam */
+  final def getFeaturesCols: Array[String] = $(featuresCols)
+
+  /** Check if featuresCols is valid */
+  def isFeaturesColsValid: Boolean = {
+    isDefined(featuresCols) && $(featuresCols) != Array.empty
+  }
+
+}
 
 /**
  * XGBoost spark-specific parameters which should not be passed
@@ -31,7 +105,13 @@ private[spark] trait SparkParams[T <: Params] extends Params
 
   final val numWorkers = new IntParam(this, "numWorkers", "Number of workers used to train xgboost",
     ParamValidators.gtEq(1))
-  setDefault(numWorkers, 1)
+
+  final def getNumRound: Int = $(numRound)
+
+  final val numRound = new IntParam(this, "numRound", "The number of rounds for boosting",
+    ParamValidators.gtEq(1))
+
+  setDefault(numRound -> 100, numWorkers -> 1)
 
   final def getNumWorkers: Int = $(numWorkers)
 
@@ -76,6 +156,7 @@ private[spark] trait RankerParams[T <: Params] extends HasGroupCol {
  *
  * @tparam T should be the XGBoost estimators or models
  */
-private[spark] trait XGBoostParams[T <: Params] extends Params {
+private[spark] trait XGBoostParams[T <: Params] extends TreeBoosterParams
+  with LearningTaskParams {
 
 }
