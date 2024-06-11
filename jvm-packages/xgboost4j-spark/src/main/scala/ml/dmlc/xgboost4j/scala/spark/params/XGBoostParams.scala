@@ -19,6 +19,18 @@ package ml.dmlc.xgboost4j.scala.spark.params
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.param.shared._
 
+trait HasInferenceSizeParams extends Params {
+  /**
+   * batch size in rows to be grouped for inference
+   */
+  final val inferBatchSize = new IntParam(this, "inferBatchSize", "batch size in rows " +
+    "to be grouped for inference",
+    ParamValidators.gtEq(1))
+
+  /** @group getParam */
+  final def getInferBatchSize: Int = $(inferBatchSize)
+}
+
 trait HasLeafPredictionCol extends Params {
   /**
    * Param for leaf prediction column name.
@@ -58,7 +70,6 @@ trait HasBaseMarginCol extends Params {
   /** @group getParam */
   final def getBaseMarginCol: String = $(baseMarginCol)
 
-  def setBaseMarginCol(value: String): this.type = set(baseMarginCol, value)
 }
 
 trait HasGroupCol extends Params {
@@ -67,9 +78,7 @@ trait HasGroupCol extends Params {
 
   /** @group getParam */
   final def getGroupCol: String = $(groupCol)
-
 }
-
 
 /**
  * Trait for shared param featuresCols.
@@ -101,7 +110,8 @@ trait HasFeaturesCols extends Params {
  */
 private[spark] trait SparkParams[T <: Params] extends Params
   with HasFeaturesCol with HasLabelCol with HasBaseMarginCol with HasWeightCol
-  with HasPredictionCol with HasLeafPredictionCol with HasContribPredictionCol {
+  with HasPredictionCol with HasLeafPredictionCol with HasContribPredictionCol
+  with HasInferenceSizeParams {
 
   final val numWorkers = new IntParam(this, "numWorkers", "Number of workers used to train xgboost",
     ParamValidators.gtEq(1))
@@ -111,21 +121,29 @@ private[spark] trait SparkParams[T <: Params] extends Params
   final val numRound = new IntParam(this, "numRound", "The number of rounds for boosting",
     ParamValidators.gtEq(1))
 
-  setDefault(numRound -> 100, numWorkers -> 1)
+  setDefault(numRound -> 100, numWorkers -> 1, inferBatchSize -> (32 << 10))
 
   final def getNumWorkers: Int = $(numWorkers)
 
   def setNumWorkers(value: Int): T = set(numWorkers, value).asInstanceOf[T]
 
+  def setNumRound(value: Int): T = set(numRound, value).asInstanceOf[T]
+
   def setFeaturesCol(value: String): T = set(featuresCol, value).asInstanceOf[T]
 
   def setLabelCol(value: String): T = set(labelCol, value).asInstanceOf[T]
 
+  def setBaseMarginCol(value: String): T = set(baseMarginCol, value).asInstanceOf[T]
+
   def setWeightCol(value: String): T = set(weightCol, value).asInstanceOf[T]
+
+  def setPredictionCol(value: String): T = set(predictionCol, value).asInstanceOf[T]
 
   def setLeafPredictionCol(value: String): T = set(leafPredictionCol, value).asInstanceOf[T]
 
   def setContribPredictionCol(value: String): T = set(contribPredictionCol, value).asInstanceOf[T]
+
+  def setInferBatchSize(value: Int): T = set(inferBatchSize, value).asInstanceOf[T]
 }
 
 /**

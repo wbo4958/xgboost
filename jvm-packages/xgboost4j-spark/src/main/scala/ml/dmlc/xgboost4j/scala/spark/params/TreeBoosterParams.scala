@@ -18,6 +18,9 @@ package ml.dmlc.xgboost4j.scala.spark.params
 
 import org.apache.spark.ml.param._
 
+import scala.collection.immutable.HashSet
+
+
 /**
  * TreeBoosterParams defines the XGBoost TreeBooster parameters for Spark
  *
@@ -228,21 +231,15 @@ private[spark] trait TreeBoosterParams extends Params {
   setDefault(eta -> 0.3, gamma -> 0, maxDepth -> 6, minChildWeight -> 1, maxDeltaStep -> 0,
     subsample -> 1, samplingMethod -> "uniform", colsampleBytree -> 1, colsampleBylevel -> 1,
     colsampleBynode -> 1, lambda -> 1, alpha -> 0, treeMethod -> "auto", scalePosWeight -> 1,
-    processType->"default", growPolicy->"depthwise", maxLeaves->0, maxBins->256, numParallelTree->1,
-  maxCachedHistNode->65536)
+    processType -> "default", growPolicy -> "depthwise", maxLeaves -> 0, maxBins -> 256,
+    numParallelTree -> 1,  maxCachedHistNode -> 65536)
 
+}
 
-  /**
-   * The device for running XGBoost algorithms, options: cpu, cuda
-   */
-  final val device = new Param[String](
-    this, "device", "The device for running XGBoost algorithms, options: cpu, cuda",
-    (value: String) => BoosterParams.supportedDevices.contains(value)
-  )
+private[spark] object BoosterParams {
 
-  final def getDevice: String = $(device)
+  val supportedTreeMethods = HashSet("auto", "exact", "approx", "hist")
 
-
-
-
+  val supportedUpdaters = HashSet("grow_colmaker", "grow_histmaker", "grow_quantile_histmaker",
+    "grow_gpu_hist", "grow_gpu_approx", "sync", "refresh", "prune")
 }

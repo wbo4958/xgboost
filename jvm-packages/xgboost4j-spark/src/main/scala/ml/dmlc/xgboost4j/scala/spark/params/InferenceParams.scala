@@ -16,17 +16,6 @@
 
 package ml.dmlc.xgboost4j.scala.spark.params
 
-import org.apache.spark.ml.param.{IntParam, Params}
+import org.apache.spark.ml.param.{IntParam, ParamValidators, Params}
 
-private[spark] trait InferenceParams extends Params {
 
-  /**
-   * batch size of inference iteration
-   */
-  final val inferBatchSize = new IntParam(this, "batchSize", "batch size of inference iteration")
-
-  /** @group getParam */
-  final def getInferBatchSize: Int = $(inferBatchSize)
-
-  setDefault(inferBatchSize, 32 << 10)
-}

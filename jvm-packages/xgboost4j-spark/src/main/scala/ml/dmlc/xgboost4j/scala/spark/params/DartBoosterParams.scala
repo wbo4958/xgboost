@@ -18,6 +18,16 @@ package ml.dmlc.xgboost4j.scala.spark.params
 
 import org.apache.spark.ml.param._
 
+import scala.collection.immutable.HashSet
+
+private[spark] object DartBoosterParams {
+  val supportedNormalizeType = HashSet("tree", "forest")
+}
+
+/**
+ * Dart booster parameters, more details can be found at
+ * https://xgboost.readthedocs.io/en/stable/parameter.html#additional-parameters-for-dart-booster-booster-dart
+ */
 private[spark] trait DartBoosterParams extends Params {
 
   final val sampleType = new Param[String](this, "sampleType", "Type of sampling algorithm, " +
@@ -27,7 +37,7 @@ private[spark] trait DartBoosterParams extends Params {
 
   final val normalizeType = new Param[String](this, "normalizeType", "type of normalization" +
     " algorithm, options: {'tree', 'forest'}",
-    (value: String) => BoosterParams.supportedNormalizeType.contains(value))
+    (value: String) => DartBoosterParams.supportedNormalizeType.contains(value))
 
   final def getNormalizeType: String = $(normalizeType)
 
