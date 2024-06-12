@@ -99,7 +99,15 @@ trait HasFeaturesCols extends Params {
   def isFeaturesColsValid: Boolean = {
     isDefined(featuresCols) && $(featuresCols) != Array.empty
   }
+}
 
+trait HasValidationIndicatorCol extends Params {
+
+  final val validationIndicatorCol: Param[String] = new Param[String](this,
+    "validationIndicatorCol", "Name of the column that indicates whether each row is for " +
+      "training or for validation. False indicates training; true indicates validation.")
+
+  final def getValidationIndicatorCol: String = $(validationIndicatorCol)
 }
 
 /**
@@ -111,7 +119,7 @@ trait HasFeaturesCols extends Params {
 private[spark] trait SparkParams[T <: Params] extends Params
   with HasFeaturesCol with HasLabelCol with HasBaseMarginCol with HasWeightCol
   with HasPredictionCol with HasLeafPredictionCol with HasContribPredictionCol
-  with HasInferenceSizeParams {
+  with HasInferenceSizeParams with HasValidationIndicatorCol {
 
   final val numWorkers = new IntParam(this, "numWorkers", "Number of workers used to train xgboost",
     ParamValidators.gtEq(1))
@@ -144,6 +152,9 @@ private[spark] trait SparkParams[T <: Params] extends Params
   def setContribPredictionCol(value: String): T = set(contribPredictionCol, value).asInstanceOf[T]
 
   def setInferBatchSize(value: Int): T = set(inferBatchSize, value).asInstanceOf[T]
+
+  def setValidationIndicatorCol(value: String): T =
+    set(validationIndicatorCol, value).asInstanceOf[T]
 }
 
 /**
