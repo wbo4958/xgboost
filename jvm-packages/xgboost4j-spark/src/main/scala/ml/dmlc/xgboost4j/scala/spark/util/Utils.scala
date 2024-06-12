@@ -68,4 +68,7 @@ object Utils {
       FullTypeHints(List(Utils.classForName(className)))
     }.getOrElse(NoTypeHints)
   }
+
+  val TRAIN_NAME = "train"
+  val VALIDATION_NAME = "eval"
 }

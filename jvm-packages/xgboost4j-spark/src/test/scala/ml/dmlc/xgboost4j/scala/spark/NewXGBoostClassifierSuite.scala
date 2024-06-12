@@ -29,6 +29,12 @@ class NewXGBoostClassifierSuite extends AnyFunSuite with PerTest with TmpFolderP
 //    df = df.withColumn("base_margin", lit(20))
 //      .withColumn("weight", rand(1))
 
+    var Array(trainDf, validationDf) = df.randomSplit(Array(0.8, 0.2), seed = 1)
+
+    trainDf = trainDf.withColumn("validation", lit(false))
+    validationDf = validationDf.withColumn("validationDf", lit(true))
+
+    df = trainDf.union(validationDf)
 
     // Assemble the feature columns into a single vector column
     val assembler = new VectorAssembler()
@@ -44,6 +50,7 @@ class NewXGBoostClassifierSuite extends AnyFunSuite with PerTest with TmpFolderP
 //      .setWeightCol("weight")
 //      .setBaseMarginCol("base_margin")
       .setLabelCol(labelCol)
+      .setValidationIndicatorCol("validation")
 //      .setPredictionCol("")
       .setRawPredictionCol("")
       .setProbabilityCol("xxxx")

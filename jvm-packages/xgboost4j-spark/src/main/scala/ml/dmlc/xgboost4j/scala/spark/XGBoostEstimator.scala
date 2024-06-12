@@ -18,6 +18,7 @@ package ml.dmlc.xgboost4j.scala.spark
 
 import ml.dmlc.xgboost4j.scala.spark.params.{ClassificationParams, HasGroupCol, SparkParams, XGBoostParams}
 import ml.dmlc.xgboost4j.scala.spark.util.DataUtils.MLVectorToXGBLabeledPoint
+import ml.dmlc.xgboost4j.scala.spark.util.Utils
 import ml.dmlc.xgboost4j.scala.{Booster, DMatrix}
 import ml.dmlc.xgboost4j.{LabeledPoint => XGBLabeledPoint}
 import org.apache.spark.ml.linalg.Vector
@@ -37,7 +38,8 @@ import scala.collection.mutable.ArrayBuffer
 private case class ColumnIndexes(label: String, features: String,
                                  weight: Option[String] = None,
                                  baseMargin: Option[String] = None,
-                                 group: Option[String] = None)
+                                 group: Option[String] = None,
+                                 valiation: Option[String] = None)
 
 private[spark] abstract class XGBoostEstimator[
   Learner <: XGBoostEstimator[Learner, M],
@@ -90,6 +92,15 @@ private[spark] abstract class XGBoostEstimator[
       None
     }
 
+    // TODO, check the validation col
+    val validationName = if (isDefined(validationIndicatorCol) &&
+      getValidationIndicatorCol.nonEmpty) {
+      selectedCols.append(col(getValidationIndicatorCol))
+      Some(getValidationIndicatorCol)
+    } else {
+      None
+    }
+
     var groupName: Option[String] = None
     this match {
       case p: HasGroupCol =>
@@ -118,7 +129,8 @@ private[spark] abstract class XGBoostEstimator[
       getFeaturesCol,
       weight = weightName,
       baseMargin = baseMarginName,
-      group = groupName)
+      group = groupName,
+      valiation = validationName)
     (input, columnIndexes)
   }
 
@@ -145,12 +157,59 @@ private[spark] abstract class XGBoostEstimator[
         // TODO support sparse vector.
         // TODO support array
         val values = features.toArray.map(_.toFloat)
-        XGBLabeledPoint(label, values.length, null, values, weight, group.toInt, baseMargin)
+        val isValidation = columnIndexes.valiation.exists(v =>
+          row.getBoolean(row.fieldIndex(v)))
+
+        (isValidation,
+          XGBLabeledPoint(label, values.length, null, values, weight, group.toInt, baseMargin))
     }
 
+
     labeledPointRDD.mapPartitions { iter =>
+      val datasets: ArrayBuffer[DMatrix] = ArrayBuffer.empty
+      val names: ArrayBuffer[String] = ArrayBuffer.empty
+      val validations: ArrayBuffer[XGBLabeledPoint] = ArrayBuffer.empty
+
+      val trainIter = if (columnIndexes.valiation.isDefined) {
+        val dataIter = new Iterator[XGBLabeledPoint] {
+          private var tmp: Option[XGBLabeledPoint] = None
+
+          override def hasNext: Boolean = {
+            if (tmp.isDefined) {
+              return true
+            }
+            while (iter.hasNext) {
+              val (isVal, labelPoint) = iter.next()
+              if (isVal) {
+                validations.append(labelPoint)
+              } else {
+                tmp = Some(labelPoint)
+                return true
+              }
+            }
+            false
+          }
+
+          override def next(): XGBLabeledPoint = {
+            val xgbLabeledPoint = tmp.get
+            tmp = None
+            xgbLabeledPoint
+          }
+        }
+        dataIter
+      } else {
+        iter.map(_._2)
+      }
+
+      datasets.append(new DMatrix(trainIter))
+      names.append(Utils.TRAIN_NAME)
+      if (columnIndexes.valiation.isDefined) {
+        datasets.append(new DMatrix(validations.toIterator))
+        names.append(Utils.VALIDATION_NAME)
+      }
+
       // TODO  1. support external memory 2. rework or remove Watches
-      val watches = new Watches(Array(new DMatrix(iter)), Array("train"), None)
+      val watches = new Watches(datasets.toArray, names.toArray, None)
       Iterator.single(watches)
     }
   }

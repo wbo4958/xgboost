@@ -420,8 +420,17 @@ private[spark] object NewXGBoost extends StageLevelScheduling {
     require(tracker.start(), "FAULT: Failed to start tracker")
     try {
       block(tracker)
+    } catch {
+      case t: Throwable =>
+        logger.error(t)
+        throw t
     } finally {
-      tracker.stop()
+      try {
+        tracker.stop()
+      } catch {
+        // swallow the exception from stop
+        case _ => logger.error("Failed to stop tracker ...")
+      }
     }
   }
 
