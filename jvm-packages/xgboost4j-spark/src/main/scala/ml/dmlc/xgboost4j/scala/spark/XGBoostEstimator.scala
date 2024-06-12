@@ -227,7 +227,7 @@ private[spark] abstract class XGBoostEstimator[
       "num_class" -> 3,
     )
 
-    val (booster, metrics) = NewXGBoost.train(
+    val (booster, metrics) = XGBoost.train(
       dataset.sparkSession.sparkContext, rdd, paramMap)
 
     val summary = XGBoostTrainingSummary(metrics)

@@ -139,12 +139,11 @@ private[this] class ParamsFactory(rawParams: Map[String, Any], sc: SparkContext)
     // back-compatible with "gpu_hist"
     val runOnGpu = treeMethod.exists(_ == "gpu_hist") || deviceIsGpu
 
-    val trackerConf = overridedParams.get("tracker_conf") match {
-      case None => TrackerConf()
-      case Some(conf: TrackerConf) => conf
-      case _ => throw new IllegalArgumentException("parameter \"tracker_conf\" must be an " +
-        "instance of TrackerConf.")
-    }
+    val trackerConf = TrackerConf(
+      overridedParams.get("rabit_tracker_timeout").asInstanceOf[Int],
+      overridedParams.get("rabit_tracker_host_ip").asInstanceOf[String],
+      overridedParams.get("rabit_tracker_port").asInstanceOf[Int],
+    )
 
     val earlyStoppingRounds = overridedParams.getOrElse(
       "num_early_stopping_rounds", 0).asInstanceOf[Int]
@@ -299,7 +298,7 @@ private[spark] trait StageLevelScheduling extends Serializable {
   }
 }
 
-private[spark] object NewXGBoost extends StageLevelScheduling {
+private[spark] object XGBoost extends StageLevelScheduling {
   private val logger = LogFactory.getLog("XGBoostSpark")
 
   def getGPUAddrFromResources: Int = {
