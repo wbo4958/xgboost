@@ -26,8 +26,8 @@ class NewXGBoostClassifierSuite extends AnyFunSuite with PerTest with TmpFolderP
 
     val features = df.schema.names.filter(_ != labelCol)
 
-    df = df.withColumn("base_margin", lit(20))
-      .withColumn("weight", rand(1))
+//    df = df.withColumn("base_margin", lit(20))
+//      .withColumn("weight", rand(1))
 
 
     // Assemble the feature columns into a single vector column
@@ -39,7 +39,7 @@ class NewXGBoostClassifierSuite extends AnyFunSuite with PerTest with TmpFolderP
 //    val arrayInput = df.select(array(features.map(col(_)): _*).as("features"),
 //      col("label"), col("base_margin"))
 
-    val est = new NewXGBoostClassifier()
+    val est = new XGBoostClassifier()
       .setNumWorkers(1)
 //      .setWeightCol("weight")
 //      .setBaseMarginCol("base_margin")
@@ -51,7 +51,7 @@ class NewXGBoostClassifierSuite extends AnyFunSuite with PerTest with TmpFolderP
     //    val est = new XGBoostClassifier().setLabelCol(labelCol)
     //    est.fit(arrayInput)
     val model = est.fit(dataset)
-    model.transform(dataset).show(150)
+    model.transform(dataset).drop(features: _*).show(150)
   }
 
 }

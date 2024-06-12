@@ -137,7 +137,7 @@ private[spark] abstract class XGBoostEstimator[
       case row: Row =>
         val label = row.getFloat(row.fieldIndex(columnIndexes.label))
         val features = row.getAs[Vector](columnIndexes.features)
-        val weight = columnIndexes.weight.map(v => row.getFloat(row.fieldIndex(v))).getOrElse(-1.0f)
+        val weight = columnIndexes.weight.map(v => row.getFloat(row.fieldIndex(v))).getOrElse(1.0f)
         val baseMargin = columnIndexes.baseMargin.map(v =>
           row.getFloat(row.fieldIndex(v))).getOrElse(Float.NaN)
         val group = columnIndexes.group.map(v =>
@@ -164,7 +164,9 @@ private[spark] abstract class XGBoostEstimator[
 
     val paramMap = Map(
       "num_workers" -> 1,
-      "num_round" -> 100
+      "num_round" -> 100,
+      "objective" -> "multi:softprob",
+      "num_class" -> 3,
     )
 
     val (booster, metrics) = NewXGBoost.train(
