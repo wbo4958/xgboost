@@ -18,28 +18,37 @@ package ml.dmlc.xgboost4j.scala.spark
 
 import ml.dmlc.xgboost4j.scala.Booster
 import ml.dmlc.xgboost4j.scala.spark.params.ClassificationParams
+import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.util.{DefaultParamsWritable, Identifiable}
+import org.apache.spark.sql.Dataset
+import org.apache.spark.sql.functions.{col, udf}
 
 class XGBoostClassifier(override val uid: String)
-  extends XGBoostEstimator[XGBoostClassifier, NewXGBoostClassificationModel]
+  extends XGBoostEstimator[XGBoostClassifier, XGBoostClassificationModel]
     with ClassificationParams[XGBoostClassifier] with DefaultParamsWritable {
 
   def this() = this(Identifiable.randomUID("xgbc"))
 
   override protected def createModel(booster: Booster, summary: XGBoostTrainingSummary):
-  NewXGBoostClassificationModel = {
-    new NewXGBoostClassificationModel(uid, booster, summary)
+  XGBoostClassificationModel = {
+    new XGBoostClassificationModel(uid, booster, summary)
   }
 }
 
 
-class NewXGBoostClassificationModel(
-                                     uid: String,
-                                     booster: Booster,
-                                     trainingSummary: XGBoostTrainingSummary
-                                   )
-  extends XGBoostModel[NewXGBoostClassificationModel](uid, booster, trainingSummary)
-  with ClassificationParams[NewXGBoostClassificationModel] {
+class XGBoostClassificationModel(
+                                  uid: String,
+                                  booster: Booster,
+                                  trainingSummary: XGBoostTrainingSummary
+                                )
+  extends XGBoostModel[XGBoostClassificationModel](uid, booster, trainingSummary)
+    with ClassificationParams[XGBoostClassificationModel] {
 
-
+  override def postTranform(dataset: Dataset[_]): Dataset[_] = {
+    var output = dataset
+    if (isDefined(probabilityCol) && getProbabilityCol.nonEmpty) {
+      output = output.withColumnRenamed(TMP_TRANSFORMED_COL, getProbabilityCol)
+    }
+    output
+  }
 }

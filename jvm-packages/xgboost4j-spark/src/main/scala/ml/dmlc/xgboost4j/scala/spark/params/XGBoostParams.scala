@@ -153,11 +153,13 @@ private[spark] trait SparkParams[T <: Params] extends Params
  * @tparam T should be XGBoostClassifier or XGBoostClassificationModel
  */
 private[spark] trait ClassificationParams[T <: Params] extends HasRawPredictionCol
-  with HasProbabilityCol {
+  with HasProbabilityCol with HasThresholds {
 
   def setRawPredictionCol(value: String): T = set(rawPredictionCol, value).asInstanceOf[T]
 
   def setProbabilityCol(value: String): T = set(probabilityCol, value).asInstanceOf[T]
+
+  def setThresholds(value: Array[Double]): T = set(thresholds, value).asInstanceOf[T]
 }
 
 /**

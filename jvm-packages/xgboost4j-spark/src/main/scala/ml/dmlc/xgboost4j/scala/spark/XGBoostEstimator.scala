@@ -16,13 +16,12 @@
 
 package ml.dmlc.xgboost4j.scala.spark
 
-import ml.dmlc.xgboost4j.scala.spark.params.{HasGroupCol, SparkParams, XGBoostParams}
+import ml.dmlc.xgboost4j.scala.spark.params.{ClassificationParams, HasGroupCol, SparkParams, XGBoostParams}
 import ml.dmlc.xgboost4j.scala.spark.util.DataUtils.MLVectorToXGBLabeledPoint
 import ml.dmlc.xgboost4j.scala.{Booster, DMatrix}
 import ml.dmlc.xgboost4j.{LabeledPoint => XGBLabeledPoint}
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.param.ParamMap
-import org.apache.spark.ml.param.shared.HasRawPredictionCol
 import org.apache.spark.ml.util.XGBoostSchemaUtils
 import org.apache.spark.ml.{Estimator, Model}
 import org.apache.spark.rdd.RDD
@@ -201,7 +200,7 @@ class XGBoostModel[M <: XGBoostModel[M]](
                                           protected val trainingSummary: XGBoostTrainingSummary)
   extends Model[M] with XGBoostParams[M] with SparkParams[M] {
 
-  private val RAW_PREDICTION_NAME = "_xgb_raw_pred_tmp_name"
+  protected val TMP_TRANSFORMED_COL = "_tmp_xgb_transformed_col"
 
   override def copy(extra: ParamMap): M = defaultCopy(extra).asInstanceOf[M]
 
@@ -219,29 +218,15 @@ class XGBoostModel[M <: XGBoostModel[M]](
 
   override def transformSchema(schema: StructType): StructType = schema
 
+  def postTranform(dataset: Dataset[_]): Dataset[_] = dataset
+
   override def transform(dataset: Dataset[_]): DataFrame = {
 
     val spark = dataset.sparkSession
     val outputSchema = transformSchema(dataset.schema, logging = true)
 
-    // Broadcast the booster to each executor.
-    val bBooster = spark.sparkContext.broadcast(booster)
-
-    val featureName = getFeaturesCol
-
     // Be careful about the order of columns
     var schema = dataset.schema
-
-    var hasRawPredictionCol = false
-    this match {
-      case p: HasRawPredictionCol =>
-        if (isDefined(p.rawPredictionCol) && p.getRawPredictionCol.nonEmpty) {
-          schema = schema.add(
-            StructField(RAW_PREDICTION_NAME, ArrayType(FloatType)))
-          hasRawPredictionCol = true
-        }
-      case _ =>
-    }
 
     var hasLeafPredictionCol = false
     if (isDefined(leafPredictionCol) && getLeafPredictionCol.nonEmpty) {
@@ -255,9 +240,51 @@ class XGBoostModel[M <: XGBoostModel[M]](
       hasContribPredictionCol = true
     }
 
+    var hasRawPredictionCol = false
+
+    // For classification case, the tranformed col is probability,
+    // while for others, it's the prediction value.
+    var hasTransformedCol = false
+    var hasPredictionCol = false
+    this match {
+      case p: ClassificationParams[_] => // classification case
+        if (isDefined(p.rawPredictionCol) && p.getRawPredictionCol.nonEmpty) {
+          schema = schema.add(
+            StructField(p.getRawPredictionCol, ArrayType(FloatType)))
+          hasRawPredictionCol = true
+        }
+        if (isDefined(p.probabilityCol) && p.getProbabilityCol.nonEmpty) {
+          schema = schema.add(
+            StructField(TMP_TRANSFORMED_COL, ArrayType(FloatType)))
+          hasTransformedCol = true
+        }
+
+        if (isDefined(predictionCol) && getPredictionCol.nonEmpty) {
+          schema = schema.add(StructField(getPredictionCol, ArrayType(FloatType)))
+          hasPredictionCol = true
+          // Prediction is calculated according to raw or probability
+          if (!hasRawPredictionCol && !hasTransformedCol) {
+            // Add the transformed col for predition
+            schema = schema.add(
+              StructField(TMP_TRANSFORMED_COL, ArrayType(FloatType)))
+            hasTransformedCol = true
+          }
+        }
+      case _ =>
+        // Rename TMP_TRANSFORMED_COL to prediction in the postTransform.
+        if (isDefined(predictionCol) && getPredictionCol.nonEmpty) {
+          schema = schema.add(
+            StructField(TMP_TRANSFORMED_COL, ArrayType(FloatType)))
+          hasTransformedCol = true
+        }
+    }
 
     // TODO configurable
     val inferBatchSize = 32 << 10
+    // Broadcast the booster to each executor.
+    val bBooster = spark.sparkContext.broadcast(booster)
+    val featureName = getFeaturesCol
+
     val outputData = dataset.toDF().mapPartitions { rowIter =>
 
       rowIter.grouped(inferBatchSize).flatMap { batchRow =>
@@ -273,24 +300,24 @@ class XGBoostModel[M <: XGBoostModel[M]](
           case (a, b) => a ++ Seq(b)
         }
 
-        if (hasRawPredictionCol) {
-          tmpOut = zip(tmpOut, bBooster.value.predict(dm, outPutMargin = false))
-        }
-
         if (hasLeafPredictionCol) {
           tmpOut = zip(tmpOut, bBooster.value.predictLeaf(dm))
         }
-
         if (hasContribPredictionCol) {
           tmpOut = zip(tmpOut, bBooster.value.predictContrib(dm))
+        }
+        if (hasRawPredictionCol) {
+          tmpOut = zip(tmpOut, bBooster.value.predict(dm, outPutMargin = true))
+        }
+        if (hasTransformedCol) {
+          tmpOut = zip(tmpOut, bBooster.value.predict(dm, outPutMargin = false))
         }
         tmpOut.map(Row.fromSeq)
       }
 
     }(Encoders.row(schema))
-
-    outputData.toDF()
+    bBooster.unpersist(blocking = false)
+    postTranform(outputData).toDF()
   }
-
 
 }

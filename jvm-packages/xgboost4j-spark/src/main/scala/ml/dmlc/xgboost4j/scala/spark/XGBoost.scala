@@ -348,7 +348,6 @@ private[spark] object NewXGBoost extends StageLevelScheduling {
         logger.info("Leveraging gpu device " + gpuId + " to train")
         params = params + ("device" -> s"cuda:$gpuId")
       }
-      println("---------------- " + params)
       SXGBoost.train(watches.toMap("train"), params, runtimeParams.numRounds,
         watches.toMap, metrics, runtimeParams.obj, runtimeParams.eval,
         earlyStoppingRound = numEarlyStoppingRounds)
