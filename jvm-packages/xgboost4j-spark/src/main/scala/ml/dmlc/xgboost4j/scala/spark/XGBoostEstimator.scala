@@ -241,11 +241,9 @@ class XGBoostModel[M <: XGBoostModel[M]](
     }
 
     var hasRawPredictionCol = false
-
     // For classification case, the tranformed col is probability,
     // while for others, it's the prediction value.
     var hasTransformedCol = false
-    var hasPredictionCol = false
     this match {
       case p: ClassificationParams[_] => // classification case
         if (isDefined(p.rawPredictionCol) && p.getRawPredictionCol.nonEmpty) {
@@ -260,10 +258,8 @@ class XGBoostModel[M <: XGBoostModel[M]](
         }
 
         if (isDefined(predictionCol) && getPredictionCol.nonEmpty) {
-          schema = schema.add(StructField(getPredictionCol, ArrayType(FloatType)))
-          hasPredictionCol = true
-          // Prediction is calculated according to raw or probability
-          if (!hasRawPredictionCol && !hasTransformedCol) {
+          // Let's use transformed col to calculate the prediction
+          if (!hasTransformedCol) {
             // Add the transformed col for predition
             schema = schema.add(
               StructField(TMP_TRANSFORMED_COL, ArrayType(FloatType)))
