@@ -21,8 +21,9 @@ import ml.dmlc.xgboost4j.scala.spark.util.DataUtils.MLVectorToXGBLabeledPoint
 import ml.dmlc.xgboost4j.scala.spark.util.Utils
 import ml.dmlc.xgboost4j.scala.{Booster, DMatrix}
 import ml.dmlc.xgboost4j.{LabeledPoint => XGBLabeledPoint}
+import org.apache.commons.logging.LogFactory
 import org.apache.spark.ml.linalg.Vector
-import org.apache.spark.ml.param.ParamMap
+import org.apache.spark.ml.param.{Param, ParamMap}
 import org.apache.spark.ml.util.XGBoostSchemaUtils
 import org.apache.spark.ml.{Estimator, Model}
 import org.apache.spark.rdd.RDD
@@ -46,6 +47,8 @@ private[spark] abstract class XGBoostEstimator[
   M <: XGBoostModel[M]
 ] extends Estimator[M] with XGBoostParams[Learner] with SparkParams[Learner]
   with ParamMapConversion {
+
+  protected val logger = LogFactory.getLog("XGBoostSpark")
 
   /**
    * Pre-convert input double data to floats to align with XGBoost's internal float-based
@@ -218,31 +221,64 @@ private[spark] abstract class XGBoostEstimator[
 
   protected def createModel(booster: Booster, summary: XGBoostTrainingSummary): M
 
-  def getRuntimeParameters(isLocal: Boolean): RuntimeParams = {
+  private def getRuntimeParameters(isLocal: Boolean): RuntimeParams = {
+
     val runOnGpu = false
+
     RuntimeParams(
       getNumWorkers,
       getNumRound,
       null, // TODO support ObjectiveTrait
       null, // TODO support EvalTrait
       TrackerConf(getRabitTrackerTimeout, getRabitTrackerHostIp, getRabitTrackerPort),
-      getEarlyStoppingRounds,
+      getNumEarlyStoppingRounds,
       getDevice,
       isLocal,
       runOnGpu,
     )
   }
 
+  /**
+   * Check to see if Spark expects SSL encryption (`spark.ssl.enabled` set to true).
+   * If so, throw an exception unless this safety measure has been explicitly overridden
+   * via conf `xgboost.spark.ignoreSsl`.
+   */
+  private def validateSparkSslConf(spark: SparkSession): Unit = {
+
+    val sparkSslEnabled = spark.conf.getOption("spark.ssl.enabled").getOrElse("false").toBoolean
+    val xgbIgnoreSsl = spark.conf.getOption("xgboost.spark.ignoreSsl").getOrElse("false").toBoolean
+
+    if (sparkSslEnabled) {
+      if (xgbIgnoreSsl) {
+        logger.warn(s"spark-xgboost is being run without encrypting data in transit!  " +
+          s"Spark Conf spark.ssl.enabled=true was overridden with xgboost.spark.ignoreSsl=true.")
+      } else {
+        throw new Exception("xgboost-spark found spark.ssl.enabled=true to encrypt data " +
+          "in transit, but xgboost-spark sends non-encrypted data over the wire for efficiency. " +
+          "To override this protection and still use xgboost-spark at your own risk, " +
+          "you can set the SparkSession conf to use xgboost.spark.ignoreSsl=true.")
+      }
+    }
+  }
+
+  /**
+   * Validate the parameters before training, throw exception if possible
+   */
+  protected def validate(dataset: Dataset[_]): Unit = {
+    validateSparkSslConf(dataset.sparkSession)
+  }
+
   override def fit(dataset: Dataset[_]): M = {
+    validate(dataset)
+
     val (input, columnIndexes) = preprocess(dataset)
     val rdd = toRdd(input, columnIndexes)
 
-    val paramMap = spark2XGBoostParams
+    val xgbParams = getXGBoostParams
 
     val runtimeParams = getRuntimeParameters(dataset.sparkSession.sparkContext.isLocal)
 
-    val (booster, metrics) = XGBoost.train(
-      dataset.sparkSession.sparkContext, rdd, paramMap)
+    val (booster, metrics) = XGBoost.train(rdd, runtimeParams, xgbParams)
 
     val summary = XGBoostTrainingSummary(metrics)
     copyValues(createModel(booster, summary))
@@ -269,15 +305,20 @@ private[spark] abstract class XGBoostEstimator[
 private[spark] abstract
 class XGBoostModel[M <: XGBoostModel[M]](
                                           override val uid: String,
-                                          protected val booster: Booster,
-                                          protected val trainingSummary: XGBoostTrainingSummary)
+                                          private val model: Booster,
+                                          private val trainingSummary: XGBoostTrainingSummary)
   extends Model[M] with XGBoostParams[M] with SparkParams[M] {
 
   protected val TMP_TRANSFORMED_COL = "_tmp_xgb_transformed_col"
 
   override def copy(extra: ParamMap): M = defaultCopy(extra).asInstanceOf[M]
 
-  def nativeBooster: Booster = booster
+  /**
+   * Get the native XGBoost Booster
+   *
+   * @return
+   */
+  def nativeBooster: Booster = model
 
   def summary: XGBoostTrainingSummary = trainingSummary
 
@@ -343,7 +384,7 @@ class XGBoostModel[M <: XGBoostModel[M]](
     // TODO configurable
     val inferBatchSize = 32 << 10
     // Broadcast the booster to each executor.
-    val bBooster = spark.sparkContext.broadcast(booster)
+    val bBooster = spark.sparkContext.broadcast(nativeBooster)
     val featureName = getFeaturesCol
 
     val outputData = dataset.toDF().mapPartitions { rowIter =>

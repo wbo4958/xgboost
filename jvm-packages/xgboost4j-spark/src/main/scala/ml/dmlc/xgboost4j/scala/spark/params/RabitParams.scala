@@ -18,7 +18,7 @@ package ml.dmlc.xgboost4j.scala.spark.params
 
 import org.apache.spark.ml.param.{IntParam, Param, ParamValidators, Params}
 
-private[spark] trait RabitParams extends Params {
+private[spark] trait RabitParams extends Params with NonXGBoostParams {
 
   final val rabitTrackerTimeout = new IntParam(this, "rabitTrackerTimeout", "The number of " +
     "seconds before timeout waiting for workers to connect. and for the tracker to shutdown.",
@@ -39,6 +39,8 @@ private[spark] trait RabitParams extends Params {
   final def getRabitTrackerPort: Int = $(rabitTrackerPort)
 
   setDefault(rabitTrackerTimeout -> 0, rabitTrackerHostIp -> "", rabitTrackerPort -> 0)
+
+  addNonXGBoostParam(rabitTrackerPort, rabitTrackerHostIp, rabitTrackerPort)
 }
 
 

@@ -21,7 +21,7 @@ import org.apache.spark.ml.param.{BooleanParam, DoubleParam, FloatParam, IntPara
 
 import scala.collection.mutable
 
-private[spark] trait ParamMapConversion extends Params {
+private[spark] trait ParamMapConversion extends NonXGBoostParams {
 
   /**
    * Convert XGBoost parameters to Spark Parameters
@@ -53,12 +53,12 @@ private[spark] trait ParamMapConversion extends Params {
    *
    * Note that this also contains jvm-specific parameters.
    */
-  def spark2XGBoostParams: Map[String, Any] = {
+  def getXGBoostParams: Map[String, Any] = {
     val xgboostParams = new mutable.HashMap[String, Any]()
 
     // Only pass user-supplied parameters to xgboost.
     for (param <- params) {
-      if (isSet(param)) {
+      if (isSet(param) && !nonXGBoostParams.contains(param.name)) {
         val name = CaseFormat.LOWER_CAMEL.to(CaseFormat.LOWER_UNDERSCORE, param.name)
         xgboostParams += name -> $(param)
       }

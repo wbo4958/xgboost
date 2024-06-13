@@ -16,20 +16,10 @@
 
 package ml.dmlc.xgboost4j.scala.spark.params
 
-import org.apache.spark.ml.param._
+import org.apache.spark.ml.param.{Param, _}
 import org.apache.spark.ml.param.shared._
 
-trait HasInferenceSizeParams extends Params {
-  /**
-   * batch size in rows to be grouped for inference
-   */
-  final val inferBatchSize = new IntParam(this, "inferBatchSize", "batch size in rows " +
-    "to be grouped for inference",
-    ParamValidators.gtEq(1))
-
-  /** @group getParam */
-  final def getInferBatchSize: Int = $(inferBatchSize)
-}
+import scala.collection.mutable.ArrayBuffer
 
 trait HasLeafPredictionCol extends Params {
   /**
@@ -111,15 +101,28 @@ trait HasValidationIndicatorCol extends Params {
 }
 
 /**
+ * A trait to hold non-xgboost parameters
+ */
+trait NonXGBoostParams extends Params {
+  private val paramNames: ArrayBuffer[String] = ArrayBuffer.empty
+
+  protected def addNonXGBoostParam(ps: Param[_]*): Unit = {
+    ps.foreach(p => paramNames.append(p.name))
+  }
+
+  protected lazy val nonXGBoostParams: Array[String] = paramNames.toSet.toArray
+}
+
+/**
  * XGBoost spark-specific parameters which should not be passed
  * into the xgboost library
  *
  * @tparam T should be the XGBoost estimators or models
  */
-private[spark] trait SparkParams[T <: Params] extends Params
-  with HasFeaturesCol with HasLabelCol with HasBaseMarginCol with HasWeightCol
-  with HasPredictionCol with HasLeafPredictionCol with HasContribPredictionCol
-  with HasInferenceSizeParams with HasValidationIndicatorCol with RabitParams {
+private[spark] trait SparkParams[T <: Params] extends HasFeaturesCol with HasLabelCol
+  with HasBaseMarginCol with HasWeightCol with HasPredictionCol with HasLeafPredictionCol
+  with HasContribPredictionCol with HasValidationIndicatorCol
+  with RabitParams with NonXGBoostParams {
 
   final val numWorkers = new IntParam(this, "numWorkers", "Number of workers used to train xgboost",
     ParamValidators.gtEq(1))
@@ -129,13 +132,25 @@ private[spark] trait SparkParams[T <: Params] extends Params
   final val numRound = new IntParam(this, "numRound", "The number of rounds for boosting",
     ParamValidators.gtEq(1))
 
-  final val earlyStoppingRounds = new IntParam(this, "earlyStoppingRounds", "Stop training when " +
-    "the loss on validation dataset starts increase (in the case of minimizing the loss)",
+  final val numEarlyStoppingRounds = new IntParam(this, "numEarlyStoppingRounds", "Stop training " +
+    "Number of rounds of decreasing eval metric to tolerate before stopping training",
+    ParamValidators.gtEq(0))
+
+  final val inferBatchSize = new IntParam(this, "inferBatchSize", "batch size in rows " +
+    "to be grouped for inference",
     ParamValidators.gtEq(1))
 
-  final def getEarlyStoppingRounds: Int = $(earlyStoppingRounds)
+  /** @group getParam */
+  final def getInferBatchSize: Int = $(inferBatchSize)
 
-  setDefault(numRound -> 100, numWorkers -> 1, inferBatchSize -> (32 << 10))
+  final def getNumEarlyStoppingRounds: Int = $(numEarlyStoppingRounds)
+
+  setDefault(numRound -> 100, numWorkers -> 1, inferBatchSize -> (32 << 10),
+    numEarlyStoppingRounds -> 0)
+
+  addNonXGBoostParam(numWorkers, numRound, numEarlyStoppingRounds, inferBatchSize, featuresCol,
+    labelCol, baseMarginCol, weightCol, predictionCol, leafPredictionCol, contribPredictionCol,
+    validationIndicatorCol)
 
   final def getNumWorkers: Int = $(numWorkers)
 
@@ -176,13 +191,15 @@ private[spark] trait SparkParams[T <: Params] extends Params
  * @tparam T should be XGBoostClassifier or XGBoostClassificationModel
  */
 private[spark] trait ClassificationParams[T <: Params] extends HasRawPredictionCol
-  with HasProbabilityCol with HasThresholds {
+  with HasProbabilityCol with HasThresholds with NonXGBoostParams {
 
   def setRawPredictionCol(value: String): T = set(rawPredictionCol, value).asInstanceOf[T]
 
   def setProbabilityCol(value: String): T = set(probabilityCol, value).asInstanceOf[T]
 
   def setThresholds(value: Array[Double]): T = set(thresholds, value).asInstanceOf[T]
+
+  addNonXGBoostParam(rawPredictionCol, probabilityCol, thresholds)
 }
 
 /**
@@ -190,8 +207,10 @@ private[spark] trait ClassificationParams[T <: Params] extends HasRawPredictionC
  *
  * @tparam T should be XGBoostRanker or XGBoostRankingModel
  */
-private[spark] trait RankerParams[T <: Params] extends HasGroupCol {
+private[spark] trait RankerParams[T <: Params] extends HasGroupCol with NonXGBoostParams {
   def setGroupCol(value: String): T = set(groupCol, value).asInstanceOf[T]
+
+  addNonXGBoostParam(groupCol)
 }
 
 /**

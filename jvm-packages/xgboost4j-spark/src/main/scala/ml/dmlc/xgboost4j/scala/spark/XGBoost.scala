@@ -39,130 +39,6 @@ private[spark] case class RuntimeParams(
                                          isLocal: Boolean,
                                          runOnGpu: Boolean)
 
-private[this] class ParamsFactory(rawParams: Map[String, Any], sc: SparkContext) {
-  private val logger = LogFactory.getLog("XGBoostSpark")
-  private val isLocal = sc.isLocal
-  private val overridedParams = overrideParams(rawParams, sc)
-
-  validateSparkSslConf()
-
-  /**
-   * Check to see if Spark expects SSL encryption (`spark.ssl.enabled` set to true).
-   * If so, throw an exception unless this safety measure has been explicitly overridden
-   * via conf `xgboost.spark.ignoreSsl`.
-   */
-  private def validateSparkSslConf(): Unit = {
-    val (sparkSslEnabled: Boolean, xgboostSparkIgnoreSsl: Boolean) =
-      SparkSession.getActiveSession match {
-        case Some(ss) =>
-          (ss.conf.getOption("spark.ssl.enabled").getOrElse("false").toBoolean,
-            ss.conf.getOption("xgboost.spark.ignoreSsl").getOrElse("false").toBoolean)
-        case None =>
-          (sc.getConf.getBoolean("spark.ssl.enabled", false),
-            sc.getConf.getBoolean("xgboost.spark.ignoreSsl", false))
-      }
-    if (sparkSslEnabled) {
-      if (xgboostSparkIgnoreSsl) {
-        logger.warn(s"spark-xgboost is being run without encrypting data in transit!  " +
-          s"Spark Conf spark.ssl.enabled=true was overridden with xgboost.spark.ignoreSsl=true.")
-      } else {
-        throw new Exception("xgboost-spark found spark.ssl.enabled=true to encrypt data " +
-          "in transit, but xgboost-spark sends non-encrypted data over the wire for efficiency. " +
-          "To override this protection and still use xgboost-spark at your own risk, " +
-          "you can set the SparkSession conf to use xgboost.spark.ignoreSsl=true.")
-      }
-    }
-  }
-
-  /**
-   * we should not include any nested structure in the output of this function as the map is
-   * eventually to be feed to xgboost4j layer
-   */
-  private def overrideParams(params: Map[String, Any],
-                             sc: SparkContext): Map[String, Any] = {
-    val coresPerTask = sc.getConf.getInt("spark.task.cpus", 1)
-    var overridedParams = params
-    if (overridedParams.contains("nthread")) {
-      val nThread = overridedParams("nthread").toString.toInt
-      require(nThread <= coresPerTask,
-        s"the nthread configuration ($nThread) must be smaller than or equal to " +
-          s"spark.task.cpus ($coresPerTask)")
-    } else {
-      overridedParams = overridedParams + ("nthread" -> coresPerTask)
-    }
-
-    val numEarlyStoppingRounds = overridedParams.getOrElse(
-      "num_early_stopping_rounds", 0).asInstanceOf[Int]
-    overridedParams += "num_early_stopping_rounds" -> numEarlyStoppingRounds
-    if (numEarlyStoppingRounds > 0 && overridedParams.getOrElse("custom_eval", null) != null) {
-      throw new IllegalArgumentException("custom_eval does not support early stopping")
-    }
-    overridedParams
-  }
-
-  /**
-   * The Map parameters accepted by estimator's constructor may have string type,
-   * Eg, Map("num_workers" -> "6", "num_round" -> 5), we need to convert these
-   * kind of parameters into the correct type in the function.
-   *
-   * @return RuntimeParams
-   */
-  def runtimeParams: RuntimeParams = {
-    val obj = overridedParams.getOrElse("custom_obj", null).asInstanceOf[ObjectiveTrait]
-    val eval = overridedParams.getOrElse("custom_eval", null).asInstanceOf[EvalTrait]
-    if (obj != null) {
-      require(overridedParams.get("objective_type").isDefined, "parameter \"objective_type\" " +
-        "is not defined, you have to specify the objective type as classification or regression" +
-        " with a customized objective function")
-    }
-
-    val nWorkers = overridedParams("num_workers").asInstanceOf[Int]
-    val round = overridedParams("num_round").asInstanceOf[Int]
-
-    val treeMethod: Option[String] = overridedParams.get("tree_method").map(_.toString)
-    val device: Option[String] = overridedParams.get("device").map(_.toString)
-    val deviceIsGpu = device.exists(_ == "cuda")
-
-    require(!(treeMethod.exists(_ == "approx") && deviceIsGpu),
-      "The tree method \"approx\" is not yet supported for Spark GPU cluster")
-
-    // back-compatible with "gpu_hist"
-    val runOnGpu = treeMethod.exists(_ == "gpu_hist") || deviceIsGpu
-
-    val trackerConf = TrackerConf(
-      overridedParams.get("rabit_tracker_timeout").asInstanceOf[Int],
-      overridedParams.get("rabit_tracker_host_ip").asInstanceOf[String],
-      overridedParams.get("rabit_tracker_port").asInstanceOf[Int],
-    )
-
-    val earlyStoppingRounds = overridedParams.getOrElse(
-      "num_early_stopping_rounds", 0).asInstanceOf[Int]
-
-    val featureNames = if (overridedParams.contains("feature_names")) {
-      Some(overridedParams("feature_names").asInstanceOf[Array[String]])
-    } else None
-    val featureTypes = if (overridedParams.contains("feature_types")) {
-      Some(overridedParams("feature_types").asInstanceOf[Array[String]])
-    } else None
-
-    val xgbExecParam = RuntimeParams(
-      nWorkers,
-      round,
-      obj,
-      eval,
-      trackerConf,
-      earlyStoppingRounds,
-      device,
-      isLocal,
-      featureNames,
-      featureTypes,
-      runOnGpu
-    )
-    xgbExecParam.setRawParamMap(overridedParams)
-    xgbExecParam
-  }
-}
-
 /**
  * A trait to manage stage-level scheduling
  */
@@ -312,9 +188,11 @@ private[spark] object XGBoost extends StageLevelScheduling {
   }
 
 
-  private def trainBooster(rabitEnv: java.util.Map[String, Object],
+  private def trainBooster(watches: Watches,
                            runtimeParams: RuntimeParams,
-                           watches: Watches): Booster = {
+                           xgboostParams: Map[String, Any],
+                           rabitEnv: java.util.Map[String, Object],
+                          ): Booster = {
     val partitionId = TaskContext.getPartitionId()
     val attempt = TaskContext.get().attemptNumber.toString
     rabitEnv.put("DMLC_TASK_ID", partitionId.toString)
@@ -325,7 +203,7 @@ private[spark] object XGBoost extends StageLevelScheduling {
       val metrics = Array.tabulate(watches.size)(_ =>
         Array.ofDim[Float](runtimeParams.numRounds))
 
-      var params = runtimeParams.toMap
+      var params = xgboostParams
 
       if (runtimeParams.runOnGpu) {
         val gpuId = if (runtimeParams.isLocal) {
@@ -352,10 +230,16 @@ private[spark] object XGBoost extends StageLevelScheduling {
 
   /**
    * Train a XGBoost booster with parameters on the dataset
+   *
+   * @param input         the input dataset for training
+   * @param runtimeParams the runtime parameters for jvm
+   * @param xgboostParams the xgboost parameters to pass to xgboost library
+   * @return the booster and the metrics
    */
-  def train(sc: SparkContext, input: RDD[Watches], runtimeParams: RuntimeParams,
-            xgboostParams: Map[String, Any]):
+  def train(input: RDD[Watches], runtimeParams: RuntimeParams, xgboostParams: Map[String, Any]):
   (Booster, Map[String, Array[Float]]) = {
+
+    val sc = input.sparkContext
     logger.info(s"Running XGBoost ${spark.VERSION} with parameters: $xgboostParams")
 
     // TODO Rabit tracker exception handling.
@@ -373,7 +257,7 @@ private[spark] object XGBoost extends StageLevelScheduling {
           val metrics = Array.tabulate(watches.size)(_ =>
             Array.ofDim[Float](runtimeParams.numRounds))
           try {
-            val booster = trainBooster(rabitEnv, runtimeParams, watches)
+            val booster = trainBooster(watches, runtimeParams, xgboostParams, rabitEnv)
             if (TaskContext.getPartitionId() == 0) {
               Iterator(booster -> watches.toMap.keys.zip(metrics).toMap)
             } else {
