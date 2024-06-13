@@ -28,26 +28,16 @@ import org.apache.spark.{SparkConf, SparkContext, TaskContext}
 import java.io.File
 
 
-private[scala] case class RuntimeParams(
+private[spark] case class RuntimeParams(
                                          numWorkers: Int,
                                          numRounds: Int,
                                          obj: ObjectiveTrait,
                                          eval: EvalTrait,
                                          trackerConf: TrackerConf,
                                          earlyStoppingRounds: Int,
-                                         device: Option[String],
+                                         device: String,
                                          isLocal: Boolean,
-                                         featureNames: Option[Array[String]],
-                                         featureTypes: Option[Array[String]],
-                                         runOnGpu: Boolean) {
-  private var rawParamMap: Map[String, Any] = _
-
-  def setRawParamMap(inputMap: Map[String, Any]) {
-    rawParamMap = inputMap
-  }
-
-  def toMap: Map[String, Any] = rawParamMap
-}
+                                         runOnGpu: Boolean)
 
 private[this] class ParamsFactory(rawParams: Map[String, Any], sc: SparkContext) {
   private val logger = LogFactory.getLog("XGBoostSpark")
@@ -363,13 +353,12 @@ private[spark] object XGBoost extends StageLevelScheduling {
   /**
    * Train a XGBoost booster with parameters on the dataset
    */
-  def train(sc: SparkContext, input: RDD[Watches], params: Map[String, Any]):
+  def train(sc: SparkContext, input: RDD[Watches], runtimeParams: RuntimeParams,
+            xgboostParams: Map[String, Any]):
   (Booster, Map[String, Array[Float]]) = {
-    logger.info(s"Running XGBoost ${spark.VERSION}")
+    logger.info(s"Running XGBoost ${spark.VERSION} with parameters: $xgboostParams")
 
-    val paramsFactory = new ParamsFactory(params, sc)
-    val runtimeParams = paramsFactory.runtimeParams
-
+    // TODO Rabit tracker exception handling.
     try {
       withTracker(
         runtimeParams.numWorkers,
@@ -466,8 +455,4 @@ class Watches private[scala](
  * @param port    The port number for the tracker to listen to. Use a system allocated one by
  *                default.
  */
-case class TrackerConf(timeout: Int, hostIp: String = "", port: Int = 0)
-
-object TrackerConf {
-  def apply(): TrackerConf = TrackerConf(0)
-}
+private[spark] case class TrackerConf(timeout: Int = 0, hostIp: String = "", port: Int = 0)

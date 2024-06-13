@@ -28,7 +28,7 @@ private[spark] trait ParamMapConversion extends Params {
    *
    * @param xgboostParams XGBoost style parameters
    */
-  def XGBoost2SparkParams(xgboostParams: Map[String, Any]): Unit = {
+  def xgboost2SparkParams(xgboostParams: Map[String, Any]): Unit = {
     for ((paramName, paramValue) <- xgboostParams) {
       val name = CaseFormat.LOWER_UNDERSCORE.to(CaseFormat.LOWER_CAMEL, paramName)
       params.find(_.name == name).foreach {
@@ -50,8 +50,10 @@ private[spark] trait ParamMapConversion extends Params {
 
   /**
    * Convert the user-supplied parameters to the XGBoost parameters.
+   *
+   * Note that this also contains jvm-specific parameters.
    */
-  def Spark2XGBoostParams: Map[String, Any] = {
+  def spark2XGBoostParams: Map[String, Any] = {
     val xgboostParams = new mutable.HashMap[String, Any]()
 
     // Only pass user-supplied parameters to xgboost.

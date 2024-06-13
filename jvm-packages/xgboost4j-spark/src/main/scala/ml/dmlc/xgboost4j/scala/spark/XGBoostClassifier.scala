@@ -25,11 +25,20 @@ import org.apache.spark.sql.functions.{col, udf}
 
 import scala.collection.mutable
 
-class XGBoostClassifier(override val uid: String)
+class XGBoostClassifier(override val uid: String,
+                        private[spark] val xgboostParams: Map[String, Any])
   extends XGBoostEstimator[XGBoostClassifier, XGBoostClassificationModel]
     with ClassificationParams[XGBoostClassifier] with DefaultParamsWritable {
 
-  def this() = this(Identifiable.randomUID("xgbc"))
+  private val XGBC_UID = Identifiable.randomUID("xgbc")
+
+  def this() = this(Identifiable.randomUID("xgbc"), Map.empty)
+
+  def this(uid: String) = this(uid, Map.empty)
+
+  def this(xgboostParams: Map[String, Any]) = this(Identifiable.randomUID("xgbc"), xgboostParams)
+
+  xgboost2SparkParams(xgboostParams)
 
   override protected def createModel(booster: Booster, summary: XGBoostTrainingSummary):
   XGBoostClassificationModel = {

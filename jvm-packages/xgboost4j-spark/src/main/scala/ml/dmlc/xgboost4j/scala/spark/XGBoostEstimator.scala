@@ -16,7 +16,7 @@
 
 package ml.dmlc.xgboost4j.scala.spark
 
-import ml.dmlc.xgboost4j.scala.spark.params.{ClassificationParams, HasGroupCol, SparkParams, XGBoostParams}
+import ml.dmlc.xgboost4j.scala.spark.params.{ClassificationParams, HasGroupCol, ParamMapConversion, SparkParams, XGBoostParams}
 import ml.dmlc.xgboost4j.scala.spark.util.DataUtils.MLVectorToXGBLabeledPoint
 import ml.dmlc.xgboost4j.scala.spark.util.Utils
 import ml.dmlc.xgboost4j.scala.{Booster, DMatrix}
@@ -44,9 +44,10 @@ private case class ColumnIndexes(label: String, features: String,
 private[spark] abstract class XGBoostEstimator[
   Learner <: XGBoostEstimator[Learner, M],
   M <: XGBoostModel[M]
-] extends Estimator[M] with XGBoostParams[Learner] with SparkParams[Learner] {
+] extends Estimator[M] with XGBoostParams[Learner] with SparkParams[Learner]
+  with ParamMapConversion {
 
-   /**
+  /**
    * Pre-convert input double data to floats to align with XGBoost's internal float-based
    * operations to save memory usage.
    *
@@ -217,16 +218,28 @@ private[spark] abstract class XGBoostEstimator[
 
   protected def createModel(booster: Booster, summary: XGBoostTrainingSummary): M
 
+  def getRuntimeParameters(isLocal: Boolean): RuntimeParams = {
+    val runOnGpu = false
+    RuntimeParams(
+      getNumWorkers,
+      getNumRound,
+      null, // TODO support ObjectiveTrait
+      null, // TODO support EvalTrait
+      TrackerConf(getRabitTrackerTimeout, getRabitTrackerHostIp, getRabitTrackerPort),
+      getEarlyStoppingRounds,
+      getDevice,
+      isLocal,
+      runOnGpu,
+    )
+  }
+
   override def fit(dataset: Dataset[_]): M = {
     val (input, columnIndexes) = preprocess(dataset)
     val rdd = toRdd(input, columnIndexes)
 
-    val paramMap = Map(
-      "num_workers" -> 1,
-      "num_round" -> 100,
-      "objective" -> "multi:softprob",
-      "num_class" -> 3,
-    )
+    val paramMap = spark2XGBoostParams
+
+    val runtimeParams = getRuntimeParameters(dataset.sparkSession.sparkContext.isLocal)
 
     val (booster, metrics) = XGBoost.train(
       dataset.sparkSession.sparkContext, rdd, paramMap)

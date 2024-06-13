@@ -119,7 +119,7 @@ trait HasValidationIndicatorCol extends Params {
 private[spark] trait SparkParams[T <: Params] extends Params
   with HasFeaturesCol with HasLabelCol with HasBaseMarginCol with HasWeightCol
   with HasPredictionCol with HasLeafPredictionCol with HasContribPredictionCol
-  with HasInferenceSizeParams with HasValidationIndicatorCol {
+  with HasInferenceSizeParams with HasValidationIndicatorCol with RabitParams {
 
   final val numWorkers = new IntParam(this, "numWorkers", "Number of workers used to train xgboost",
     ParamValidators.gtEq(1))
@@ -128,6 +128,12 @@ private[spark] trait SparkParams[T <: Params] extends Params
 
   final val numRound = new IntParam(this, "numRound", "The number of rounds for boosting",
     ParamValidators.gtEq(1))
+
+  final val earlyStoppingRounds = new IntParam(this, "earlyStoppingRounds", "Stop training when " +
+    "the loss on validation dataset starts increase (in the case of minimizing the loss)",
+    ParamValidators.gtEq(1))
+
+  final def getEarlyStoppingRounds: Int = $(earlyStoppingRounds)
 
   setDefault(numRound -> 100, numWorkers -> 1, inferBatchSize -> (32 << 10))
 
@@ -155,6 +161,12 @@ private[spark] trait SparkParams[T <: Params] extends Params
 
   def setValidationIndicatorCol(value: String): T =
     set(validationIndicatorCol, value).asInstanceOf[T]
+
+  def setRabitTrackerTimeout(value: Int): T = set(rabitTrackerTimeout, value).asInstanceOf[T]
+
+  def setRabitTrackerHostIp(value: String): T = set(rabitTrackerHostIp, value).asInstanceOf[T]
+
+  def setRabitTrackerPort(value: Int): T = set(rabitTrackerPort, value).asInstanceOf[T]
 }
 
 /**
@@ -188,6 +200,6 @@ private[spark] trait RankerParams[T <: Params] extends HasGroupCol {
  * @tparam T should be the XGBoost estimators or models
  */
 private[spark] trait XGBoostParams[T <: Params] extends TreeBoosterParams
-  with LearningTaskParams {
+  with LearningTaskParams with GeneralParams with DartBoosterParams {
 
 }
