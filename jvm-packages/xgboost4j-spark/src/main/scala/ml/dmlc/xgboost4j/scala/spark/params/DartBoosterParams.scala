@@ -47,7 +47,7 @@ private[spark] trait DartBoosterParams extends Params {
 
   final def getRateDrop: Double = $(rateDrop)
 
-  final val oneDrop = new Param[Boolean](this, "oneDrop", "When this flag is enabled, at least " +
+  final val oneDrop = new BooleanParam(this, "oneDrop", "When this flag is enabled, at least " +
     "one tree is always dropped during the dropout (allows Binomial-plus-one or epsilon-dropout " +
     "from the original DART paper)")
 

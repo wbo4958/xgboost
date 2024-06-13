@@ -47,6 +47,8 @@ class NewXGBoostClassifierSuite extends AnyFunSuite with PerTest with TmpFolderP
 
     val est = new XGBoostClassifier()
       .setNumWorkers(1)
+      .setNumRound(2)
+      .setMaxDepth(2)
 //      .setWeightCol("weight")
 //      .setBaseMarginCol("base_margin")
       .setLabelCol(labelCol)
@@ -58,6 +60,8 @@ class NewXGBoostClassifierSuite extends AnyFunSuite with PerTest with TmpFolderP
 //      .setLeafPredictionCol("leaf")
     //    val est = new XGBoostClassifier().setLabelCol(labelCol)
     //    est.fit(arrayInput)
+    est.write.overwrite().save("/tmp/abcdef")
+    val loadedEst = XGBoostClassifier.load("/tmp/abcdef")
     val model = est.fit(dataset)
     model.transform(dataset).drop(features: _*).show(150, false)
   }

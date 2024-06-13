@@ -59,7 +59,7 @@ private[spark] trait LearningTaskParams extends Params {
 
   final def getSeed: Long = $(seed)
 
-  final val seedPerIteration = new Param[Boolean](this, "seed_per_iteration", "Seed PRNG " +
+  final val seedPerIteration = new BooleanParam(this, "seed_per_iteration", "Seed PRNG " +
     "determnisticly via iterator number..")
 
   final def getSeedPerIteration: Boolean = $(seedPerIteration)
@@ -102,7 +102,7 @@ private[spark] trait LearningTaskParams extends Params {
 
   final def getLambdarankNumPairPerSample: Double = $(lambdarankNumPairPerSample)
 
-  final val lambdarankUnbiased = new Param[Boolean](this, "lambdarankUnbiased", "Specify " +
+  final val lambdarankUnbiased = new BooleanParam(this, "lambdarankUnbiased", "Specify " +
     "whether do we need to debias input click data.")
 
   final def getLambdarankUnbiased: Boolean = $(lambdarankUnbiased)
@@ -113,7 +113,7 @@ private[spark] trait LearningTaskParams extends Params {
 
   final def getLambdarankBiasNorm: Double = $(lambdarankBiasNorm)
 
-  final val ndcgExpGain = new Param[Boolean](this, "ndcgExpGain", "Whether we should " +
+  final val ndcgExpGain = new BooleanParam(this, "ndcgExpGain", "Whether we should " +
     "use exponential gain function for NDCG.")
 
   final def getNdcgExpGain: Boolean = $(ndcgExpGain)

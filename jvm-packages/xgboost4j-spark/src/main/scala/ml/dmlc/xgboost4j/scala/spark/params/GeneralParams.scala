@@ -44,7 +44,7 @@ private[spark] trait GeneralParams extends Params {
 
   final def getVerbosity: Int = $(verbosity)
 
-  final val validateParameters = new Param[Boolean](this, "validateParameters", "When set to " +
+  final val validateParameters = new BooleanParam(this, "validateParameters", "When set to " +
     "True, XGBoost will perform validation of input parameters to check whether a parameter " +
     "is used or not. A warning is emitted when there's unknown parameter.")
 

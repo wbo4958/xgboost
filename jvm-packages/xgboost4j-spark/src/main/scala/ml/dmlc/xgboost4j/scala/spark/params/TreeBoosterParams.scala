@@ -55,8 +55,6 @@ private[spark] trait TreeBoosterParams extends Params {
 
   final def getMaxDepth: Int = $(maxDepth)
 
-  def setMaxDepth(value: Int): this.type = set(maxDepth, value)
-
   final val minChildWeight = new DoubleParam(this, "minChildWeight", "Minimum sum of instance " +
     "weight (hessian) needed in a child. If the tree partition step results in a leaf node " +
     "with the sum of instance weight less than min_child_weight, then the building process " +
@@ -180,7 +178,7 @@ private[spark] trait TreeBoosterParams extends Params {
 
   final def getUpdater: String = $(updater)
 
-  final val refreshLeaf = new Param[Boolean](this, "refreshLeaf", "This is a parameter of the " +
+  final val refreshLeaf = new BooleanParam(this, "refreshLeaf", "This is a parameter of the " +
     "refresh updater. When this flag is 1, tree leafs as well as tree nodes' stats are updated. " +
     "When it is 0, only node stats are updated.")
 

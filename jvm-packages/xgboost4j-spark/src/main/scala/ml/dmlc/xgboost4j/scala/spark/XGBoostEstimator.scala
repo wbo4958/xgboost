@@ -24,6 +24,7 @@ import ml.dmlc.xgboost4j.{LabeledPoint => XGBLabeledPoint}
 import org.apache.commons.logging.LogFactory
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.param.ParamMap
+import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, MLWriter}
 import org.apache.spark.ml.xgboost.SparkUtils
 import org.apache.spark.ml.{Estimator, Model}
 import org.apache.spark.rdd.RDD
@@ -46,7 +47,7 @@ private[spark] abstract class XGBoostEstimator[
   Learner <: XGBoostEstimator[Learner, M],
   M <: XGBoostModel[M]
 ] extends Estimator[M] with XGBoostParams[Learner] with SparkParams[Learner]
-  with ParamMapConversion {
+  with ParamMapConversion with DefaultParamsWritable {
 
   protected val logger = LogFactory.getLog("XGBoostSpark")
 
@@ -316,6 +317,7 @@ private[spark] abstract class XGBoostEstimator[
 
   // Not used in XGBoost
   override def transformSchema(schema: StructType): StructType = schema
+
 }
 
 private[spark] abstract

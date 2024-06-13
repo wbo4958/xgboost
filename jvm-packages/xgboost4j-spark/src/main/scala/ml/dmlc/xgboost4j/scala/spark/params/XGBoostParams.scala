@@ -226,4 +226,7 @@ private[spark] trait XGBoostParams[T <: Params] extends TreeBoosterParams
   def setNumClass(value: Int): T = set(numClass, value).asInstanceOf[T]
 
   def setNthread(value: Int): T = set(nthread, value).asInstanceOf[T]
+
+  def setMaxDepth(value: Int): T = set(maxDepth, value).asInstanceOf[T]
+
 }

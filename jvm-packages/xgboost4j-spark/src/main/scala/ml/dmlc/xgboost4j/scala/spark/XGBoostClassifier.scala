@@ -19,7 +19,7 @@ package ml.dmlc.xgboost4j.scala.spark
 import ml.dmlc.xgboost4j.scala.Booster
 import ml.dmlc.xgboost4j.scala.spark.params.ClassificationParams
 import org.apache.spark.ml.linalg.{Vector, Vectors}
-import org.apache.spark.ml.util.{DatasetUtils, DefaultParamsWritable, Identifiable}
+import org.apache.spark.ml.util.{DatasetUtils, DefaultParamsReadable, DefaultParamsWritable, Identifiable}
 import org.apache.spark.ml.xgboost.SparkUtils
 import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.functions.{col, udf}
@@ -29,7 +29,7 @@ import scala.collection.mutable
 class XGBoostClassifier(override val uid: String,
                         private[spark] val xgboostParams: Map[String, Any])
   extends XGBoostEstimator[XGBoostClassifier, XGBoostClassificationModel]
-    with ClassificationParams[XGBoostClassifier] with DefaultParamsWritable {
+    with ClassificationParams[XGBoostClassifier] {
 
   def this() = this(Identifiable.randomUID("xgbc"), Map.empty)
 
@@ -82,6 +82,9 @@ class XGBoostClassifier(override val uid: String,
   }
 }
 
+object XGBoostClassifier extends DefaultParamsReadable[XGBoostClassifier] {
+  override def load(path: String): XGBoostClassifier = super.load(path)
+}
 
 class XGBoostClassificationModel(
                                   uid: String,
