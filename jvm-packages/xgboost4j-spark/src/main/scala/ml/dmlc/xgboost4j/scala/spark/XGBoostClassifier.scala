@@ -42,8 +42,8 @@ class XGBoostClassifier(override val uid: String,
   /**
    * Validate the parameters before training, throw exception if possible
    */
-  override protected def validateParameters(dataset: Dataset[_]): Unit = {
-    super.validateParameters(dataset)
+  override protected def validate(dataset: Dataset[_]): Unit = {
+    super.validate(dataset)
 
     // The default objective is for regression case.
     val obj = if (isSet(objective)) {

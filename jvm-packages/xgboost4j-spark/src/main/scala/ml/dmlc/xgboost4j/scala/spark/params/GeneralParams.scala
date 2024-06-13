@@ -44,11 +44,17 @@ private[spark] trait GeneralParams extends Params {
 
   final def getVerbosity: Int = $(verbosity)
 
+  final val validateParameters = new Param[Boolean](this, "validateParameters", "When set to " +
+    "True, XGBoost will perform validation of input parameters to check whether a parameter " +
+    "is used or not. A warning is emitted when there's unknown parameter.")
+
+  final def getValidateParameters: Boolean = $(validateParameters)
+
   final val nthread = new IntParam(this, "nthread", "Number of threads used by per worker",
     ParamValidators.gtEq(1))
 
   final def getNthread: Int = $(nthread)
 
-  setDefault(booster -> "gbtree", device -> "cpu", verbosity -> 1, nthread->1)
+  setDefault(booster -> "gbtree", device -> "cpu", verbosity -> 1, validateParameters -> false,
+    nthread -> 1)
 }
-

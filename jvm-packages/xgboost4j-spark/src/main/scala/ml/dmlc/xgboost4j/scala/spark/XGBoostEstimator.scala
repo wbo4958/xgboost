@@ -28,7 +28,7 @@ import org.apache.spark.ml.xgboost.SparkUtils
 import org.apache.spark.ml.{Estimator, Model}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
-import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.functions.{col, current_schema}
 import org.apache.spark.sql.types.{ArrayType, FloatType, StructField, StructType}
 
 import scala.collection.mutable.ArrayBuffer
@@ -264,12 +264,40 @@ private[spark] abstract class XGBoostEstimator[
   /**
    * Validate the parameters before training, throw exception if possible
    */
-  protected def validateParameters(dataset: Dataset[_]): Unit = {
+  protected def validate(dataset: Dataset[_]): Unit = {
     validateSparkSslConf(dataset.sparkSession)
+    val schema = dataset.schema
+    SparkUtils.checkNumericType(schema, $(labelCol))
+    if (isDefined(weightCol) && $(weightCol).nonEmpty) {
+      SparkUtils.checkNumericType(schema, $(weightCol))
+    }
+
+    if (isDefined(baseMarginCol) && $(baseMarginCol).nonEmpty) {
+      SparkUtils.checkNumericType(schema, $(baseMarginCol))
+    }
+
+    // TODO Move this to XGBoostRanker
+    this match {
+      case p: HasGroupCol =>
+        if (isDefined(p.groupCol) && $(p.groupCol).nonEmpty) {
+          SparkUtils.checkNumericType(schema, p.getGroupCol)
+        }
+    }
+
+    val taskCpus = dataset.sparkSession.sparkContext.getConf.getInt("spark.task.cpus", 1)
+    if (isDefined(nthread)) {
+      if (getNthread > taskCpus) {
+        logger.warn("nthread must be smaller or equal to spark.task.cpus.")
+        setNthread(taskCpus)
+      }
+    } else {
+      setNthread(taskCpus)
+    }
+
   }
 
   override def fit(dataset: Dataset[_]): M = {
-    validateParameters(dataset)
+    validate(dataset)
 
     val (input, columnIndexes) = preprocess(dataset)
     val rdd = toRdd(input, columnIndexes)
@@ -286,20 +314,8 @@ private[spark] abstract class XGBoostEstimator[
 
   override def copy(extra: ParamMap): Learner = defaultCopy(extra)
 
-  override def transformSchema(schema: StructType): StructType = {
-    SparkUtils.checkNumericType(schema, $(labelCol))
-    if (isDefined(weightCol) && $(weightCol).nonEmpty) {
-      SparkUtils.checkNumericType(schema, $(weightCol))
-    }
-    this match {
-      case p: HasGroupCol =>
-        if (isDefined(p.groupCol) && $(p.groupCol).nonEmpty) {
-          SparkUtils.checkNumericType(schema, p.getGroupCol)
-        }
-    }
-    schema
-  }
-
+  // Not used in XGBoost
+  override def transformSchema(schema: StructType): StructType = schema
 }
 
 private[spark] abstract
@@ -322,6 +338,7 @@ class XGBoostModel[M <: XGBoostModel[M]](
 
   def summary: XGBoostTrainingSummary = trainingSummary
 
+  // Not used in XGBoost
   override def transformSchema(schema: StructType): StructType = schema
 
   def postTransform(dataset: Dataset[_]): Dataset[_] = dataset
@@ -329,7 +346,6 @@ class XGBoostModel[M <: XGBoostModel[M]](
   override def transform(dataset: Dataset[_]): DataFrame = {
 
     val spark = dataset.sparkSession
-    val outputSchema = transformSchema(dataset.schema, logging = true)
 
     // Be careful about the order of columns
     var schema = dataset.schema
