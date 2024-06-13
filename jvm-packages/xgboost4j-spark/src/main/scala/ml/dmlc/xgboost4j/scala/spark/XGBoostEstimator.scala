@@ -16,21 +16,23 @@
 
 package ml.dmlc.xgboost4j.scala.spark
 
+import ml.dmlc.xgboost4j.java.{Booster => JBooster}
+import ml.dmlc.xgboost4j.scala.{Booster, DMatrix, XGBoost => SXGBoost}
 import ml.dmlc.xgboost4j.scala.spark.params.{ClassificationParams, HasGroupCol, ParamMapConversion, SparkParams, XGBoostParams}
 import ml.dmlc.xgboost4j.scala.spark.util.DataUtils.MLVectorToXGBLabeledPoint
 import ml.dmlc.xgboost4j.scala.spark.util.Utils
-import ml.dmlc.xgboost4j.scala.{Booster, DMatrix}
 import ml.dmlc.xgboost4j.{LabeledPoint => XGBLabeledPoint}
 import org.apache.commons.logging.LogFactory
+import org.apache.hadoop.fs.Path
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.param.ParamMap
-import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, MLWriter}
+import org.apache.spark.ml.util.{DefaultParamsWritable, MLReader, MLWritable, MLWriter}
 import org.apache.spark.ml.xgboost.SparkUtils
 import org.apache.spark.ml.{Estimator, Model}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions.col
-import org.apache.spark.sql.types.{ArrayType, FloatType, StructField, StructType}
+import org.apache.spark.sql.types.{ArrayType, FloatType, Metadata, StructField, StructType}
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -278,12 +280,12 @@ private[spark] abstract class XGBoostEstimator[
     }
 
     // TODO Move this to XGBoostRanker
-//    this match {
-//      case p: HasGroupCol =>
-//        if (isDefined(p.groupCol) && $(p.groupCol).nonEmpty) {
-//          SparkUtils.checkNumericType(schema, p.getGroupCol)
-//        }
-//    }
+    //    this match {
+    //      case p: HasGroupCol =>
+    //        if (isDefined(p.groupCol) && $(p.groupCol).nonEmpty) {
+    //          SparkUtils.checkNumericType(schema, p.getGroupCol)
+    //        }
+    //    }
 
     val taskCpus = dataset.sparkSession.sparkContext.getConf.getInt("spark.task.cpus", 1)
     if (isDefined(nthread)) {
@@ -324,8 +326,8 @@ private[spark] abstract
 class XGBoostModel[M <: XGBoostModel[M]](
                                           override val uid: String,
                                           private val model: Booster,
-                                          private val trainingSummary: XGBoostTrainingSummary)
-  extends Model[M] with XGBoostParams[M] with SparkParams[M] {
+                                          private val trainingSummary: Option[XGBoostTrainingSummary])
+  extends Model[M] with MLWritable with XGBoostParams[M] with SparkParams[M] {
 
   protected val TMP_TRANSFORMED_COL = "_tmp_xgb_transformed_col"
 
@@ -338,7 +340,9 @@ class XGBoostModel[M <: XGBoostModel[M]](
    */
   def nativeBooster: Booster = model
 
-  def summary: XGBoostTrainingSummary = trainingSummary
+  def summary: XGBoostTrainingSummary = trainingSummary.getOrElse {
+    throw new IllegalStateException("No training summary available for this XGBoostModel")
+  }
 
   // Not used in XGBoost
   override def transformSchema(schema: StructType): StructType = schema
@@ -440,4 +444,39 @@ class XGBoostModel[M <: XGBoostModel[M]](
     postTransform(outputData).toDF()
   }
 
+  override def write: MLWriter = new XGBoostModelWriter[XGBoostModel[_]](this)
+}
+
+/**
+ * Class to write the model
+ * @param instance model to be written
+ */
+private[spark] class XGBoostModelWriter[M <: XGBoostModel[M]](instance: M) extends MLWriter {
+  override protected def saveImpl(path: String): Unit = {
+    SparkUtils.saveMetadata(instance, path, sc)
+
+    // Save model data
+    val dataPath = new Path(path, "data").toString
+    val internalPath = new Path(dataPath, "model." + JBooster.DEFAULT_FORMAT)
+    val outputStream = internalPath.getFileSystem(sc.hadoopConfiguration).create(internalPath)
+    try {
+      instance.nativeBooster.saveModel(outputStream, JBooster.DEFAULT_FORMAT)
+    } finally {
+      outputStream.close()
+    }
+  }
+}
+
+private[spark] abstract class XGBoostModelReader[M <: XGBoostModel[M]] extends MLReader[M] {
+
+  protected def loadBooster(path: String): Booster = {
+    val dataPath = new Path(path, "data").toString
+    val internalPath = new Path(dataPath, "model")
+    val dataInStream = internalPath.getFileSystem(sc.hadoopConfiguration).open(internalPath)
+    try {
+      SXGBoost.loadModel(dataInStream)
+    } finally {
+      dataInStream.close()
+    }
+  }
 }

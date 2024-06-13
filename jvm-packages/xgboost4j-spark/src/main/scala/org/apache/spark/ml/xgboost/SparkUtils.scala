@@ -16,9 +16,13 @@
 
 package org.apache.spark.ml.xgboost
 
-import org.apache.spark.ml.util.{DatasetUtils, SchemaUtils}
+import org.apache.spark.SparkContext
+import org.apache.spark.ml.param.Params
+import org.apache.spark.ml.util.DefaultParamsReader.Metadata
+import org.apache.spark.ml.util.{DatasetUtils, DefaultParamsReader, DefaultParamsWriter, SchemaUtils}
 import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.types.StructType
+import org.json4s.{JObject, JValue}
 
 object SparkUtils {
 
@@ -26,11 +30,22 @@ object SparkUtils {
     DatasetUtils.getNumClasses(dataset, labelCol, maxNumClasses)
   }
 
-  def checkNumericType(
-                        schema: StructType,
-                        colName: String,
-                        msg: String = ""): Unit = {
+  def checkNumericType(schema: StructType, colName: String, msg: String = ""): Unit = {
     SchemaUtils.checkNumericType(schema, colName, msg)
   }
+
+  def saveMetadata(
+                    instance: Params,
+                    path: String,
+                    sc: SparkContext,
+                    extraMetadata: Option[JObject] = None,
+                    paramMap: Option[JValue] = None): Unit = {
+    DefaultParamsWriter.saveMetadata(instance, path, sc, extraMetadata, paramMap)
+  }
+
+  def loadMetadata(path: String, sc: SparkContext, expectedClassName: String = ""): Metadata = {
+    DefaultParamsReader.loadMetadata(path, sc, expectedClassName)
+  }
+
 
 }

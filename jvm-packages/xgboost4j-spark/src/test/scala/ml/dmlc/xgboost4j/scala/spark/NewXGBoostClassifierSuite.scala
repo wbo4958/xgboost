@@ -26,8 +26,8 @@ class NewXGBoostClassifierSuite extends AnyFunSuite with PerTest with TmpFolderP
 
     val features = df.schema.names.filter(_ != labelCol)
 
-//    df = df.withColumn("base_margin", lit(20))
-//      .withColumn("weight", rand(1))
+    //    df = df.withColumn("base_margin", lit(20))
+    //      .withColumn("weight", rand(1))
 
     var Array(trainDf, validationDf) = df.randomSplit(Array(0.8, 0.2), seed = 1)
 
@@ -42,27 +42,28 @@ class NewXGBoostClassifierSuite extends AnyFunSuite with PerTest with TmpFolderP
       .setOutputCol("features")
     val dataset = assembler.transform(df)
 
-//    val arrayInput = df.select(array(features.map(col(_)): _*).as("features"),
-//      col("label"), col("base_margin"))
+    //    val arrayInput = df.select(array(features.map(col(_)): _*).as("features"),
+    //      col("label"), col("base_margin"))
 
     val est = new XGBoostClassifier()
       .setNumWorkers(1)
       .setNumRound(2)
       .setMaxDepth(2)
-//      .setWeightCol("weight")
-//      .setBaseMarginCol("base_margin")
+      //      .setWeightCol("weight")
+      //      .setBaseMarginCol("base_margin")
       .setLabelCol(labelCol)
       .setValidationIndicatorCol("validation")
-//      .setPredictionCol("")
+      //      .setPredictionCol("")
       .setRawPredictionCol("")
       .setProbabilityCol("xxxx")
-//      .setContribPredictionCol("contrb")
-//      .setLeafPredictionCol("leaf")
+    //      .setContribPredictionCol("contrb")
+    //      .setLeafPredictionCol("leaf")
     //    val est = new XGBoostClassifier().setLabelCol(labelCol)
     //    est.fit(arrayInput)
     est.write.overwrite().save("/tmp/abcdef")
     val loadedEst = XGBoostClassifier.load("/tmp/abcdef")
-    val model = est.fit(dataset)
+
+    val model = loadedEst.fit(dataset)
     model.transform(dataset).drop(features: _*).show(150, false)
   }
 

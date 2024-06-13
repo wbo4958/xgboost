@@ -19,7 +19,7 @@ package ml.dmlc.xgboost4j.scala.spark
 import ml.dmlc.xgboost4j.scala.Booster
 import ml.dmlc.xgboost4j.scala.spark.params.ClassificationParams
 import org.apache.spark.ml.linalg.{Vector, Vectors}
-import org.apache.spark.ml.util.{DatasetUtils, DefaultParamsReadable, DefaultParamsWritable, Identifiable}
+import org.apache.spark.ml.util.{DatasetUtils, DefaultParamsReadable, DefaultParamsWritable, Identifiable, MLReadable, MLReader}
 import org.apache.spark.ml.xgboost.SparkUtils
 import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.functions.{col, udf}
@@ -78,7 +78,7 @@ class XGBoostClassifier(override val uid: String,
 
   override protected def createModel(booster: Booster, summary: XGBoostTrainingSummary):
   XGBoostClassificationModel = {
-    new XGBoostClassificationModel(uid, booster, summary)
+    new XGBoostClassificationModel(uid, booster, Some(summary))
   }
 }
 
@@ -89,7 +89,7 @@ object XGBoostClassifier extends DefaultParamsReadable[XGBoostClassifier] {
 class XGBoostClassificationModel(
                                   uid: String,
                                   booster: Booster,
-                                  trainingSummary: XGBoostTrainingSummary
+                                  trainingSummary: Option[XGBoostTrainingSummary] = None
                                 )
   extends XGBoostModel[XGBoostClassificationModel](uid, booster, trainingSummary)
     with ClassificationParams[XGBoostClassificationModel] {
@@ -133,5 +133,18 @@ class XGBoostClassificationModel(
       output = output.withColumnRenamed(TMP_TRANSFORMED_COL, getProbabilityCol)
     }
     output.drop(TMP_TRANSFORMED_COL)
+  }
+}
+
+object XGBoostClassificationModel extends MLReadable[XGBoostClassificationModel] {
+
+  override def read: MLReader[XGBoostClassificationModel] = new ModelReader
+
+  private class ModelReader extends XGBoostModelReader[XGBoostClassificationModel] {
+    override def load(path: String): XGBoostClassificationModel = {
+      val model = loadBooster(path)
+      val meta = SparkUtils.loadMetadata(path, sc)
+      new XGBoostClassificationModel(meta.uid, model)
+    }
   }
 }
