@@ -243,69 +243,50 @@ private[spark] object XGBoost extends StageLevelScheduling {
     logger.info(s"Running XGBoost ${spark.VERSION} with parameters: $xgboostParams")
 
     // TODO Rabit tracker exception handling.
+    val trackerConf = runtimeParams.trackerConf
+
+    val tracker = new RabitTracker(runtimeParams.numWorkers,
+      trackerConf.hostIp, trackerConf.port, trackerConf.timeout)
+    require(tracker.start(), "FAULT: Failed to start tracker")
+
     try {
-      withTracker(
-        runtimeParams.numWorkers,
-        runtimeParams.trackerConf
-      ) { tracker =>
-        val rabitEnv = tracker.getWorkerArgs()
+      val rabitEnv = tracker.getWorkerArgs()
 
-        val boostersAndMetrics = input.barrier().mapPartitions { iter =>
-          require(iter.hasNext, "Couldn't get DMatrix")
-          val watches = iter.next()
+      val boostersAndMetrics = input.barrier().mapPartitions { iter =>
+        require(iter.hasNext, "Couldn't get DMatrix")
+        val watches = iter.next()
 
-          val metrics = Array.tabulate(watches.size)(_ =>
-            Array.ofDim[Float](runtimeParams.numRounds))
-          try {
-            val booster = trainBooster(watches, runtimeParams, xgboostParams, rabitEnv)
-            if (TaskContext.getPartitionId() == 0) {
-              Iterator(booster -> watches.toMap.keys.zip(metrics).toMap)
-            } else {
-              Iterator.empty
-            }
-          } finally {
-            if (watches != null) {
-              watches.delete()
-            }
+        val metrics = Array.tabulate(watches.size)(_ =>
+          Array.ofDim[Float](runtimeParams.numRounds))
+        try {
+          val booster = trainBooster(watches, runtimeParams, xgboostParams, rabitEnv)
+          if (TaskContext.getPartitionId() == 0) {
+            Iterator(booster -> watches.toMap.keys.zip(metrics).toMap)
+          } else {
+            Iterator.empty
+          }
+        } finally {
+          if (watches != null) {
+            watches.delete()
           }
         }
-
-        val rdd = tryStageLevelScheduling(sc, runtimeParams, boostersAndMetrics)
-        // The repartition step is to make training stage as ShuffleMapStage, so that when one
-        // of the training task fails the training stage can retry. ResultStage won't retry when
-        // it fails.
-        val (booster, metrics) = rdd.repartition(1).collect()(0)
-        (booster, metrics)
       }
+
+      val rdd = tryStageLevelScheduling(sc, runtimeParams, boostersAndMetrics)
+      // The repartition step is to make training stage as ShuffleMapStage, so that when one
+      // of the training task fails the training stage can retry. ResultStage won't retry when
+      // it fails.
+      val (booster, metrics) = rdd.repartition(1).collect()(0)
+      (booster, metrics)
     } catch {
       case t: Throwable =>
         // if the job was aborted due to an exception
         logger.error("XGBoost job was aborted due to ", t)
         throw t
-    }
-  }
-
-
-  // Executes the provided code block inside a tracker and then stops the tracker
-  private def withTracker[T](nWorkers: Int, conf: TrackerConf)(block: ITracker => T): T = {
-    val tracker = new RabitTracker(nWorkers, conf.hostIp, conf.port, conf.timeout)
-    require(tracker.start(), "FAULT: Failed to start tracker")
-    try {
-      block(tracker)
-    } catch {
-      case t: Throwable =>
-        logger.error(t)
-        throw t
     } finally {
-      try {
-        tracker.stop()
-      } catch {
-        // swallow the exception from stop
-        case _ => logger.error("Failed to stop tracker ...")
-      }
+      tracker.stop()
     }
   }
-
 }
 
 class Watches private[scala](

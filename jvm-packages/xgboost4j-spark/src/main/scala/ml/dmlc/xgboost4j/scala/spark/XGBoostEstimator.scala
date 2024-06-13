@@ -277,12 +277,12 @@ private[spark] abstract class XGBoostEstimator[
     }
 
     // TODO Move this to XGBoostRanker
-    this match {
-      case p: HasGroupCol =>
-        if (isDefined(p.groupCol) && $(p.groupCol).nonEmpty) {
-          SparkUtils.checkNumericType(schema, p.getGroupCol)
-        }
-    }
+//    this match {
+//      case p: HasGroupCol =>
+//        if (isDefined(p.groupCol) && $(p.groupCol).nonEmpty) {
+//          SparkUtils.checkNumericType(schema, p.getGroupCol)
+//        }
+//    }
 
     val taskCpus = dataset.sparkSession.sparkContext.getConf.getInt("spark.task.cpus", 1)
     if (isDefined(nthread)) {
