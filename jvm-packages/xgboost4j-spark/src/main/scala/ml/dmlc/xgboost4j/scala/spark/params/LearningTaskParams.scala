@@ -34,6 +34,11 @@ private[spark] trait LearningTaskParams extends Params {
 
   final def getObjective: String = $(objective)
 
+  final val numClass = new IntParam(this, "numClass", "Number of classes, used by " +
+    "multi:softmax and multi:softprob objectives", ParamValidators.gtEq(0))
+
+  final def getNumClass: Int = $(numClass)
+
   final val baseScore = new DoubleParam(this, "baseScore", "The initial prediction score of all " +
     "instances, global bias. The parameter is automatically estimated for selected objectives " +
     "before training. To disable the estimation, specify a real number argument. For sufficient " +
@@ -113,7 +118,7 @@ private[spark] trait LearningTaskParams extends Params {
 
   final def getNdcgExpGain: Boolean = $(ndcgExpGain)
 
-  setDefault(objective -> "reg:squarederror", seed -> 0, seedPerIteration -> false,
+  setDefault(objective -> "reg:squarederror", numClass-> 0, seed -> 0, seedPerIteration -> false,
     tweedieVariancePower -> 1.5, huberSlope -> 1, lambdarankPairMethod -> "mean",
     lambdarankUnbiased -> false, lambdarankBiasNorm -> 2, ndcgExpGain -> true)
 

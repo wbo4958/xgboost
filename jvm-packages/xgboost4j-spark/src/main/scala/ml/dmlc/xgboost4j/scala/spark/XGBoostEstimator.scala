@@ -24,7 +24,7 @@ import ml.dmlc.xgboost4j.{LabeledPoint => XGBLabeledPoint}
 import org.apache.commons.logging.LogFactory
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.param.{Param, ParamMap}
-import org.apache.spark.ml.util.XGBoostSchemaUtils
+import org.apache.spark.ml.xgboost.SparkUtils
 import org.apache.spark.ml.{Estimator, Model}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
@@ -264,12 +264,12 @@ private[spark] abstract class XGBoostEstimator[
   /**
    * Validate the parameters before training, throw exception if possible
    */
-  protected def validate(dataset: Dataset[_]): Unit = {
+  protected def validateParameters(dataset: Dataset[_]): Unit = {
     validateSparkSslConf(dataset.sparkSession)
   }
 
   override def fit(dataset: Dataset[_]): M = {
-    validate(dataset)
+    validateParameters(dataset)
 
     val (input, columnIndexes) = preprocess(dataset)
     val rdd = toRdd(input, columnIndexes)
@@ -287,14 +287,14 @@ private[spark] abstract class XGBoostEstimator[
   override def copy(extra: ParamMap): Learner = defaultCopy(extra)
 
   override def transformSchema(schema: StructType): StructType = {
-    XGBoostSchemaUtils.checkNumericType(schema, $(labelCol))
+    SparkUtils.checkNumericType(schema, $(labelCol))
     if (isDefined(weightCol) && $(weightCol).nonEmpty) {
-      XGBoostSchemaUtils.checkNumericType(schema, $(weightCol))
+      SparkUtils.checkNumericType(schema, $(weightCol))
     }
     this match {
       case p: HasGroupCol =>
         if (isDefined(p.groupCol) && $(p.groupCol).nonEmpty) {
-          XGBoostSchemaUtils.checkNumericType(schema, p.getGroupCol)
+          SparkUtils.checkNumericType(schema, p.getGroupCol)
         }
     }
     schema

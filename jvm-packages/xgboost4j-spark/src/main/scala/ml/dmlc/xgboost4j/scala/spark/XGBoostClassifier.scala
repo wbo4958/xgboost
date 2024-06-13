@@ -19,7 +19,8 @@ package ml.dmlc.xgboost4j.scala.spark
 import ml.dmlc.xgboost4j.scala.Booster
 import ml.dmlc.xgboost4j.scala.spark.params.ClassificationParams
 import org.apache.spark.ml.linalg.{Vector, Vectors}
-import org.apache.spark.ml.util.{DefaultParamsWritable, Identifiable}
+import org.apache.spark.ml.util.{DatasetUtils, DefaultParamsWritable, Identifiable}
+import org.apache.spark.ml.xgboost.SparkUtils
 import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.functions.{col, udf}
 
@@ -30,8 +31,6 @@ class XGBoostClassifier(override val uid: String,
   extends XGBoostEstimator[XGBoostClassifier, XGBoostClassificationModel]
     with ClassificationParams[XGBoostClassifier] with DefaultParamsWritable {
 
-  private val XGBC_UID = Identifiable.randomUID("xgbc")
-
   def this() = this(Identifiable.randomUID("xgbc"), Map.empty)
 
   def this(uid: String) = this(uid, Map.empty)
@@ -39,6 +38,43 @@ class XGBoostClassifier(override val uid: String,
   def this(xgboostParams: Map[String, Any]) = this(Identifiable.randomUID("xgbc"), xgboostParams)
 
   xgboost2SparkParams(xgboostParams)
+
+  /**
+   * Validate the parameters before training, throw exception if possible
+   */
+  override protected def validateParameters(dataset: Dataset[_]): Unit = {
+    super.validateParameters(dataset)
+
+    // The default objective is for regression case.
+    val obj = if (isSet(objective)) {
+      Some(getObjective)
+    } else {
+      None
+    }
+
+    var numClasses = getNumClass
+    // If user didn't set it, inferred it.
+    if (numClasses == 0) {
+      numClasses = SparkUtils.getNumClasses(dataset, getLabelCol)
+    }
+    assert(numClasses > 0)
+
+    if (numClasses <= 2) {
+      if (!obj.exists(_.startsWith("binary:"))) {
+        logger.warn(s"Inferred for binary classification, but found wrong objective: " +
+          s"${getObjective}, rewrite objective to binary:logistic")
+        setObjective("binary:logistic")
+      }
+    } else {
+      if (!obj.exists(_.startsWith("multi:"))) {
+        logger.warn(s"Inferred for multiclass classification, but found wrong objective: " +
+          s"${getObjective}, rewrite objective to multi:softprob")
+        setObjective("multi:softprob")
+      }
+      setNumClass(numClasses)
+    }
+
+  }
 
   override protected def createModel(booster: Booster, summary: XGBoostTrainingSummary):
   XGBoostClassificationModel = {

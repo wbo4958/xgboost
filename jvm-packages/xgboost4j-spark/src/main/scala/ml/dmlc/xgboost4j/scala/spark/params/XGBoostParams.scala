@@ -221,4 +221,8 @@ private[spark] trait RankerParams[T <: Params] extends HasGroupCol with NonXGBoo
 private[spark] trait XGBoostParams[T <: Params] extends TreeBoosterParams
   with LearningTaskParams with GeneralParams with DartBoosterParams {
 
+  def setObjective(value: String): T = set(objective, value).asInstanceOf[T]
+
+  def setNumClass(value: Int): T = set(numClass, value).asInstanceOf[T]
+
 }
