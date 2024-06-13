@@ -46,7 +46,7 @@ private[spark] abstract class XGBoostEstimator[
   M <: XGBoostModel[M]
 ] extends Estimator[M] with XGBoostParams[Learner] with SparkParams[Learner] {
 
-  /**
+   /**
    * Pre-convert input double data to floats to align with XGBoost's internal float-based
    * operations to save memory usage.
    *
@@ -171,6 +171,7 @@ private[spark] abstract class XGBoostEstimator[
       val validations: ArrayBuffer[XGBLabeledPoint] = ArrayBuffer.empty
 
       val trainIter = if (columnIndexes.valiation.isDefined) {
+        // Extract validations during build Train DMatrix
         val dataIter = new Iterator[XGBLabeledPoint] {
           private var tmp: Option[XGBLabeledPoint] = None
 
@@ -267,17 +268,9 @@ class XGBoostModel[M <: XGBoostModel[M]](
 
   def summary: XGBoostTrainingSummary = trainingSummary
 
-  /**
-   * Predict label for the given features.
-   * This method is used to implement `transform()` and output [[predictionCol]].
-   */
-  //  def predict(features: Vector): Double
-
-  //  def predictRaw(features: Vector): Vector
-
   override def transformSchema(schema: StructType): StructType = schema
 
-  def postTranform(dataset: Dataset[_]): Dataset[_] = dataset
+  def postTransform(dataset: Dataset[_]): Dataset[_] = dataset
 
   override def transform(dataset: Dataset[_]): DataFrame = {
 
@@ -372,7 +365,7 @@ class XGBoostModel[M <: XGBoostModel[M]](
 
     }(Encoders.row(schema))
     bBooster.unpersist(blocking = false)
-    postTranform(outputData).toDF()
+    postTransform(outputData).toDF()
   }
 
 }

@@ -46,6 +46,7 @@ class XGBoostClassificationModel(
   extends XGBoostModel[XGBoostClassificationModel](uid, booster, trainingSummary)
     with ClassificationParams[XGBoostClassificationModel] {
 
+  // Copied from Spark
   private def probability2prediction(probability: Vector): Double = {
     if (!isDefined(thresholds)) {
       probability.argmax
@@ -71,7 +72,7 @@ class XGBoostClassificationModel(
     }
   }
 
-  override def postTranform(dataset: Dataset[_]): Dataset[_] = {
+  override def postTransform(dataset: Dataset[_]): Dataset[_] = {
     var output = dataset
     if (isDefined(predictionCol) && getPredictionCol.nonEmpty) {
       val predCol = udf { probability: mutable.WrappedArray[Float] =>
