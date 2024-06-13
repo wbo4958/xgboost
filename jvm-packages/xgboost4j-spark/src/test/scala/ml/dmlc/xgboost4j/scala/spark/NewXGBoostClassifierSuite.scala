@@ -1,7 +1,7 @@
 package ml.dmlc.xgboost4j.scala.spark
 
 import org.apache.spark.ml.feature.VectorAssembler
-import org.apache.spark.sql.functions.{array, col, lit, rand}
+import org.apache.spark.sql.functions.lit
 import org.scalatest.funsuite.AnyFunSuite
 
 class NewXGBoostClassifierSuite extends AnyFunSuite with PerTest with TmpFolderPerSuite {
@@ -48,7 +48,7 @@ class NewXGBoostClassifierSuite extends AnyFunSuite with PerTest with TmpFolderP
     val est = new XGBoostClassifier()
       .setNumWorkers(1)
       .setNumRound(2)
-      .setMaxDepth(2)
+      .setMaxDepth(3)
       //      .setWeightCol("weight")
       //      .setBaseMarginCol("base_margin")
       .setLabelCol(labelCol)
@@ -62,8 +62,18 @@ class NewXGBoostClassifierSuite extends AnyFunSuite with PerTest with TmpFolderP
     //    est.fit(arrayInput)
     est.write.overwrite().save("/tmp/abcdef")
     val loadedEst = XGBoostClassifier.load("/tmp/abcdef")
+    println(loadedEst.getNumRound)
+    println(loadedEst.getMaxDepth)
 
     val model = loadedEst.fit(dataset)
+    println("-----------------------")
+    println(model.getNumRound)
+    println(model.getMaxDepth)
+
+    model.write.overwrite().save("/tmp/model/")
+    val loadedModel = XGBoostClassificationModel.load("/tmp/model")
+    println(loadedModel.getNumRound)
+    println(loadedModel.getMaxDepth)
     model.transform(dataset).drop(features: _*).show(150, false)
   }
 

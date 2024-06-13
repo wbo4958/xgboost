@@ -142,9 +142,11 @@ object XGBoostClassificationModel extends MLReadable[XGBoostClassificationModel]
 
   private class ModelReader extends XGBoostModelReader[XGBoostClassificationModel] {
     override def load(path: String): XGBoostClassificationModel = {
-      val model = loadBooster(path)
+      val xgbModel = loadBooster(path)
       val meta = SparkUtils.loadMetadata(path, sc)
-      new XGBoostClassificationModel(meta.uid, model)
+      val model = new XGBoostClassificationModel(meta.uid, xgbModel)
+      meta.getAndSetParams(model)
+      model
     }
   }
 }

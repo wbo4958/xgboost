@@ -457,10 +457,10 @@ private[spark] class XGBoostModelWriter[M <: XGBoostModel[M]](instance: M) exten
 
     // Save model data
     val dataPath = new Path(path, "data").toString
-    val internalPath = new Path(dataPath, "model." + JBooster.DEFAULT_FORMAT)
+    val internalPath = new Path(dataPath, "model")
     val outputStream = internalPath.getFileSystem(sc.hadoopConfiguration).create(internalPath)
     try {
-      instance.nativeBooster.saveModel(outputStream, JBooster.DEFAULT_FORMAT)
+      instance.nativeBooster.saveModel(outputStream)
     } finally {
       outputStream.close()
     }
