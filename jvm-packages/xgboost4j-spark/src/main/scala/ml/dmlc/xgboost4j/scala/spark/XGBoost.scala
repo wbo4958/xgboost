@@ -120,10 +120,10 @@ private[spark] trait StageLevelScheduling extends Serializable {
    * @return the original rdd or the modified rdd
    */
   private[spark] def tryStageLevelScheduling[T](
-                                              sc: SparkContext,
-                                              xgbExecParams: RuntimeParams,
-                                              rdd: RDD[T]
-                                            ): RDD[T] = {
+                                                 sc: SparkContext,
+                                                 xgbExecParams: RuntimeParams,
+                                                 rdd: RDD[T]
+                                               ): RDD[T] = {
 
     val conf = sc.getConf
     if (skipStageLevelScheduling(sc.version, xgbExecParams.runOnGpu, conf)) {
@@ -190,7 +190,7 @@ private[spark] object XGBoost extends StageLevelScheduling {
   private def trainBooster(watches: Watches,
                            runtimeParams: RuntimeParams,
                            xgboostParams: Map[String, Any],
-                           rabitEnv: java.util.Map[String, Object],
+                           rabitEnv: java.util.Map[String, Object]
                           ): Booster = {
     val partitionId = TaskContext.getPartitionId()
     val attempt = TaskContext.get().attemptNumber.toString

@@ -92,7 +92,7 @@ private[spark] trait LearningTaskParams extends Params {
     "pair-wise learning",
     ParamValidators.inArray(Array("mean", "topk")))
 
-  final def getLambdarankPairMethod: String = $(aftLossDistribution)
+  final def getLambdarankPairMethod: String = $(lambdarankPairMethod)
 
   final val lambdarankNumPairPerSample = new IntParam(this, "lambdarank_num_pair_per_sample",
     "It specifies the number of pairs sampled for each document when pair method is mean, or" +
@@ -100,7 +100,7 @@ private[spark] trait LearningTaskParams extends Params {
       "with ndcg@6, set lambdarank_num_pair_per_sample to 6 and lambdarank_pair_method to topk",
     ParamValidators.gtEq(1))
 
-  final def getLambdarankNumPairPerSample: Double = $(lambdarankNumPairPerSample)
+  final def getLambdarankNumPairPerSample: Int = $(lambdarankNumPairPerSample)
 
   final val lambdarankUnbiased = new BooleanParam(this, "lambdarankUnbiased", "Specify " +
     "whether do we need to debias input click data.")

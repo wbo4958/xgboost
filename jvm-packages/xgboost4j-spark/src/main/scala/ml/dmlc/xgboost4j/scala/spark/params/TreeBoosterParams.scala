@@ -36,16 +36,12 @@ private[spark] trait TreeBoosterParams extends Params {
 
   final def getEta: Double = $(eta)
 
-  def setEta(value: Double): this.type = set(eta, value)
-
   final val gamma = new DoubleParam(this, "gamma", "Minimum loss reduction required to make a " +
     "further partition on a leaf node of the tree. The larger gamma is, the more conservative " +
     "the algorithm will be.",
     ParamValidators.gtEq(0))
 
   final def getGamma: Double = $(gamma)
-
-  def setGamma(value: Double): this.type = set(gamma, value)
 
   final val maxDepth = new IntParam(this, "maxDepth", "Maximum depth of a tree. Increasing this " +
     "value will make the model more complex and more likely to overfit. 0 indicates no limit " +
@@ -65,8 +61,6 @@ private[spark] trait TreeBoosterParams extends Params {
 
   final def getMinChildWeight: Double = $(minChildWeight)
 
-  def setMinChildWeight(value: Double): this.type = set(minChildWeight, value)
-
   final val maxDeltaStep = new DoubleParam(this, "maxDeltaStep", "Maximum delta step we allow " +
     "each leaf output to be. If the value is set to 0, it means there is no constraint. If it " +
     "is set to a positive value, it can help making the update step more conservative. Usually " +
@@ -76,8 +70,6 @@ private[spark] trait TreeBoosterParams extends Params {
 
   final def getMaxDeltaStep: Double = $(maxDeltaStep)
 
-  def setMaxDeltaStep(value: Double): this.type = set(maxDeltaStep, value)
-
   final val subsample = new DoubleParam(this, "subsample", "Subsample ratio of the training " +
     "instances. Setting it to 0.5 means that XGBoost would randomly sample half of the " +
     "training data prior to growing trees. and this will prevent overfitting. Subsampling " +
@@ -85,8 +77,6 @@ private[spark] trait TreeBoosterParams extends Params {
     ParamValidators.inRange(0, 1, lowerInclusive = false, upperInclusive = true))
 
   final def getSubsample: Double = $(subsample)
-
-  def setSubsample(value: Double): this.type = set(subsample, value)
 
   final val samplingMethod = new Param[String](this, "samplingMethod", "The method to use to " +
     "sample the training instances. The supported sampling methods" +
@@ -101,15 +91,11 @@ private[spark] trait TreeBoosterParams extends Params {
 
   final def getSamplingMethod: String = $(samplingMethod)
 
-  def setSamplingMethod(value: String): this.type = set(samplingMethod, value)
-
   final val colsampleBytree = new DoubleParam(this, "colsampleBytree", "Subsample ratio of " +
     "columns when constructing each tree. Subsampling occurs once for every tree constructed.",
     ParamValidators.inRange(0, 1, lowerInclusive = false, upperInclusive = true))
 
   final def getColsampleBytree: Double = $(colsampleBytree)
-
-  def setColsampleBytree(value: Double): this.type = set(colsampleBytree, value)
 
 
   final val colsampleBylevel = new DoubleParam(this, "colsampleBylevel", "Subsample ratio of " +
@@ -119,7 +105,6 @@ private[spark] trait TreeBoosterParams extends Params {
 
   final def getColsampleBylevel: Double = $(colsampleBylevel)
 
-  def setColsampleBylevel(value: Double): this.type = set(colsampleBylevel, value)
 
   final val colsampleBynode = new DoubleParam(this, "colsampleBynode", "Subsample ratio of " +
     "columns for each node (split). Subsampling occurs once every time a new split is " +
@@ -128,7 +113,6 @@ private[spark] trait TreeBoosterParams extends Params {
 
   final def getColsampleBynode: Double = $(colsampleBynode)
 
-  def setColsampleBynode(value: Double): this.type = set(colsampleBynode, value)
 
   /**
    * L2 regularization term on weights, increase this value will make model more conservative.
@@ -224,13 +208,11 @@ private[spark] trait TreeBoosterParams extends Params {
 
   final def getMaxCachedHistNode: Int = $(maxCachedHistNode)
 
-  ////////////////////////////////////////////////////////////////////////////////
-
   setDefault(eta -> 0.3, gamma -> 0, maxDepth -> 6, minChildWeight -> 1, maxDeltaStep -> 0,
     subsample -> 1, samplingMethod -> "uniform", colsampleBytree -> 1, colsampleBylevel -> 1,
     colsampleBynode -> 1, lambda -> 1, alpha -> 0, treeMethod -> "auto", scalePosWeight -> 1,
     processType -> "default", growPolicy -> "depthwise", maxLeaves -> 0, maxBins -> 256,
-    numParallelTree -> 1,  maxCachedHistNode -> 65536)
+    numParallelTree -> 1, maxCachedHistNode -> 65536)
 
 }
 

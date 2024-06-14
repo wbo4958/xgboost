@@ -221,12 +221,79 @@ private[spark] trait RankerParams[T <: Params] extends HasGroupCol with NonXGBoo
 private[spark] trait XGBoostParams[T <: Params] extends TreeBoosterParams
   with LearningTaskParams with GeneralParams with DartBoosterParams {
 
+  // Setter for TreeBoosterParams
+  def setEta(value: Double): T = set(eta, value).asInstanceOf[T]
+
+  def setGamma(value: Double): T = set(gamma, value).asInstanceOf[T]
+
+  def setMaxDepth(value: Int): T = set(maxDepth, value).asInstanceOf[T]
+
+  def setMinChildWeight(value: Double): T = set(minChildWeight, value).asInstanceOf[T]
+
+  def setMaxDeltaStep(value: Double): T = set(maxDeltaStep, value).asInstanceOf[T]
+
+  def setSubsample(value: Double): T = set(subsample, value).asInstanceOf[T]
+
+  def setSamplingMethod(value: String): T = set(samplingMethod, value).asInstanceOf[T]
+
+  def setColsampleBytree(value: Double): T = set(colsampleBytree, value).asInstanceOf[T]
+
+  def setColsampleBylevel(value: Double): T = set(colsampleBylevel, value).asInstanceOf[T]
+
+  def setColsampleBynode(value: Double): T = set(colsampleBynode, value).asInstanceOf[T]
+
+  def setLambda(value: Double): T = set(lambda, value).asInstanceOf[T]
+
+  def setAlpha(value: Double): T = set(alpha, value).asInstanceOf[T]
+
+  def setTreeMethod(value: String): T = set(treeMethod, value).asInstanceOf[T]
+
+  def setScalePosWeight(value: Double): T = set(scalePosWeight, value).asInstanceOf[T]
+
+  def setUpdater(value: String): T = set(updater, value).asInstanceOf[T]
+
+  def setRefreshLeaf(value: Boolean): T = set(refreshLeaf, value).asInstanceOf[T]
+
+  def setProcessType(value: String): T = set(processType, value).asInstanceOf[T]
+
+  def setGrowPolicy(value: String): T = set(growPolicy, value).asInstanceOf[T]
+
+  def setMaxLeaves(value: Int): T = set(maxLeaves, value).asInstanceOf[T]
+
+  def setMaxBins(value: Int): T = set(maxBins, value).asInstanceOf[T]
+
+  def setNumParallelTree(value: Int): T = set(numParallelTree, value).asInstanceOf[T]
+
+  def setMaxCachedHistNode(value: Int): T = set(maxCachedHistNode, value).asInstanceOf[T]
+
+  // Setter for LearningTaskParams
+
   def setObjective(value: String): T = set(objective, value).asInstanceOf[T]
 
   def setNumClass(value: Int): T = set(numClass, value).asInstanceOf[T]
 
+  def setBaseScore(value: Double): T = set(baseScore, value).asInstanceOf[T]
+
+  def setEvalMetric(value: String): T = set(evalMetric, value).asInstanceOf[T]
+
+  def setSeed(value: Long): T = set(seed, value).asInstanceOf[T]
+
+  def setSeedPerIteration(value: Boolean): T = set(seedPerIteration, value).asInstanceOf[T]
+
+  def setTweedieVariancePower(value: Double): T = set(tweedieVariancePower, value).asInstanceOf[T]
+
+  def setHuberSlope(value: Double): T = set(huberSlope, value).asInstanceOf[T]
+
+  def setAftLossDistribution(value: String): T = set(aftLossDistribution, value).asInstanceOf[T]
+
+  def setLambdarankPairMethod(value: String): T = set(lambdarankPairMethod, value).asInstanceOf[T]
+
+  def setLambdarankNumPairPerSample(value: Int): T =
+    set(lambdarankNumPairPerSample, value).asInstanceOf[T]
+
+  def setLambdarankUnbiased(value: Boolean): T = set(lambdarankUnbiased, value).asInstanceOf[T]
+
   def setNthread(value: Int): T = set(nthread, value).asInstanceOf[T]
 
-  def setMaxDepth(value: Int): T = set(maxDepth, value).asInstanceOf[T]
 
 }

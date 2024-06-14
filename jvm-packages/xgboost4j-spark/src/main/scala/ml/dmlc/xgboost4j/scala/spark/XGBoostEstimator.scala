@@ -37,7 +37,8 @@ import scala.collection.mutable.ArrayBuffer
 /**
  * Hold the column indexes used to get the column index
  */
-private case class ColumnIndexes(label: String, features: String,
+private case class ColumnIndexes(label: String,
+                                 features: String,
                                  weight: Option[String] = None,
                                  baseMargin: Option[String] = None,
                                  group: Option[String] = None,
@@ -235,7 +236,7 @@ private[spark] abstract class XGBoostEstimator[
       getNumEarlyStoppingRounds,
       getDevice,
       isLocal,
-      runOnGpu,
+      runOnGpu
     )
   }
 
