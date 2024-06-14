@@ -74,6 +74,7 @@
     </repository>
   </repositories>
   <modules>
+    <module>aggregator</module>
   </modules>
 
   <profiles>
