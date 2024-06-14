@@ -321,12 +321,18 @@ private[spark] abstract class XGBoostEstimator[
 
 }
 
-private[spark] abstract
-class XGBoostModel[M <: XGBoostModel[M]](
-                                          override val uid: String,
-                                          private val model: Booster,
-                                          private val trainingSummary: Option[XGBoostTrainingSummary])
-  extends Model[M] with MLWritable with XGBoostParams[M] with SparkParams[M] {
+/**
+ * XGBoost base model
+ * @param uid
+ * @param model xgboost booster
+ * @param trainingSummary the training summary
+ * @tparam the exact model which must extend from XGBoostModel
+ */
+private[spark] abstract class XGBoostModel[M <: XGBoostModel[M]]
+(override val uid: String,
+ private val model: Booster,
+ private val trainingSummary: Option[XGBoostTrainingSummary]) extends Model[M] with MLWritable
+  with XGBoostParams[M] with SparkParams[M] {
 
   protected val TMP_TRANSFORMED_COL = "_tmp_xgb_transformed_col"
 
@@ -448,6 +454,7 @@ class XGBoostModel[M <: XGBoostModel[M]](
 
 /**
  * Class to write the model
+ *
  * @param instance model to be written
  */
 private[spark] class XGBoostModelWriter[M <: XGBoostModel[M]](instance: M) extends MLWriter {

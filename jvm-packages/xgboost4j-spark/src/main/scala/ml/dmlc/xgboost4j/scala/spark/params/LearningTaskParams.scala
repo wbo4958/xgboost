@@ -34,19 +34,19 @@ private[spark] trait LearningTaskParams extends Params {
 
   final def getObjective: String = $(objective)
 
-  final val numClass = new IntParam(this, "numClass", "Number of classes, used by " +
+  final val numClass = new IntParam(this, "num_class", "Number of classes, used by " +
     "multi:softmax and multi:softprob objectives", ParamValidators.gtEq(0))
 
   final def getNumClass: Int = $(numClass)
 
-  final val baseScore = new DoubleParam(this, "baseScore", "The initial prediction score of all " +
-    "instances, global bias. The parameter is automatically estimated for selected objectives " +
-    "before training. To disable the estimation, specify a real number argument. For sufficient " +
-    "number of iterations, changing this value will not have too much effect.")
+  final val baseScore = new DoubleParam(this, "base_score", "The initial prediction score of " +
+    "all instances, global bias. The parameter is automatically estimated for selected " +
+    "objectives before training. To disable the estimation, specify a real number argument. " +
+    "For sufficient number of iterations, changing this value will not have too much effect.")
 
   final def getBaseScore: Double = $(baseScore)
 
-  final val evalMetric = new Param[String](this, "evalMetric", "Evaluation metrics for " +
+  final val evalMetric = new Param[String](this, "eval_metric", "Evaluation metrics for " +
     "validation data, a default metric will be assigned according to objective (rmse for " +
     "regression, and logloss for classification, mean average precision for rank:map, etc.)" +
     "User can add multiple evaluation metrics. Python users: remember to pass the metrics in " +
@@ -81,14 +81,14 @@ private[spark] trait LearningTaskParams extends Params {
 
   // Parameter for using AFT Survival Loss (survival:aft) and Negative
   // Log Likelihood of AFT metric (aft-nloglik)
-  final val aftLossDistribution = new Param[String](this, "aftLossDistribution", "Probability " +
+  final val aftLossDistribution = new Param[String](this, "aft_loss_distribution", "Probability " +
     "Density Function",
     ParamValidators.inArray(Array("normal", "logistic", "extreme")))
 
   final def getAftLossDistribution: String = $(aftLossDistribution)
 
   // Parameters for learning to rank (rank:ndcg, rank:map, rank:pairwise)
-  final val lambdarankPairMethod = new Param[String](this, "lambdarankPairMethod", "pairs for " +
+  final val lambdarankPairMethod = new Param[String](this, "lambdarank_pair_method", "pairs for " +
     "pair-wise learning",
     ParamValidators.inArray(Array("mean", "topk")))
 
@@ -102,18 +102,18 @@ private[spark] trait LearningTaskParams extends Params {
 
   final def getLambdarankNumPairPerSample: Int = $(lambdarankNumPairPerSample)
 
-  final val lambdarankUnbiased = new BooleanParam(this, "lambdarankUnbiased", "Specify " +
+  final val lambdarankUnbiased = new BooleanParam(this, "lambdarank_unbiased", "Specify " +
     "whether do we need to debias input click data.")
 
   final def getLambdarankUnbiased: Boolean = $(lambdarankUnbiased)
 
-  final val lambdarankBiasNorm = new DoubleParam(this, "lambdarankBiasNorm", "Lp " +
+  final val lambdarankBiasNorm = new DoubleParam(this, "lambdarank_bias_norm", "Lp " +
     "normalization for position debiasing, default is L2. Only relevant when " +
     "lambdarankUnbiased is set to true.")
 
   final def getLambdarankBiasNorm: Double = $(lambdarankBiasNorm)
 
-  final val ndcgExpGain = new BooleanParam(this, "ndcgExpGain", "Whether we should " +
+  final val ndcgExpGain = new BooleanParam(this, "ndcg_exp_gain", "Whether we should " +
     "use exponential gain function for NDCG.")
 
   final def getNdcgExpGain: Boolean = $(ndcgExpGain)

@@ -43,7 +43,7 @@ private[spark] trait TreeBoosterParams extends Params {
 
   final def getGamma: Double = $(gamma)
 
-  final val maxDepth = new IntParam(this, "maxDepth", "Maximum depth of a tree. Increasing this " +
+  final val maxDepth = new IntParam(this, "max_depth", "Maximum depth of a tree. Increasing this " +
     "value will make the model more complex and more likely to overfit. 0 indicates no limit " +
     "on depth. Beware that XGBoost aggressively consumes memory when training a deep tree. " +
     "exact tree method requires non-zero value.",
@@ -51,7 +51,7 @@ private[spark] trait TreeBoosterParams extends Params {
 
   final def getMaxDepth: Int = $(maxDepth)
 
-  final val minChildWeight = new DoubleParam(this, "minChildWeight", "Minimum sum of instance " +
+  final val minChildWeight = new DoubleParam(this, "min_child_weight", "Minimum sum of instance " +
     "weight (hessian) needed in a child. If the tree partition step results in a leaf node " +
     "with the sum of instance weight less than min_child_weight, then the building process " +
     "will give up further partitioning. In linear regression task, this simply corresponds " +
@@ -61,7 +61,7 @@ private[spark] trait TreeBoosterParams extends Params {
 
   final def getMinChildWeight: Double = $(minChildWeight)
 
-  final val maxDeltaStep = new DoubleParam(this, "maxDeltaStep", "Maximum delta step we allow " +
+  final val maxDeltaStep = new DoubleParam(this, "max_delta_step", "Maximum delta step we allow " +
     "each leaf output to be. If the value is set to 0, it means there is no constraint. If it " +
     "is set to a positive value, it can help making the update step more conservative. Usually " +
     "this parameter is not needed, but it might help in logistic regression when class is " +
@@ -78,7 +78,7 @@ private[spark] trait TreeBoosterParams extends Params {
 
   final def getSubsample: Double = $(subsample)
 
-  final val samplingMethod = new Param[String](this, "samplingMethod", "The method to use to " +
+  final val samplingMethod = new Param[String](this, "sampling_method", "The method to use to " +
     "sample the training instances. The supported sampling methods" +
     "uniform: each training instance has an equal probability of being selected. Typically set " +
     "subsample >= 0.5 for good results.\n" +
@@ -91,14 +91,14 @@ private[spark] trait TreeBoosterParams extends Params {
 
   final def getSamplingMethod: String = $(samplingMethod)
 
-  final val colsampleBytree = new DoubleParam(this, "colsampleBytree", "Subsample ratio of " +
+  final val colsampleBytree = new DoubleParam(this, "colsample_bytree", "Subsample ratio of " +
     "columns when constructing each tree. Subsampling occurs once for every tree constructed.",
     ParamValidators.inRange(0, 1, lowerInclusive = false, upperInclusive = true))
 
   final def getColsampleBytree: Double = $(colsampleBytree)
 
 
-  final val colsampleBylevel = new DoubleParam(this, "colsampleBylevel", "Subsample ratio of " +
+  final val colsampleBylevel = new DoubleParam(this, "colsample_bylevel", "Subsample ratio of " +
     "columns for each level. Subsampling occurs once for every new depth level reached in a " +
     "tree. Columns are subsampled from the set of columns chosen for the current tree.",
     ParamValidators.inRange(0, 1, lowerInclusive = false, upperInclusive = true))
@@ -106,7 +106,7 @@ private[spark] trait TreeBoosterParams extends Params {
   final def getColsampleBylevel: Double = $(colsampleBylevel)
 
 
-  final val colsampleBynode = new DoubleParam(this, "colsampleBynode", "Subsample ratio of " +
+  final val colsampleBynode = new DoubleParam(this, "colsample_bynode", "Subsample ratio of " +
     "columns for each node (split). Subsampling occurs once every time a new split is " +
     "evaluated. Columns are subsampled from the set of columns chosen for the current level.",
     ParamValidators.inRange(0, 1, lowerInclusive = false, upperInclusive = true))
@@ -128,14 +128,13 @@ private[spark] trait TreeBoosterParams extends Params {
 
   final def getAlpha: Double = $(alpha)
 
-  final val treeMethod = new Param[String](this, "treeMethod",
-    "The tree construction algorithm used in XGBoost, options: " +
-      "{'auto', 'exact', 'approx', 'hist', 'gpu_hist'}",
+  final val treeMethod = new Param[String](this, "tree_method", "The tree construction " +
+    "algorithm used in XGBoost, options: {'auto', 'exact', 'approx', 'hist', 'gpu_hist'}",
     ParamValidators.inArray(BoosterParams.supportedTreeMethods.toArray))
 
   final def getTreeMethod: String = $(treeMethod)
 
-  final val scalePosWeight = new DoubleParam(this, "scalePosWeight", "Control the balance of " +
+  final val scalePosWeight = new DoubleParam(this, "scale_pos_weight", "Control the balance of " +
     "positive and negative weights, useful for unbalanced classes. A typical value to consider: " +
     "sum(negative instances) / sum(positive instances)")
 
@@ -162,20 +161,20 @@ private[spark] trait TreeBoosterParams extends Params {
 
   final def getUpdater: String = $(updater)
 
-  final val refreshLeaf = new BooleanParam(this, "refreshLeaf", "This is a parameter of the " +
+  final val refreshLeaf = new BooleanParam(this, "refresh_leaf", "This is a parameter of the " +
     "refresh updater. When this flag is 1, tree leafs as well as tree nodes' stats are updated. " +
     "When it is 0, only node stats are updated.")
 
   final def getRefreshLeaf: Boolean = $(refreshLeaf)
 
   // TODO set updater/refreshLeaf defaul value
-  final val processType = new Param[String](this, "processType", "A type of boosting process to " +
+  final val processType = new Param[String](this, "process_type", "A type of boosting process to " +
     "run. options: {default, update}",
     ParamValidators.inArray(Array("default", "update")))
 
   final def getProcessType: String = $(processType)
 
-  final val growPolicy = new Param[String](this, "growPolicy", "Controls a way new nodes are " +
+  final val growPolicy = new Param[String](this, "grow_policy", "Controls a way new nodes are " +
     "added to the tree. Currently supported only if tree_method is set to hist or approx. " +
     "Choices: depthwise, lossguide. depthwise: split at nodes closest to the root. " +
     "lossguide: split at nodes with highest loss change.",
@@ -184,25 +183,30 @@ private[spark] trait TreeBoosterParams extends Params {
   final def getGrowPolicy: String = $(growPolicy)
 
 
-  final val maxLeaves = new IntParam(this, "maxLeaves", "Maximum number of nodes to be added. " +
+  final val maxLeaves = new IntParam(this, "max_leaves", "Maximum number of nodes to be added. " +
     "Not used by exact tree method", ParamValidators.gtEq(0))
 
   final def getMaxLeaves: Int = $(maxLeaves)
 
-  final val maxBins = new IntParam(this, "maxBin", "Maximum number of discrete bins to bucket " +
+  final val maxBins = new IntParam(this, "max_bin", "Maximum number of discrete bins to bucket " +
     "continuous features. Increasing this number improves the optimality of splits at the cost " +
     "of higher computation time. Only used if tree_method is set to hist or approx.",
     ParamValidators.gt(0))
 
   final def getMaxBins: Int = $(maxBins)
 
-  final val numParallelTree = new IntParam(this, "numParallelTree", "Number of parallel trees " +
+  final val numParallelTree = new IntParam(this, "num_parallel_tree", "Number of parallel trees " +
     "constructed during each iteration. This option is used to support boosted random forest.",
     ParamValidators.gt(0))
 
   final def getNumParallelTree: Int = $(numParallelTree)
 
-  final val maxCachedHistNode = new IntParam(this, "maxCachedHistNode", "Maximum number of " +
+  final val monotoneConstraints = new IntArrayParam(this, "monotone_constraints", "Constraint of " +
+    "variable monotonicity.")
+
+  final def getMonotoneConstraints: Array[Int] = $(monotoneConstraints)
+
+  final val maxCachedHistNode = new IntParam(this, "max_cached_hist_node", "Maximum number of " +
     "cached nodes for CPU histogram.",
     ParamValidators.gt(0))
 

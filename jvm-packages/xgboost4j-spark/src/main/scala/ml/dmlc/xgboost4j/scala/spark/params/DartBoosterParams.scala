@@ -18,11 +18,6 @@ package ml.dmlc.xgboost4j.scala.spark.params
 
 import org.apache.spark.ml.param._
 
-import scala.collection.immutable.HashSet
-
-private[spark] object DartBoosterParams {
-  val supportedNormalizeType = HashSet("tree", "forest")
-}
 
 /**
  * Dart booster parameters, more details can be found at
@@ -30,30 +25,30 @@ private[spark] object DartBoosterParams {
  */
 private[spark] trait DartBoosterParams extends Params {
 
-  final val sampleType = new Param[String](this, "sampleType", "Type of sampling algorithm, " +
+  final val sampleType = new Param[String](this, "sample_type", "Type of sampling algorithm, " +
     "options: {'uniform', 'weighted'}", ParamValidators.inArray(Array("uniform", "weighted")))
 
   final def getSampleType: String = $(sampleType)
 
-  final val normalizeType = new Param[String](this, "normalizeType", "type of normalization" +
+  final val normalizeType = new Param[String](this, "normalize_type", "type of normalization" +
     " algorithm, options: {'tree', 'forest'}",
-    (value: String) => DartBoosterParams.supportedNormalizeType.contains(value))
+    ParamValidators.inArray(Array("tree", "forest")))
 
   final def getNormalizeType: String = $(normalizeType)
 
-  final val rateDrop = new DoubleParam(this, "rateDrop", "Dropout rate (a fraction of previous " +
+  final val rateDrop = new DoubleParam(this, "rate_drop", "Dropout rate (a fraction of previous " +
     "trees to drop during the dropout)",
     ParamValidators.inRange(0, 1, true, true))
 
   final def getRateDrop: Double = $(rateDrop)
 
-  final val oneDrop = new BooleanParam(this, "oneDrop", "When this flag is enabled, at least " +
+  final val oneDrop = new BooleanParam(this, "one_drop", "When this flag is enabled, at least " +
     "one tree is always dropped during the dropout (allows Binomial-plus-one or epsilon-dropout " +
     "from the original DART paper)")
 
   final def getOneDrop: Boolean = $(oneDrop)
 
-  final val skipDrop = new DoubleParam(this, "skipDrop", "Probability of skipping the dropout " +
+  final val skipDrop = new DoubleParam(this, "skip_drop", "Probability of skipping the dropout " +
     "procedure during a boosting iteration.\nIf a dropout is skipped, new trees are added " +
     "in the same manner as gbtree.\nNote that non-zero skip_drop has higher priority than " +
     "rate_drop or one_drop.",

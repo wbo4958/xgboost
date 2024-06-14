@@ -59,8 +59,7 @@ private[spark] trait ParamMapConversion extends NonXGBoostParams {
     // Only pass user-supplied parameters to xgboost.
     for (param <- params) {
       if (isSet(param) && !nonXGBoostParams.contains(param.name)) {
-        val name = CaseFormat.LOWER_CAMEL.to(CaseFormat.LOWER_UNDERSCORE, param.name)
-        xgboostParams += name -> $(param)
+        xgboostParams += param.name -> $(param)
       }
     }
     xgboostParams.toMap
