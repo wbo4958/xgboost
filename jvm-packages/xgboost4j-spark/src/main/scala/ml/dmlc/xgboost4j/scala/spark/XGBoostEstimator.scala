@@ -34,6 +34,7 @@ import org.apache.spark.sql.types.{ArrayType, FloatType, StructField, StructType
 
 import scala.collection.mutable.ArrayBuffer
 
+
 /**
  * Hold the column indexes used to get the column index
  */

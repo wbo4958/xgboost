@@ -44,7 +44,7 @@ trait PerTest extends BeforeAndAfterEach { self: AnyFunSuite =>
 
   override def beforeEach(): Unit = getOrCreateSession
 
-  override def afterEach() {
+  override def afterEach(): Unit = {
     if (currentSession != null) {
       currentSession.stop()
       cleanExternalCache(currentSession.sparkContext.appName)
