@@ -16,11 +16,9 @@
 
 package ml.dmlc.xgboost4j.scala.spark
 
-import ml.dmlc.xgboost4j.java.{Booster => JBooster}
+import ml.dmlc.xgboost4j.scala.spark.Utils.MLVectorToXGBLabeledPoint
 import ml.dmlc.xgboost4j.scala.{Booster, DMatrix, XGBoost => SXGBoost}
 import ml.dmlc.xgboost4j.scala.spark.params.{ClassificationParams, HasGroupCol, ParamMapConversion, SparkParams, XGBoostParams}
-import ml.dmlc.xgboost4j.scala.spark.util.DataUtils.MLVectorToXGBLabeledPoint
-import ml.dmlc.xgboost4j.scala.spark.util.Utils
 import ml.dmlc.xgboost4j.{LabeledPoint => XGBLabeledPoint}
 import org.apache.commons.logging.LogFactory
 import org.apache.hadoop.fs.Path
@@ -32,7 +30,7 @@ import org.apache.spark.ml.{Estimator, Model}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions.col
-import org.apache.spark.sql.types.{ArrayType, FloatType, Metadata, StructField, StructType}
+import org.apache.spark.sql.types.{ArrayType, FloatType, StructField, StructType}
 
 import scala.collection.mutable.ArrayBuffer
 

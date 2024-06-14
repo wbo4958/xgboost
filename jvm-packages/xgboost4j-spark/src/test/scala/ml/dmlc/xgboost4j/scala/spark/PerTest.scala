@@ -18,14 +18,10 @@ package ml.dmlc.xgboost4j.scala.spark
 
 import java.io.{File, FileInputStream}
 
-import ml.dmlc.xgboost4j.{LabeledPoint => XGBLabeledPoint}
-
 import org.apache.spark.SparkContext
 import org.apache.spark.sql._
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.funsuite.AnyFunSuite
-import scala.math.min
-import scala.util.Random
 
 import org.apache.commons.io.IOUtils
 
@@ -70,45 +66,6 @@ trait PerTest extends BeforeAndAfterEach { self: AnyFunSuite =>
       file.delete()
     }
   }
-
-  protected def buildDataFrame(
-      labeledPoints: Seq[XGBLabeledPoint],
-      numPartitions: Int = numWorkers): DataFrame = {
-    import ml.dmlc.xgboost4j.scala.spark.util.DataUtils._
-    val it = labeledPoints.iterator.zipWithIndex
-      .map { case (labeledPoint: XGBLabeledPoint, id: Int) =>
-        (id, labeledPoint.label, labeledPoint.features)
-      }
-
-    ss.createDataFrame(sc.parallelize(it.toList, numPartitions))
-      .toDF("id", "label", "features")
-  }
-
-  protected def buildDataFrameWithRandSort(
-      labeledPoints: Seq[XGBLabeledPoint],
-      numPartitions: Int = numWorkers): DataFrame = {
-    val df = buildDataFrame(labeledPoints, numPartitions)
-    val rndSortedRDD = df.rdd.mapPartitions { iter =>
-      iter.map(_ -> Random.nextDouble()).toList
-        .sortBy(_._2)
-        .map(_._1).iterator
-    }
-    ss.createDataFrame(rndSortedRDD, df.schema)
-  }
-
-  protected def buildDataFrameWithGroup(
-      labeledPoints: Seq[XGBLabeledPoint],
-      numPartitions: Int = numWorkers): DataFrame = {
-    import ml.dmlc.xgboost4j.scala.spark.util.DataUtils._
-    val it = labeledPoints.iterator.zipWithIndex
-      .map { case (labeledPoint: XGBLabeledPoint, id: Int) =>
-        (id, labeledPoint.label, labeledPoint.features, labeledPoint.group)
-      }
-
-    ss.createDataFrame(sc.parallelize(it.toList, numPartitions))
-      .toDF("id", "label", "features", "group")
-  }
-
 
   protected def compareTwoFiles(lhs: String, rhs: String): Boolean = {
     withResource(new FileInputStream(lhs)) { lfis =>

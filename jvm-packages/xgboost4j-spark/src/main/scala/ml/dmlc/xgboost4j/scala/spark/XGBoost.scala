@@ -16,13 +16,12 @@
 
 package ml.dmlc.xgboost4j.scala.spark
 
-import ml.dmlc.xgboost4j.java.{Communicator, ITracker, RabitTracker, XGBoostError}
+import ml.dmlc.xgboost4j.java.{Communicator, RabitTracker, XGBoostError}
 import ml.dmlc.xgboost4j.scala.{XGBoost => SXGBoost, _}
 import org.apache.commons.io.FileUtils
 import org.apache.commons.logging.LogFactory
 import org.apache.spark.rdd.RDD
 import org.apache.spark.resource.{ResourceProfileBuilder, TaskResourceRequests}
-import org.apache.spark.sql.SparkSession
 import org.apache.spark.{SparkConf, SparkContext, TaskContext}
 
 import java.io.File
@@ -117,14 +116,14 @@ private[spark] trait StageLevelScheduling extends Serializable {
    * on a single executor simultaneously.
    *
    * @param sc  the spark context
-   * @param rdd which rdd to be applied with new resource profile
-   * @return the original rdd or the changed rdd
+   * @param rdd the rdd to be applied with new resource profile
+   * @return the original rdd or the modified rdd
    */
-  private[spark] def tryStageLevelScheduling(
+  private[spark] def tryStageLevelScheduling[T](
                                               sc: SparkContext,
                                               xgbExecParams: RuntimeParams,
-                                              rdd: RDD[(Booster, Map[String, Array[Float]])]
-                                            ): RDD[(Booster, Map[String, Array[Float]])] = {
+                                              rdd: RDD[T]
+                                            ): RDD[T] = {
 
     val conf = sc.getConf
     if (skipStageLevelScheduling(sc.version, xgbExecParams.runOnGpu, conf)) {

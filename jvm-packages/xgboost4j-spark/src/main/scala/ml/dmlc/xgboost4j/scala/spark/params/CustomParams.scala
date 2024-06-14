@@ -17,8 +17,7 @@
 package ml.dmlc.xgboost4j.scala.spark.params
 
 import ml.dmlc.xgboost4j.scala.{EvalTrait, ObjectiveTrait}
-import ml.dmlc.xgboost4j.scala.spark.TrackerConf
-import ml.dmlc.xgboost4j.scala.spark.util.Utils
+import ml.dmlc.xgboost4j.scala.spark.{TrackerConf, Utils}
 
 import org.apache.spark.ml.param.{Param, ParamPair, Params}
 import org.json4s.{DefaultFormats, Extraction, NoTypeHints}
