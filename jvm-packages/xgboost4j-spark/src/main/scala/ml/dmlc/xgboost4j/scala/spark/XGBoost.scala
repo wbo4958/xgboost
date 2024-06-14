@@ -16,16 +16,16 @@
 
 package ml.dmlc.xgboost4j.scala.spark
 
-import ml.dmlc.xgboost4j.java.{Communicator, RabitTracker, XGBoostError}
-import ml.dmlc.xgboost4j.scala.{XGBoost => SXGBoost, _}
-import org.apache.commons.io.FileUtils
-import org.apache.commons.logging.LogFactory
-import org.apache.spark.rdd.RDD
-import org.apache.spark.resource.{ResourceProfileBuilder, TaskResourceRequests}
-import org.apache.spark.{SparkConf, SparkContext, TaskContext}
-
 import java.io.File
 
+import org.apache.commons.io.FileUtils
+import org.apache.commons.logging.LogFactory
+import org.apache.spark.{SparkConf, SparkContext, TaskContext}
+import org.apache.spark.rdd.RDD
+import org.apache.spark.resource.{ResourceProfileBuilder, TaskResourceRequests}
+
+import ml.dmlc.xgboost4j.java.{Communicator, RabitTracker, XGBoostError}
+import ml.dmlc.xgboost4j.scala.{XGBoost => SXGBoost, _}
 
 private[spark] case class RuntimeParams(
                                          numWorkers: Int,

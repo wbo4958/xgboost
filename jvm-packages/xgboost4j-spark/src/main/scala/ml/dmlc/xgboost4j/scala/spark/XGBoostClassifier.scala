@@ -16,15 +16,17 @@
 
 package ml.dmlc.xgboost4j.scala.spark
 
-import ml.dmlc.xgboost4j.scala.Booster
-import ml.dmlc.xgboost4j.scala.spark.params.ClassificationParams
+import scala.collection.mutable
+
 import org.apache.spark.ml.linalg.{Vector, Vectors}
-import org.apache.spark.ml.util.{DatasetUtils, DefaultParamsReadable, DefaultParamsWritable, Identifiable, MLReadable, MLReader}
+import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable, MLReadable, MLReader}
 import org.apache.spark.ml.xgboost.SparkUtils
 import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.functions.{col, udf}
 
-import scala.collection.mutable
+import ml.dmlc.xgboost4j.scala.Booster
+import ml.dmlc.xgboost4j.scala.spark.params.ClassificationParams
+
 
 class XGBoostClassifier(override val uid: String,
                         private[spark] val xgboostParams: Map[String, Any])

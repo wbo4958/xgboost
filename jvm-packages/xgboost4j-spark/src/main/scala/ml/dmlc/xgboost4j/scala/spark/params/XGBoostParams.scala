@@ -16,10 +16,11 @@
 
 package ml.dmlc.xgboost4j.scala.spark.params
 
-import org.apache.spark.ml.param.{Param, _}
+import scala.collection.mutable.ArrayBuffer
+
+import org.apache.spark.ml.param._
 import org.apache.spark.ml.param.shared._
 
-import scala.collection.mutable.ArrayBuffer
 
 trait HasLeafPredictionCol extends Params {
   /**

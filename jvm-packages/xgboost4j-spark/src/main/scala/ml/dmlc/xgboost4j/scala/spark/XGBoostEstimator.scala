@@ -16,23 +16,24 @@
 
 package ml.dmlc.xgboost4j.scala.spark
 
-import ml.dmlc.xgboost4j.scala.spark.Utils.MLVectorToXGBLabeledPoint
-import ml.dmlc.xgboost4j.scala.{Booster, DMatrix, XGBoost => SXGBoost}
-import ml.dmlc.xgboost4j.scala.spark.params.{ClassificationParams, HasGroupCol, ParamMapConversion, SparkParams, XGBoostParams}
-import ml.dmlc.xgboost4j.{LabeledPoint => XGBLabeledPoint}
+import scala.collection.mutable.ArrayBuffer
+
 import org.apache.commons.logging.LogFactory
 import org.apache.hadoop.fs.Path
+import org.apache.spark.ml.{Estimator, Model}
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.{DefaultParamsWritable, MLReader, MLWritable, MLWriter}
 import org.apache.spark.ml.xgboost.SparkUtils
-import org.apache.spark.ml.{Estimator, Model}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types.{ArrayType, FloatType, StructField, StructType}
 
-import scala.collection.mutable.ArrayBuffer
+import ml.dmlc.xgboost4j.{LabeledPoint => XGBLabeledPoint}
+import ml.dmlc.xgboost4j.scala.{Booster, DMatrix, XGBoost => SXGBoost}
+import ml.dmlc.xgboost4j.scala.spark.Utils.MLVectorToXGBLabeledPoint
+import ml.dmlc.xgboost4j.scala.spark.params.{ClassificationParams, HasGroupCol, ParamMapConversion, SparkParams, XGBoostParams}
 
 
 /**
@@ -324,8 +325,9 @@ private[spark] abstract class XGBoostEstimator[
 
 /**
  * XGBoost base model
+ *
  * @param uid
- * @param model xgboost booster
+ * @param model           xgboost booster
  * @param trainingSummary the training summary
  * @tparam the exact model which must extend from XGBoostModel
  */

@@ -16,13 +16,13 @@
 
 package ml.dmlc.xgboost4j.scala.spark.params
 
-import ml.dmlc.xgboost4j.scala.{EvalTrait, ObjectiveTrait}
-import ml.dmlc.xgboost4j.scala.spark.{TrackerConf, Utils}
-
 import org.apache.spark.ml.param.{Param, ParamPair, Params}
-import org.json4s.{DefaultFormats, Extraction, NoTypeHints}
+import org.json4s.{DefaultFormats, Extraction}
 import org.json4s.jackson.JsonMethods.{compact, parse, render}
 import org.json4s.jackson.Serialization
+
+import ml.dmlc.xgboost4j.scala.{EvalTrait, ObjectiveTrait}
+import ml.dmlc.xgboost4j.scala.spark.Utils
 
 /**
  * General spark parameter that includes TypeHints for (de)serialization using json4s.

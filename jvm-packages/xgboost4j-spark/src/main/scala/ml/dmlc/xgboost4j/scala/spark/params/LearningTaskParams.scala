@@ -16,9 +16,10 @@
 
 package ml.dmlc.xgboost4j.scala.spark.params
 
+import scala.collection.immutable.HashSet
+
 import org.apache.spark.ml.param._
 
-import scala.collection.immutable.HashSet
 
 /**
  * Specify the learning task and the corresponding learning objective.
@@ -118,7 +119,7 @@ private[spark] trait LearningTaskParams extends Params {
 
   final def getNdcgExpGain: Boolean = $(ndcgExpGain)
 
-  setDefault(objective -> "reg:squarederror", numClass-> 0, seed -> 0, seedPerIteration -> false,
+  setDefault(objective -> "reg:squarederror", numClass -> 0, seed -> 0, seedPerIteration -> false,
     tweedieVariancePower -> 1.5, huberSlope -> 1, lambdarankPairMethod -> "mean",
     lambdarankUnbiased -> false, lambdarankBiasNorm -> 2, ndcgExpGain -> true)
 

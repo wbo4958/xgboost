@@ -18,29 +18,30 @@ package ml.dmlc.xgboost4j.scala.spark
 
 import java.io.{File, FileInputStream}
 
+import org.apache.commons.io.IOUtils
 import org.apache.spark.SparkContext
 import org.apache.spark.sql._
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.funsuite.AnyFunSuite
 
-import org.apache.commons.io.IOUtils
-
-trait PerTest extends BeforeAndAfterEach { self: AnyFunSuite =>
+trait PerTest extends BeforeAndAfterEach {
+  self: AnyFunSuite =>
 
   protected val numWorkers: Int = 1
 
   @transient private var currentSession: SparkSession = _
 
   def ss: SparkSession = getOrCreateSession
+
   implicit def sc: SparkContext = ss.sparkContext
 
   protected def sparkSessionBuilder: SparkSession.Builder = SparkSession.builder()
-      .master(s"local[${numWorkers}]")
-      .appName("XGBoostSuite")
-      .config("spark.ui.enabled", false)
-      .config("spark.driver.memory", "512m")
-      .config("spark.barrier.sync.timeout", 10)
-      .config("spark.task.cpus", 1)
+    .master(s"local[${numWorkers}]")
+    .appName("XGBoostSuite")
+    .config("spark.ui.enabled", false)
+    .config("spark.driver.memory", "512m")
+    .config("spark.barrier.sync.timeout", 10)
+    .config("spark.task.cpus", 1)
 
   override def beforeEach(): Unit = getOrCreateSession
 

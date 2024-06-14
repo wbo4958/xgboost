@@ -16,9 +16,10 @@
 
 package ml.dmlc.xgboost4j.scala.spark
 
-import ml.dmlc.xgboost4j.{LabeledPoint => XGBLabeledPoint}
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vector}
 import org.json4s.{DefaultFormats, FullTypeHints, JField, JValue, NoTypeHints, TypeHints}
+
+import ml.dmlc.xgboost4j.{LabeledPoint => XGBLabeledPoint}
 
 // based on org.apache.spark.util copy /paste
 object Utils {

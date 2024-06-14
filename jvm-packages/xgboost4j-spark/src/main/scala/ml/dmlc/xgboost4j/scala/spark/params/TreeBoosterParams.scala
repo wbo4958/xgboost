@@ -16,9 +16,9 @@
 
 package ml.dmlc.xgboost4j.scala.spark.params
 
-import org.apache.spark.ml.param._
-
 import scala.collection.immutable.HashSet
+
+import org.apache.spark.ml.param._
 
 
 /**
