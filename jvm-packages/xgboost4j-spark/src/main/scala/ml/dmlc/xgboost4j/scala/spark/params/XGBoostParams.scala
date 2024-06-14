@@ -221,7 +221,7 @@ private[spark] trait RankerParams[T <: Params] extends HasGroupCol with NonXGBoo
 private[spark] trait XGBoostParams[T <: Params] extends TreeBoosterParams
   with LearningTaskParams with GeneralParams with DartBoosterParams {
 
-  // Setter for TreeBoosterParams
+  // Setters for TreeBoosterParams
   def setEta(value: Double): T = set(eta, value).asInstanceOf[T]
 
   def setGamma(value: Double): T = set(gamma, value).asInstanceOf[T]
@@ -266,7 +266,7 @@ private[spark] trait XGBoostParams[T <: Params] extends TreeBoosterParams
 
   def setMaxCachedHistNode(value: Int): T = set(maxCachedHistNode, value).asInstanceOf[T]
 
-  // Setter for LearningTaskParams
+  // Setters for LearningTaskParams
 
   def setObjective(value: String): T = set(objective, value).asInstanceOf[T]
 
@@ -292,6 +292,30 @@ private[spark] trait XGBoostParams[T <: Params] extends TreeBoosterParams
     set(lambdarankNumPairPerSample, value).asInstanceOf[T]
 
   def setLambdarankUnbiased(value: Boolean): T = set(lambdarankUnbiased, value).asInstanceOf[T]
+
+  def setLambdarankBiasNorm(value: Double): T = set(lambdarankBiasNorm, value).asInstanceOf[T]
+
+  def setNdcgExpGain(value: Boolean): T = set(ndcgExpGain, value).asInstanceOf[T]
+
+  // Setters for Dart
+  def setSampleType(value: String): T = set(sampleType, value).asInstanceOf[T]
+
+  def setNormalizeType(value: String): T = set(normalizeType, value).asInstanceOf[T]
+
+  def setRateDrop(value: Double): T = set(rateDrop, value).asInstanceOf[T]
+
+  def setOneDrop(value: Boolean): T = set(oneDrop, value).asInstanceOf[T]
+
+  def setSkipDrop(value: Double): T = set(skipDrop, value).asInstanceOf[T]
+
+  // Setters for GeneralParams
+  def setBooster(value: String): T = set(booster, value).asInstanceOf[T]
+
+  def setDevice(value: String): T = set(device, value).asInstanceOf[T]
+
+  def setVerbosity(value: Int): T = set(verbosity, value).asInstanceOf[T]
+
+  def setValidateParameters(value: Boolean): T = set(validateParameters, value).asInstanceOf[T]
 
   def setNthread(value: Int): T = set(nthread, value).asInstanceOf[T]
 

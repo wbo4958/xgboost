@@ -52,7 +52,7 @@ private[spark] trait DartBoosterParams extends Params {
     "procedure during a boosting iteration.\nIf a dropout is skipped, new trees are added " +
     "in the same manner as gbtree.\nNote that non-zero skip_drop has higher priority than " +
     "rate_drop or one_drop.",
-    ParamValidators.inRange(0, 0, true, true))
+    ParamValidators.inRange(0, 1, true, true))
 
   final def getSkipDrop: Double = $(skipDrop)
 
