@@ -22,6 +22,12 @@ import org.scalatest.funsuite.AnyFunSuite
 
 class XGBoostClassifierSuite extends AnyFunSuite with PerTest with TmpFolderPerSuite {
 
+  test("pipeline") {
+        val spark = ss
+        var df = spark.read.parquet("/home/bobwang/data/iris/parquet")
+
+  }
+
   test("test NewXGBoostClassifierSuite") {
     // Define the schema for the fake data
 

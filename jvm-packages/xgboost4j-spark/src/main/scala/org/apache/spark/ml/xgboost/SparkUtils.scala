@@ -17,11 +17,12 @@
 package org.apache.spark.ml.xgboost
 
 import org.apache.spark.SparkContext
+import org.apache.spark.ml.linalg.VectorUDT
 import org.apache.spark.ml.param.Params
 import org.apache.spark.ml.util.{DatasetUtils, DefaultParamsReader, DefaultParamsWriter, SchemaUtils}
 import org.apache.spark.ml.util.DefaultParamsReader.Metadata
 import org.apache.spark.sql.Dataset
-import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.types.{DataType, StructType}
 import org.json4s.{JObject, JValue}
 
 object SparkUtils {
@@ -45,6 +46,22 @@ object SparkUtils {
 
   def loadMetadata(path: String, sc: SparkContext, expectedClassName: String = ""): Metadata = {
     DefaultParamsReader.loadMetadata(path, sc, expectedClassName)
+  }
+
+  def appendColumn(
+                    schema: StructType,
+                    colName: String,
+                    dataType: DataType,
+                    nullable: Boolean = false): StructType = {
+    SchemaUtils.appendColumn(schema, colName, dataType, nullable)
+  }
+
+  def appendVectorUDTColumn(
+                    schema: StructType,
+                    colName: String,
+                    dataType: DataType = new VectorUDT,
+                    nullable: Boolean = false): StructType = {
+    SchemaUtils.appendColumn(schema, colName, dataType, nullable)
   }
 
 

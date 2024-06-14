@@ -19,13 +19,14 @@ package ml.dmlc.xgboost4j.scala.spark
 import scala.collection.mutable
 
 import org.apache.spark.ml.linalg.{Vector, Vectors}
-import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable, MLReadable, MLReader}
+import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable, MLReadable, MLReader, SchemaUtils}
 import org.apache.spark.ml.xgboost.SparkUtils
 import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.functions.{col, udf}
 
 import ml.dmlc.xgboost4j.scala.Booster
 import ml.dmlc.xgboost4j.scala.spark.params.ClassificationParams
+import org.apache.spark.sql.types.{DoubleType, StructType}
 
 
 class XGBoostClassifier(override val uid: String,
@@ -40,6 +41,11 @@ class XGBoostClassifier(override val uid: String,
   def this(xgboostParams: Map[String, Any]) = this(Identifiable.randomUID("xgbc"), xgboostParams)
 
   xgboost2SparkParams(xgboostParams)
+
+  override def transformSchema(schema: StructType): StructType = {
+    SparkUtils.appendColumn(schema, $(predictionCol), DoubleType)
+//    SparkUtils.appendColumn(schema,$(rawPredictionCol), Vec)
+  }
 
   /**
    * Validate the parameters before training, throw exception if possible

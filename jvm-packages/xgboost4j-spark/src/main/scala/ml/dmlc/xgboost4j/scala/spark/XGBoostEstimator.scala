@@ -35,7 +35,6 @@ import ml.dmlc.xgboost4j.scala.{Booster, DMatrix, XGBoost => SXGBoost}
 import ml.dmlc.xgboost4j.scala.spark.Utils.MLVectorToXGBLabeledPoint
 import ml.dmlc.xgboost4j.scala.spark.params.{ClassificationParams, HasGroupCol, ParamMapConversion, SparkParams, XGBoostParams}
 
-
 /**
  * Hold the column indexes used to get the column index
  */
@@ -319,8 +318,9 @@ private[spark] abstract class XGBoostEstimator[
   override def copy(extra: ParamMap): Learner = defaultCopy(extra)
 
   // Not used in XGBoost
-  override def transformSchema(schema: StructType): StructType = schema
-
+  override def transformSchema(schema: StructType): StructType = {
+    validateAndTransformSchema(schema, true)
+  }
 }
 
 /**
@@ -353,7 +353,9 @@ private[spark] abstract class XGBoostModel[M <: XGBoostModel[M]]
   }
 
   // Not used in XGBoost
-  override def transformSchema(schema: StructType): StructType = schema
+  override def transformSchema(schema: StructType): StructType = {
+    validateAndTransformSchema(schema, false)
+  }
 
   def postTransform(dataset: Dataset[_]): Dataset[_] = dataset
 

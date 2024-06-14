@@ -20,6 +20,8 @@ import scala.collection.mutable.ArrayBuffer
 
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.param.shared._
+import org.apache.spark.ml.xgboost.SparkUtils
+import org.apache.spark.sql.types.{DoubleType, StructType}
 
 
 trait HasLeafPredictionCol extends Params {
@@ -123,7 +125,7 @@ trait NonXGBoostParams extends Params {
 private[spark] trait SparkParams[T <: Params] extends HasFeaturesCol with HasLabelCol
   with HasBaseMarginCol with HasWeightCol with HasPredictionCol with HasLeafPredictionCol
   with HasContribPredictionCol with HasValidationIndicatorCol
-  with RabitParams with NonXGBoostParams {
+  with RabitParams with NonXGBoostParams with SchemaValidationTrait {
 
   final val numWorkers = new IntParam(this, "numWorkers", "Number of workers used to train xgboost",
     ParamValidators.gtEq(1))
@@ -185,20 +187,35 @@ private[spark] trait SparkParams[T <: Params] extends HasFeaturesCol with HasLab
   def setRabitTrackerPort(value: Int): T = set(rabitTrackerPort, value).asInstanceOf[T]
 }
 
+private[spark] trait SchemaValidationTrait {
+
+  def validateAndTransformSchema(schema: StructType,
+                                 fitting: Boolean): StructType = schema
+}
+
 /**
  * XGBoost classification spark-specific parameters which should not be passed
  * into the xgboost library
  *
  * @tparam T should be XGBoostClassifier or XGBoostClassificationModel
  */
-private[spark] trait ClassificationParams[T <: Params] extends HasRawPredictionCol
-  with HasProbabilityCol with HasThresholds with NonXGBoostParams {
+private[spark] trait ClassificationParams[T <: Params] extends SparkParams[T]
+  with HasRawPredictionCol with HasProbabilityCol with HasThresholds with NonXGBoostParams {
 
   def setRawPredictionCol(value: String): T = set(rawPredictionCol, value).asInstanceOf[T]
 
   def setProbabilityCol(value: String): T = set(probabilityCol, value).asInstanceOf[T]
 
   def setThresholds(value: Array[Double]): T = set(thresholds, value).asInstanceOf[T]
+
+  override def validateAndTransformSchema(schema: StructType,
+                                          fitting: Boolean): StructType = {
+
+    var outputSchema = SparkUtils.appendColumn(schema, $(predictionCol), DoubleType)
+    outputSchema = SparkUtils.appendVectorUDTColumn(outputSchema, $(rawPredictionCol))
+    outputSchema = SparkUtils.appendVectorUDTColumn(outputSchema, $(probabilityCol))
+    outputSchema
+  }
 
   addNonXGBoostParam(rawPredictionCol, probabilityCol, thresholds)
 }
@@ -319,6 +336,4 @@ private[spark] trait XGBoostParams[T <: Params] extends TreeBoosterParams
   def setValidateParameters(value: Boolean): T = set(validateParameters, value).asInstanceOf[T]
 
   def setNthread(value: Int): T = set(nthread, value).asInstanceOf[T]
-
-
 }
