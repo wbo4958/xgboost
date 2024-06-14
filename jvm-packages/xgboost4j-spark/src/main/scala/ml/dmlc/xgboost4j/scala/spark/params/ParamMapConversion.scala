@@ -16,7 +16,6 @@
 
 package ml.dmlc.xgboost4j.scala.spark.params
 
-import com.google.common.base.CaseFormat
 import org.apache.spark.ml.param.{BooleanParam, DoubleParam, FloatParam, IntParam, LongParam, Param, ParamValidators, Params}
 
 import scala.collection.mutable
@@ -29,8 +28,7 @@ private[spark] trait ParamMapConversion extends NonXGBoostParams {
    * @param xgboostParams XGBoost style parameters
    */
   def xgboost2SparkParams(xgboostParams: Map[String, Any]): Unit = {
-    for ((paramName, paramValue) <- xgboostParams) {
-      val name = CaseFormat.LOWER_UNDERSCORE.to(CaseFormat.LOWER_CAMEL, paramName)
+    for ((name, paramValue) <- xgboostParams) {
       params.find(_.name == name).foreach {
         case _: DoubleParam =>
           set(name, paramValue.toString.toDouble)
