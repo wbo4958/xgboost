@@ -19,6 +19,7 @@ package ml.dmlc.xgboost4j.scala.spark
 import scala.collection.mutable
 
 import org.apache.spark.ml.linalg.{Vector, Vectors}
+import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable, MLReadable, MLReader, SchemaUtils}
 import org.apache.spark.ml.xgboost.SparkUtils
 import org.apache.spark.sql.Dataset
@@ -26,7 +27,6 @@ import org.apache.spark.sql.functions.{col, udf}
 
 import ml.dmlc.xgboost4j.scala.Booster
 import ml.dmlc.xgboost4j.scala.spark.params.ClassificationParams
-import org.apache.spark.sql.types.{DoubleType, StructType}
 
 
 class XGBoostClassifier(override val uid: String,
@@ -41,11 +41,6 @@ class XGBoostClassifier(override val uid: String,
   def this(xgboostParams: Map[String, Any]) = this(Identifiable.randomUID("xgbc"), xgboostParams)
 
   xgboost2SparkParams(xgboostParams)
-
-  override def transformSchema(schema: StructType): StructType = {
-    SparkUtils.appendColumn(schema, $(predictionCol), DoubleType)
-//    SparkUtils.appendColumn(schema,$(rawPredictionCol), Vec)
-  }
 
   /**
    * Validate the parameters before training, throw exception if possible
@@ -94,13 +89,16 @@ object XGBoostClassifier extends DefaultParamsReadable[XGBoostClassifier] {
   override def load(path: String): XGBoostClassifier = super.load(path)
 }
 
+// TODO add num classes
 class XGBoostClassificationModel(
                                   uid: String,
-                                  booster: Booster,
+                                  model: Booster,
                                   trainingSummary: Option[XGBoostTrainingSummary] = None
                                 )
-  extends XGBoostModel[XGBoostClassificationModel](uid, booster, trainingSummary)
+  extends XGBoostModel[XGBoostClassificationModel](uid, model, trainingSummary)
     with ClassificationParams[XGBoostClassificationModel] {
+
+  def this(uid: String) = this(uid, null)
 
   // Copied from Spark
   private def probability2prediction(probability: Vector): Double = {
@@ -141,6 +139,11 @@ class XGBoostClassificationModel(
       output = output.withColumnRenamed(TMP_TRANSFORMED_COL, getProbabilityCol)
     }
     output.drop(TMP_TRANSFORMED_COL)
+  }
+
+  override def copy(extra: ParamMap): XGBoostClassificationModel = {
+    val newModel = copyValues(new XGBoostClassificationModel(uid, model, trainingSummary), extra)
+    newModel.setParent(parent)
   }
 }
 
