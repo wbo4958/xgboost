@@ -17,8 +17,8 @@ package ml.dmlc.xgboost4j.scala.example
 
 import scala.collection.mutable
 
+import ml.dmlc.xgboost4j.scala.{DMatrix, XGBoost}
 import ml.dmlc.xgboost4j.scala.example.util.CustomEval
-import ml.dmlc.xgboost4j.scala.{XGBoost, DMatrix}
 
 object PredictFirstNTree {
 
