@@ -21,7 +21,8 @@ import org.apache.spark.ml.param._
 
 /**
  * Dart booster parameters, more details can be found at
- * https://xgboost.readthedocs.io/en/stable/parameter.html#additional-parameters-for-dart-booster-booster-dart
+ * https://xgboost.readthedocs.io/en/stable/parameter.html#
+ * additional-parameters-for-dart-booster-booster-dart
  */
 private[spark] trait DartBoosterParams extends Params {
 
