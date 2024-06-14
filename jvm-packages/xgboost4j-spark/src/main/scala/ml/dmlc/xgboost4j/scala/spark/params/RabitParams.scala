@@ -16,7 +16,7 @@
 
 package ml.dmlc.xgboost4j.scala.spark.params
 
-import org.apache.spark.ml.param.{IntParam, Param, ParamValidators, Params}
+import org.apache.spark.ml.param._
 
 private[spark] trait RabitParams extends Params with NonXGBoostParams {
 
