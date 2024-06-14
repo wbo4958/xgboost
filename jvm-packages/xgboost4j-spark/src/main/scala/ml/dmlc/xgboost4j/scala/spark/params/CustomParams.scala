@@ -60,24 +60,3 @@ class CustomObjParam(
     parent: Params,
     name: String,
     doc: String) extends CustomGeneralParam[ObjectiveTrait](parent, name, doc)
-
-class TrackerConfParam(
-    parent: Params,
-    name: String,
-    doc: String) extends Param[TrackerConf](parent, name, doc) {
-
-  /** Creates a param pair with the given value (for Java). */
-  override def w(value: TrackerConf): ParamPair[TrackerConf] = super.w(value)
-
-  override def jsonEncode(value: TrackerConf): String = {
-    import org.json4s.jackson.Serialization
-    implicit val formats = Serialization.formats(NoTypeHints)
-    compact(render(Extraction.decompose(value)))
-  }
-
-  override def jsonDecode(json: String): TrackerConf = {
-    implicit val formats = DefaultFormats
-    val parsedValue = parse(json)
-    parsedValue.extract[TrackerConf]
-  }
-}
