@@ -22,9 +22,12 @@ import scala.jdk.CollectionConverters.seqAsJavaListConverter
 import com.nvidia.spark.rapids.ColumnarRdd
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{Column, Dataset}
+import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.types.FloatType
 
 import ml.dmlc.xgboost4j.java.{CudfColumnBatch, GpuColumnBatch}
 import ml.dmlc.xgboost4j.scala.QuantileDMatrix
+import ml.dmlc.xgboost4j.scala.spark.params.HasGroupCol
 
 private[spark] case class ColumnIndices(
   labelId: Int,
@@ -73,7 +76,7 @@ class GPUXGBoostPlugin extends XGBoostPlugin {
     val missing = Float.NaN
 
     val selectedCols: ArrayBuffer[Column] = ArrayBuffer.empty
-    (features.toSeq ++ Seq(estimator.getLabelCol)).foreach {name =>
+    (features.toSeq ++ Seq(estimator.getLabelCol)).foreach { name =>
       val col = estimator.castToFloatIfNeeded(dataset.schema, name)
       selectedCols.append(col)
     }

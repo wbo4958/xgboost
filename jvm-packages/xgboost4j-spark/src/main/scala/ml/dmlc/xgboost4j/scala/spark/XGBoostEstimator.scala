@@ -21,11 +21,12 @@ import java.util.ServiceLoader
 import scala.collection.mutable.ArrayBuffer
 import scala.jdk.CollectionConverters.iterableAsScalaIterableConverter
 
+import ml.dmlc.xgboost4j.{LabeledPoint => XGBLabeledPoint}
 import org.apache.commons.logging.LogFactory
 import org.apache.hadoop.fs.Path
 import org.apache.spark.ml.{Estimator, Model}
 import org.apache.spark.ml.linalg.Vector
-import org.apache.spark.ml.param.ParamMap
+import org.apache.spark.ml.param.{Param, ParamMap}
 import org.apache.spark.ml.util.{DefaultParamsWritable, MLReader, MLWritable, MLWriter}
 import org.apache.spark.ml.xgboost.SparkUtils
 import org.apache.spark.rdd.RDD
@@ -33,7 +34,6 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types.{ArrayType, FloatType, StructField, StructType}
 
-import ml.dmlc.xgboost4j.{LabeledPoint => XGBLabeledPoint}
 import ml.dmlc.xgboost4j.scala.{Booster, DMatrix, XGBoost => SXGBoost}
 import ml.dmlc.xgboost4j.scala.spark.Utils.MLVectorToXGBLabeledPoint
 import ml.dmlc.xgboost4j.scala.spark.params._
@@ -104,45 +104,29 @@ private[spark] abstract class XGBoostEstimator[
   private def preprocess(dataset: Dataset[_]): (Dataset[_], ColumnIndexes) = {
     // Columns to be selected for XGBoost
     val selectedCols: ArrayBuffer[Column] = ArrayBuffer.empty
-    val schema = dataset.schema
 
-    // TODO, support columnar and array.
-    selectedCols.append(castToFloatIfNeeded(schema, getLabelCol))
-    selectedCols.append(col(getFeaturesCol))
-
-    val weightName = if (isDefined(weightCol) && getWeightCol.nonEmpty) {
-      selectedCols.append(castToFloatIfNeeded(schema, getWeightCol))
-      Some(getWeightCol)
-    } else {
-      None
-    }
-
-    val baseMarginName = if (isDefined(baseMarginCol) && getBaseMarginCol.nonEmpty) {
-      selectedCols.append(castToFloatIfNeeded(schema, getBaseMarginCol))
-      Some(getBaseMarginCol)
-    } else {
-      None
-    }
-
-    // TODO, check the validation col
-    val validationName = if (isDefined(validationIndicatorCol) &&
-      getValidationIndicatorCol.nonEmpty) {
-      selectedCols.append(col(getValidationIndicatorCol))
-      Some(getValidationIndicatorCol)
-    } else {
-      None
-    }
-
-    var groupName: Option[String] = None
+    val trainingCols: ArrayBuffer[Param[String]] = ArrayBuffer.empty
+    trainingCols.append(labelCol, featuresCol, weightCol, baseMarginCol, validationIndicatorCol)
     this match {
       case p: HasGroupCol =>
-        // Cast group col to IntegerType if necessary
-        if (isDefined(p.groupCol) && $(p.groupCol).nonEmpty) {
-          selectedCols.append(castToFloatIfNeeded(schema, p.getGroupCol))
-          groupName = Some(p.getGroupCol)
-        }
+        trainingCols.append(p.groupCol)
       case _ =>
     }
+
+    val Seq(labelName, featureName, weightName, baseMarginName, validationName, groupName) =
+      trainingCols.map { c =>
+        if (isDefined(c) && $(c).nonEmpty) {
+          // Validation col should be a boolean column.
+          if (c == validationIndicatorCol || c == featuresCol) {
+            selectedCols.append(col($(c)))
+          } else {
+            selectedCols.append(castToFloatIfNeeded(dataset.schema, $(c)))
+          }
+          Some($(c))
+        } else {
+          None
+        }
+      }
 
     var input = dataset.select(selectedCols: _*)
 
@@ -157,8 +141,8 @@ private[spark] abstract class XGBoostEstimator[
       input.repartition(numWorkers)
     }
     val columnIndexes = ColumnIndexes(
-      getLabelCol,
-      getFeaturesCol,
+      labelName.get,
+      featureName.get,
       weight = weightName,
       baseMargin = baseMarginName,
       group = groupName,
