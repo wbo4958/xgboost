@@ -19,15 +19,13 @@ package ml.dmlc.xgboost4j.scala.spark
 import scala.collection.mutable.ArrayBuffer
 import scala.jdk.CollectionConverters.seqAsJavaListConverter
 
+import ai.rapids.cudf.Table
 import com.nvidia.spark.rapids.ColumnarRdd
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{Column, Dataset}
-import org.apache.spark.sql.functions.col
-import org.apache.spark.sql.types.FloatType
 
 import ml.dmlc.xgboost4j.java.{CudfColumnBatch, GpuColumnBatch}
 import ml.dmlc.xgboost4j.scala.QuantileDMatrix
-import ml.dmlc.xgboost4j.scala.spark.params.HasGroupCol
 
 private[spark] case class ColumnIndices(
   labelId: Int,
@@ -53,6 +51,23 @@ class GPUXGBoostPlugin extends XGBoostPlugin {
     hasRapidsPlugin && rapidsEnabled
   }
 
+  private def preprocess[T <: XGBoostEstimator[T, M], M <: XGBoostModel[M]](
+    estimator: XGBoostEstimator[T, M], dataset: Dataset[_]): Dataset[_] = {
+
+    val selectedCols: ArrayBuffer[Column] = ArrayBuffer.empty
+    val features = estimator.getFeaturesCols
+
+    (features.toSeq ++ Seq(estimator.getLabelCol)).foreach { name =>
+      val col = estimator.castToFloatIfNeeded(dataset.schema, name)
+      selectedCols.append(col)
+    }
+    val input = dataset.select(selectedCols: _*)
+
+    // TODO add repartition
+    input.repartition(estimator.getNumWorkers)
+  }
+
+
   /**
    * Convert Dataset to RDD[Watches] which will be fed into XGBoost
    *
@@ -75,22 +90,16 @@ class GPUXGBoostPlugin extends XGBoostPlugin {
     val label = estimator.getLabelCol
     val missing = Float.NaN
 
-    val selectedCols: ArrayBuffer[Column] = ArrayBuffer.empty
-    (features.toSeq ++ Seq(estimator.getLabelCol)).foreach { name =>
-      val col = estimator.castToFloatIfNeeded(dataset.schema, name)
-      selectedCols.append(col)
-    }
-    var input = dataset.select(selectedCols: _*)
-    input = input.repartition(estimator.getNumWorkers)
+    val train = preprocess(estimator, dataset)
+    val schema = train.schema
 
-    val schema = input.schema
     val indices = ColumnIndices(
       schema.fieldIndex(label),
       features.map(schema.fieldIndex),
       None, None, None
     )
 
-    ColumnarRdd(input).mapPartitions { iter =>
+    def buildQuantileDMatrix(iter: Iterator[Table]): QuantileDMatrix = {
       val colBatchIter = iter.map { table =>
         withResource(new GpuColumnBatch(table, null)) { batch =>
           new CudfColumnBatch(
@@ -100,10 +109,24 @@ class GPUXGBoostPlugin extends XGBoostPlugin {
             batch.slice(indices.marginId.getOrElse(-1)));
         }
       }
-
-      val dm = new QuantileDMatrix(colBatchIter, missing, maxBin, nthread)
-      Iterator.single(new Watches(Array(dm), Array(Utils.TRAIN_NAME), None))
+      new QuantileDMatrix(colBatchIter, missing, maxBin, nthread)
     }
+
+    estimator.getEvalDataset().map { evalDs =>
+      val evalProcessed = preprocess(estimator, evalDs)
+      ColumnarRdd(train.toDF()).zipPartitions(ColumnarRdd(evalProcessed.toDF())) {
+        (trainIter, evalIter) =>
+          val trainDM = buildQuantileDMatrix(trainIter)
+          val evalDM = buildQuantileDMatrix(evalIter)
+          Iterator.single(new Watches(Array(trainDM, evalDM),
+            Array(Utils.TRAIN_NAME, Utils.VALIDATION_NAME), None))
+      }
+    }.getOrElse(
+      ColumnarRdd(train.toDF()).mapPartitions { iter =>
+        val dm = buildQuantileDMatrix(iter)
+        Iterator.single(new Watches(Array(dm), Array(Utils.TRAIN_NAME), None))
+      }
+    )
   }
 
   /** Executes the provided code block and then closes the resource */

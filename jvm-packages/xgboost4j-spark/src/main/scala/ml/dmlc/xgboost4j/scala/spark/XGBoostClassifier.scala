@@ -86,7 +86,7 @@ class XGBoostClassifier(override val uid: String,
 }
 
 object XGBoostClassifier extends DefaultParamsReadable[XGBoostClassifier] {
-  private val uid = Identifiable.randomUID("xgbc")
+  private val _uid = Identifiable.randomUID("xgbc")
   override def load(path: String): XGBoostClassifier = super.load(path)
 }
 

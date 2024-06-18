@@ -21,7 +21,6 @@ import java.util.ServiceLoader
 import scala.collection.mutable.ArrayBuffer
 import scala.jdk.CollectionConverters.iterableAsScalaIterableConverter
 
-import ml.dmlc.xgboost4j.{LabeledPoint => XGBLabeledPoint}
 import org.apache.commons.logging.LogFactory
 import org.apache.hadoop.fs.Path
 import org.apache.spark.ml.{Estimator, Model}
@@ -34,6 +33,7 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types.{ArrayType, FloatType, StructField, StructType}
 
+import ml.dmlc.xgboost4j.{LabeledPoint => XGBLabeledPoint}
 import ml.dmlc.xgboost4j.scala.{Booster, DMatrix, XGBoost => SXGBoost}
 import ml.dmlc.xgboost4j.scala.spark.Utils.MLVectorToXGBLabeledPoint
 import ml.dmlc.xgboost4j.scala.spark.params._
@@ -49,11 +49,24 @@ private case class ColumnIndexes(label: String,
                                  group: Option[String] = None,
                                  valiation: Option[String] = None)
 
+private[spark] trait NonParamVariables[T <: XGBoostEstimator[T, M], M <: XGBoostModel[M]] {
+
+  private var dataset: Option[Dataset[_]] = None
+
+  def setEvalDataset(ds: Dataset[_]): T = {
+    this.dataset = Some(ds)
+    this.asInstanceOf[T]
+  }
+
+  def getEvalDataset(): Option[Dataset[_]] = {
+    this.dataset
+  }
+}
+
 private[spark] abstract class XGBoostEstimator[
-  Learner <: XGBoostEstimator[Learner, M],
-  M <: XGBoostModel[M]
-] extends Estimator[M] with XGBoostParams[Learner] with SparkParams[Learner]
-  with ParamMapConversion with DefaultParamsWritable {
+  Learner <: XGBoostEstimator[Learner, M], M <: XGBoostModel[M]] extends Estimator[M]
+  with XGBoostParams[Learner] with SparkParams[Learner]
+  with NonParamVariables[Learner, M] with ParamMapConversion with DefaultParamsWritable {
 
   protected val logger = LogFactory.getLog("XGBoostSpark")
 
@@ -106,14 +119,14 @@ private[spark] abstract class XGBoostEstimator[
     val selectedCols: ArrayBuffer[Column] = ArrayBuffer.empty
 
     val trainingCols: ArrayBuffer[Param[String]] = ArrayBuffer.empty
-    trainingCols.append(labelCol, featuresCol, weightCol, baseMarginCol, validationIndicatorCol)
+    trainingCols.append(labelCol, featuresCol, weightCol, baseMarginCol)
     this match {
       case p: HasGroupCol =>
         trainingCols.append(p.groupCol)
       case _ =>
     }
 
-    val Seq(labelName, featureName, weightName, baseMarginName, validationName, groupName) =
+    val Seq(labelName, featureName, weightName, baseMarginName) =
       trainingCols.map { c =>
         if (isDefined(c) && $(c).nonEmpty) {
           // Validation col should be a boolean column.
@@ -145,22 +158,14 @@ private[spark] abstract class XGBoostEstimator[
       featureName.get,
       weight = weightName,
       baseMargin = baseMarginName,
-      group = groupName,
-      valiation = validationName)
+      group = None,
+      valiation = None)
     (input, columnIndexes)
   }
 
-  /**
-   * Convert the dataframe to RDD
-   *
-   * @param dataset
-   * @param columnsOrder the order of columns including weight/group/base margin ...
-   * @return RDD
-   */
-  def toRdd(dataset: Dataset[_], columnIndexes: ColumnIndexes): RDD[Watches] = {
-
-    // 1. to XGBLabeledPoint
-    val labeledPointRDD = dataset.rdd.map {
+  private def toXGBLabeledPoint(dataset: Dataset[_],
+                                columnIndexes: ColumnIndexes): RDD[XGBLabeledPoint] = {
+    dataset.rdd.map {
       case row: Row =>
         val label = row.getFloat(row.fieldIndex(columnIndexes.label))
         val features = row.getAs[Vector](columnIndexes.features)
@@ -173,62 +178,38 @@ private[spark] abstract class XGBoostEstimator[
         // TODO support sparse vector.
         // TODO support array
         val values = features.toArray.map(_.toFloat)
-        val isValidation = columnIndexes.valiation.exists(v =>
-          row.getBoolean(row.fieldIndex(v)))
-
-        (isValidation,
-          XGBLabeledPoint(label, values.length, null, values, weight, group.toInt, baseMargin))
+        XGBLabeledPoint(label, values.length, null, values, weight, group.toInt, baseMargin)
     }
+  }
 
+  /**
+   * Convert the dataframe to RDD
+   *
+   * @param dataset
+   * @param columnsOrder the order of columns including weight/group/base margin ...
+   * @return RDD
+   */
+  def toRdd(dataset: Dataset[_], columnIndexes: ColumnIndexes): RDD[Watches] = {
+    val trainRDD = toXGBLabeledPoint(dataset, columnIndexes)
 
-    labeledPointRDD.mapPartitions { iter =>
-      val datasets: ArrayBuffer[DMatrix] = ArrayBuffer.empty
-      val names: ArrayBuffer[String] = ArrayBuffer.empty
-      val validations: ArrayBuffer[XGBLabeledPoint] = ArrayBuffer.empty
-
-      val trainIter = if (columnIndexes.valiation.isDefined) {
-        // Extract validations during build Train DMatrix
-        val dataIter = new Iterator[XGBLabeledPoint] {
-          private var tmp: Option[XGBLabeledPoint] = None
-
-          override def hasNext: Boolean = {
-            if (tmp.isDefined) {
-              return true
-            }
-            while (iter.hasNext) {
-              val (isVal, labelPoint) = iter.next()
-              if (isVal) {
-                validations.append(labelPoint)
-              } else {
-                tmp = Some(labelPoint)
-                return true
-              }
-            }
-            false
-          }
-
-          override def next(): XGBLabeledPoint = {
-            val xgbLabeledPoint = tmp.get
-            tmp = None
-            xgbLabeledPoint
-          }
-        }
-        dataIter
-      } else {
-        iter.map(_._2)
+    val x = getEvalDataset()
+    getEvalDataset().map { eval =>
+      val (evalDf, _) = preprocess(eval)
+      val evalRDD = toXGBLabeledPoint(evalDf, columnIndexes)
+      trainRDD.zipPartitions(evalRDD) { (trainIter, evalIter) =>
+        val trainDMatrix = new DMatrix(trainIter)
+        val evalDMatrix = new DMatrix(evalIter)
+        val watches = new Watches(Array(trainDMatrix, evalDMatrix),
+          Array(Utils.TRAIN_NAME, Utils.VALIDATION_NAME), None)
+        Iterator.single(watches)
       }
-
-      datasets.append(new DMatrix(trainIter))
-      names.append(Utils.TRAIN_NAME)
-      if (columnIndexes.valiation.isDefined) {
-        datasets.append(new DMatrix(validations.toIterator))
-        names.append(Utils.VALIDATION_NAME)
+    }.getOrElse(
+      trainRDD.mapPartitions { iter =>
+        // Handle weight/base margin
+        val watches = new Watches(Array(new DMatrix(iter)), Array(Utils.TRAIN_NAME), None)
+        Iterator.single(watches)
       }
-
-      // TODO  1. support external memory 2. rework or remove Watches
-      val watches = new Watches(datasets.toArray, names.toArray, None)
-      Iterator.single(watches)
-    }
+    )
   }
 
   protected def createModel(booster: Booster, summary: XGBoostTrainingSummary): M
