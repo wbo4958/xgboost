@@ -63,7 +63,7 @@ class XXXXXSuite extends AnyFunSuite with GpuTestSuite {
         //      .setBaseMarginCol("base_margin")
         .setFeaturesCol(features)
         .setLabelCol(labelCol)
-//        .setEvalDataset(validationDf)
+        .setEvalDataset(validationDf)
 //        .setValidationIndicatorCol("validation")
         //      .setPredictionCol("")
         .setRawPredictionCol("")
