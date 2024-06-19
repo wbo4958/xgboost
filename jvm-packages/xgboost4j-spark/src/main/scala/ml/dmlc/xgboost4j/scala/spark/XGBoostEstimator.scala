@@ -170,7 +170,7 @@ private[spark] abstract class XGBoostEstimator[
    * @param dataset
    * @return
    */
-  private def preprocess(dataset: Dataset[_]): (Dataset[_], ColumnIndices) = {
+  private[spark] def preprocess(dataset: Dataset[_]): (Dataset[_], ColumnIndices) = {
 
     // Columns to be selected for XGBoost training
     val selectedCols: ArrayBuffer[Column] = ArrayBuffer.empty
@@ -198,8 +198,9 @@ private[spark] abstract class XGBoostEstimator[
     (input, columnIndices)
   }
 
-  private def toXGBLabeledPoint(dataset: Dataset[_],
-                                columnIndexes: ColumnIndices): RDD[XGBLabeledPoint] = {
+  /** visible for testing */
+  private[spark] def toXGBLabeledPoint(dataset: Dataset[_],
+                                       columnIndexes: ColumnIndices): RDD[XGBLabeledPoint] = {
     dataset.rdd.map {
       case row: Row =>
         val label = row.getFloat(columnIndexes.labelId)
@@ -216,16 +217,15 @@ private[spark] abstract class XGBoostEstimator[
   }
 
   /**
-   * Convert the dataframe to RDD
+   * Convert the dataframe to RDD, visible to testing
    *
    * @param dataset
    * @param columnsOrder the order of columns including weight/group/base margin ...
    * @return RDD
    */
-  def toRdd(dataset: Dataset[_], columnIndices: ColumnIndices): RDD[Watches] = {
+  private[spark] def toRdd(dataset: Dataset[_], columnIndices: ColumnIndices): RDD[Watches] = {
     val trainRDD = toXGBLabeledPoint(dataset, columnIndices)
 
-    val x = getEvalDataset()
     getEvalDataset().map { eval =>
       val (evalDf, _) = preprocess(eval)
       val evalRDD = toXGBLabeledPoint(evalDf, columnIndices)
@@ -310,10 +310,9 @@ private[spark] abstract class XGBoostEstimator[
 
     val taskCpus = dataset.sparkSession.sparkContext.getConf.getInt("spark.task.cpus", 1)
     if (isDefined(nthread)) {
-      if (getNthread > taskCpus) {
-        logger.warn("nthread must be smaller or equal to spark.task.cpus.")
-        setNthread(taskCpus)
-      }
+      require(getNthread <= taskCpus,
+        s"the nthread configuration ($getNthread) must be no larger than " +
+          s"spark.task.cpus ($taskCpus)")
     } else {
       setNthread(taskCpus)
     }
