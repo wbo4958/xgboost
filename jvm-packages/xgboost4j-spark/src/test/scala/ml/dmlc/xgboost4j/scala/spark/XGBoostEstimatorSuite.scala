@@ -99,4 +99,113 @@ class XGBoostEstimatorSuite extends AnyFunSuite with PerTest with TmpFolderPerSu
       indices1.featureIds.isEmpty)
   }
 
+  test("to XGBoostLabeledPoint RDD") {
+    val data = Array(
+      Array(1.0, 2.0, 3.0, 4.0, 5.0),
+      Array(0.0, 0.0, 0.0, 0.0, 2.0),
+      Array(12.0, 13.0, 14.0, 14.0, 15.0),
+      Array(20.5, 21.2, 0, 0.0, 2.0)
+    )
+    val dataset = ss.createDataFrame(sc.parallelize(Seq(
+      (1.0, 0, 0.5, 1.0, Vectors.dense(data(0)), "a"),
+      (2.0, 2, -0.5, 0.0, Vectors.dense(data(1)).toSparse, "b"),
+      (3.0, 2, -0.5, 0.0, Vectors.dense(data(2)), "b"),
+      (4.0, 2, -0.4, -2.1, Vectors.dense(data(3)), "c"),
+    ))).toDF("label", "group", "margin", "weight", "features", "other")
+
+    val classifier = new XGBoostClassifier()
+      .setLabelCol("label")
+      .setFeaturesCol("features")
+      .setWeightCol("weight")
+
+    val (df, indices) = classifier.preprocess(dataset)
+    val rdd = classifier.toXGBLabeledPoint(df, indices)
+    val result = rdd.collect().sortBy(x => x.label)
+
+    assert(result.length == data.length)
+
+    assert(result(0).label === 1.0f && result(0).baseMargin.isNaN &&
+      result(0).weight === 1.0f && result(0).values === data(0).map(_.toFloat))
+    assert(result(1).label == 2.0f && result(1).baseMargin.isNaN &&
+      result(1).weight === 0.0f &&
+      result(1).values === Vectors.dense(data(1)).toSparse.values.map(_.toFloat))
+    assert(result(2).label === 3.0f && result(2).baseMargin.isNaN &&
+      result(2).weight == 0.0f && result(2).values === data(2).map(_.toFloat))
+    assert(result(3).label === 4.0f && result(3).baseMargin.isNaN &&
+      result(3).weight === -2.1f && result(3).values === data(3).map(_.toFloat))
+  }
+
+  test("to XGBoostLabeledPoint RDD with missing Float.NaN") {
+    val data = Array(
+      Array(1.0, 2.0, 3.0, 4.0, 5.0),
+      Array(0.0, 0.0, 0.0, 0.0, 2.0),
+      Array(12.0, 13.0, Float.NaN, 14.0, 15.0),
+      Array(20.5, 21.2, 0, 0.0, 2.0)
+    )
+    val dataset = ss.createDataFrame(sc.parallelize(Seq(
+      (1.0, 0, 0.5, 1.0, Vectors.dense(data(0)), "a"),
+      (2.0, 2, -0.5, 0.0, Vectors.dense(data(1)).toSparse, "b"),
+      (3.0, 2, -0.5, 0.0, Vectors.dense(data(2)), "b"),
+      (4.0, 2, -0.4, -2.1, Vectors.dense(data(3)), "c"),
+    ))).toDF("label", "group", "margin", "weight", "features", "other")
+
+    val classifier = new XGBoostClassifier()
+      .setLabelCol("label")
+      .setFeaturesCol("features")
+      .setWeightCol("weight")
+
+    val (df, indices) = classifier.preprocess(dataset)
+    val rdd = classifier.toXGBLabeledPoint(df, indices)
+    val result = rdd.collect().sortBy(x => x.label)
+
+    assert(result.length == data.length - 1)
+
+    assert(result(0).label === 1.0f && result(0).baseMargin.isNaN &&
+      result(0).weight === 1.0f && result(0).values === data(0).map(_.toFloat))
+    assert(result(1).label == 2.0f && result(1).baseMargin.isNaN &&
+      result(1).weight === 0.0f &&
+      result(1).values === Vectors.dense(data(1)).toSparse.values.map(_.toFloat))
+    assert(result(2).label === 4.0f && result(2).baseMargin.isNaN &&
+      result(2).weight === -2.1f && result(2).values === data(3).map(_.toFloat))
+  }
+
+
+  test("to XGBoostLabeledPoint RDD with missing 0.0") {
+    val data = Array(
+      Array(1.0, 2.0, 3.0, 4.0, 5.0),
+      Array(0.0, 0.0, 0.0, 0.0, 2.0),
+      Array(12.0, 13.0, Float.NaN, 14.0, 15.0),
+      Array(20.5, 21.2, 0, 0.0, 2.0)
+    )
+    val dataset = ss.createDataFrame(sc.parallelize(Seq(
+      (1.0, 0, 0.5, 1.0, Vectors.dense(data(0)), "a"),
+      (2.0, 2, -0.5, 0.0, Vectors.dense(data(1)).toSparse, "b"),
+      (3.0, 2, -0.5, 0.0, Vectors.dense(data(2)), "b"),
+      (4.0, 2, -0.4, -2.1, Vectors.dense(data(3)), "c"),
+    ))).toDF("label", "group", "margin", "weight", "features", "other")
+
+    val classifier = new XGBoostClassifier()
+      .setLabelCol("label")
+      .setFeaturesCol("features")
+      .setWeightCol("weight")
+      .setMissing(0.0f)
+
+    val (df, indices) = classifier.preprocess(dataset)
+    val rdd = classifier.toXGBLabeledPoint(df, indices)
+    val result = rdd.collect().sortBy(x => x.label)
+
+    assert(result.length == 2)
+
+    assert(result(0).label === 1.0f && result(0).baseMargin.isNaN &&
+      result(0).weight === 1.0f && result(0).values === data(0).map(_.toFloat))
+    assert(result(1).label === 3.0f && result(1).baseMargin.isNaN &&
+      result(1).weight == 0.0f)
+
+    assert(result(1).values(0) === 12.0f)
+    assert(result(1).values(1) === 13.0f)
+    assert(result(1).values(2).isNaN)
+    assert(result(1).values(3) === 14.0f)
+    assert(result(1).values(4) === 15.0f)
+  }
+
 }
