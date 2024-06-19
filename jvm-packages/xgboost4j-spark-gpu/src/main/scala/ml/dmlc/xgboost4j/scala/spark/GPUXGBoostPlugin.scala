@@ -27,13 +27,6 @@ import org.apache.spark.sql.{Column, Dataset}
 import ml.dmlc.xgboost4j.java.{CudfColumnBatch, GpuColumnBatch}
 import ml.dmlc.xgboost4j.scala.QuantileDMatrix
 
-private[spark] case class ColumnIndices(
-  labelId: Int,
-  featuresId: Seq[Int],
-  weightId: Option[Int],
-  marginId: Option[Int],
-  groupId: Option[Int])
-
 class GPUXGBoostPlugin extends XGBoostPlugin {
 
   /**
@@ -51,22 +44,23 @@ class GPUXGBoostPlugin extends XGBoostPlugin {
     hasRapidsPlugin && rapidsEnabled
   }
 
+  // TODO, support numeric type
   private def preprocess[T <: XGBoostEstimator[T, M], M <: XGBoostModel[M]](
     estimator: XGBoostEstimator[T, M], dataset: Dataset[_]): Dataset[_] = {
 
     val selectedCols: ArrayBuffer[Column] = ArrayBuffer.empty
+
     val features = estimator.getFeaturesCols
 
     (features.toSeq ++ Seq(estimator.getLabelCol)).foreach { name =>
       val col = estimator.castToFloatIfNeeded(dataset.schema, name)
       selectedCols.append(col)
     }
+
     val input = dataset.select(selectedCols: _*)
 
-    // TODO add repartition
-    input.repartition(estimator.getNumWorkers)
+    estimator.repartitionIfNeeded(input)
   }
-
 
   /**
    * Convert Dataset to RDD[Watches] which will be fed into XGBoost
@@ -78,32 +72,21 @@ class GPUXGBoostPlugin extends XGBoostPlugin {
   override def buildRddWatches[T <: XGBoostEstimator[T, M], M <: XGBoostModel[M]](
     estimator: XGBoostEstimator[T, M],
     dataset: Dataset[_]): RDD[Watches] = {
-    println("buildRddWatches ---")
-
-    // TODO, check if the feature in featuresCols is numeric.
-
-    val features = estimator.getFeaturesCols
-    val maxBin = estimator.getMaxBins
-    val nthread = estimator.getNthread
-    // TODO cast features to float if possible
-
-    val label = estimator.getLabelCol
-    val missing = Float.NaN
-
     val train = preprocess(estimator, dataset)
     val schema = train.schema
 
-    val indices = ColumnIndices(
-      schema.fieldIndex(label),
-      features.map(schema.fieldIndex),
-      None, None, None
-    )
+    val indices = estimator.buildColumnIndices(schema)
 
+    val maxBin = estimator.getMaxBins
+    val nthread = estimator.getNthread
+    val missing = estimator.getMissing
+
+    /** build QuantilDMatrix on the executor side */
     def buildQuantileDMatrix(iter: Iterator[Table]): QuantileDMatrix = {
       val colBatchIter = iter.map { table =>
         withResource(new GpuColumnBatch(table, null)) { batch =>
           new CudfColumnBatch(
-            batch.slice(indices.featuresId.map(Integer.valueOf).asJava),
+            batch.slice(indices.featureIds.get.map(Integer.valueOf).asJava),
             batch.slice(indices.labelId),
             batch.slice(indices.weightId.getOrElse(-1)),
             batch.slice(indices.marginId.getOrElse(-1)));
