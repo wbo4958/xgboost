@@ -444,25 +444,29 @@ private[spark] abstract class XGBoostModel[M <: XGBoostModel[M]](
         // DMatrix used to prediction
         val dm = new DMatrix(features.map(_.asXGB))
 
-        var tmpOut = batchRow.map(_.toSeq)
+        try {
+          var tmpOut = batchRow.map(_.toSeq)
 
-        val zip = (left: Seq[Seq[_]], right: Array[Array[Float]]) => left.zip(right).map {
-          case (a, b) => a ++ Seq(b)
-        }
+          val zip = (left: Seq[Seq[_]], right: Array[Array[Float]]) => left.zip(right).map {
+            case (a, b) => a ++ Seq(b)
+          }
 
-        if (hasLeafPredictionCol) {
-          tmpOut = zip(tmpOut, bBooster.value.predictLeaf(dm))
+          if (hasLeafPredictionCol) {
+            tmpOut = zip(tmpOut, bBooster.value.predictLeaf(dm))
+          }
+          if (hasContribPredictionCol) {
+            tmpOut = zip(tmpOut, bBooster.value.predictContrib(dm))
+          }
+          if (hasRawPredictionCol) {
+            tmpOut = zip(tmpOut, bBooster.value.predict(dm, outPutMargin = true))
+          }
+          if (hasTransformedCol) {
+            tmpOut = zip(tmpOut, bBooster.value.predict(dm, outPutMargin = false))
+          }
+          tmpOut.map(Row.fromSeq)
+        } finally {
+          dm.delete()
         }
-        if (hasContribPredictionCol) {
-          tmpOut = zip(tmpOut, bBooster.value.predictContrib(dm))
-        }
-        if (hasRawPredictionCol) {
-          tmpOut = zip(tmpOut, bBooster.value.predict(dm, outPutMargin = true))
-        }
-        if (hasTransformedCol) {
-          tmpOut = zip(tmpOut, bBooster.value.predict(dm, outPutMargin = false))
-        }
-        tmpOut.map(Row.fromSeq)
       }
 
     }(Encoders.row(schema))
