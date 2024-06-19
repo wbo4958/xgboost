@@ -24,7 +24,6 @@ import com.nvidia.spark.rapids.ColumnarRdd
 import org.apache.spark.ml.param.Param
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{Column, Dataset}
-import org.apache.spark.sql.functions.col
 
 import ml.dmlc.xgboost4j.java.{CudfColumnBatch, GpuColumnBatch}
 import ml.dmlc.xgboost4j.scala.QuantileDMatrix
