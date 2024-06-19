@@ -78,9 +78,9 @@ private[spark] abstract class XGBoostEstimator[
 
     val serviceLoader = ServiceLoader.load(classOf[XGBoostPlugin], classLoader)
 
-    // For now, we only trust GPUXGBoostPlugin.
+    // For now, we only trust GpuXGBoostPlugin.
     serviceLoader.asScala.filter(x => x.getClass.getName.equals(
-      "ml.dmlc.xgboost4j.scala.spark.GPUXGBoostPlugin")).toList match {
+      "ml.dmlc.xgboost4j.scala.spark.GpuXGBoostPlugin")).toList match {
       case Nil => None
       case head :: Nil =>
         Some(head)
@@ -128,7 +128,6 @@ private[spark] abstract class XGBoostEstimator[
    * Build the columns indices.
    */
   private[spark] def buildColumnIndices(schema: StructType): ColumnIndices = {
-
     // Get feature id(s)
     val (featureIds: Option[Seq[Int]], featureId: Option[Int]) =
       if (getFeaturesCols.length != 0) {
@@ -161,6 +160,10 @@ private[spark] abstract class XGBoostEstimator[
       groupId)
   }
 
+  private[spark] def isDefinedNonEmpty(param: Param[String]): Boolean = {
+    if (isDefined(param) && $(param).nonEmpty) true else false
+  }
+
   /**
    * Preprocess the dataset to meet the xgboost input requirement
    *
@@ -174,7 +177,7 @@ private[spark] abstract class XGBoostEstimator[
     val schema = dataset.schema
 
     def selectCol(c: Param[String]) = {
-      if (isDefined(c) && $(c).nonEmpty) {
+      if (isDefinedNonEmpty(c)) {
         // Validation col should be a boolean column.
         if (c == featuresCol) {
           selectedCols.append(col($(c)))

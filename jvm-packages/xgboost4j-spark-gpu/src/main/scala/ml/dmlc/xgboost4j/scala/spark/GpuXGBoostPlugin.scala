@@ -21,13 +21,20 @@ import scala.jdk.CollectionConverters.seqAsJavaListConverter
 
 import ai.rapids.cudf.Table
 import com.nvidia.spark.rapids.ColumnarRdd
+import org.apache.spark.ml.param.Param
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{Column, Dataset}
+import org.apache.spark.sql.functions.col
 
 import ml.dmlc.xgboost4j.java.{CudfColumnBatch, GpuColumnBatch}
 import ml.dmlc.xgboost4j.scala.QuantileDMatrix
+import ml.dmlc.xgboost4j.scala.spark.params.HasGroupCol
 
-class GPUXGBoostPlugin extends XGBoostPlugin {
+/**
+ * GpuXGBoostPlugin is the XGBoost plugin which leverage spark-rapids
+ * to accelerate the XGBoost from ETL to train.
+ */
+class GpuXGBoostPlugin extends XGBoostPlugin {
 
   /**
    * Whether the plugin is enabled or not, if not enabled, fallback
@@ -48,17 +55,29 @@ class GPUXGBoostPlugin extends XGBoostPlugin {
   private def preprocess[T <: XGBoostEstimator[T, M], M <: XGBoostModel[M]](
       estimator: XGBoostEstimator[T, M], dataset: Dataset[_]): Dataset[_] = {
 
+    // Columns to be selected for XGBoost training
     val selectedCols: ArrayBuffer[Column] = ArrayBuffer.empty
+    val schema = dataset.schema
 
-    val features = estimator.getFeaturesCols
+    def selectCol(c: Param[String]) = {
+      // TODO support numeric types
+      if (estimator.isDefinedNonEmpty(c)) {
+        selectedCols.append(estimator.castToFloatIfNeeded(schema, estimator.getOrDefault(c)))
+      }
+    }
 
-    (features.toSeq ++ Seq(estimator.getLabelCol)).foreach { name =>
+    Seq(estimator.labelCol, estimator.weightCol, estimator.baseMarginCol).foreach(selectCol)
+    estimator match {
+      case p: HasGroupCol => selectCol(p.groupCol)
+      case _ =>
+    }
+
+    // TODO support array/vector feature
+    estimator.getFeaturesCols.foreach { name =>
       val col = estimator.castToFloatIfNeeded(dataset.schema, name)
       selectedCols.append(col)
     }
-
     val input = dataset.select(selectedCols: _*)
-
     estimator.repartitionIfNeeded(input)
   }
 
