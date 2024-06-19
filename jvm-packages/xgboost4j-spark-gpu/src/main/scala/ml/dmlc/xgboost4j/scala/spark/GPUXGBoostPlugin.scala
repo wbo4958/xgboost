@@ -46,7 +46,7 @@ class GPUXGBoostPlugin extends XGBoostPlugin {
 
   // TODO, support numeric type
   private def preprocess[T <: XGBoostEstimator[T, M], M <: XGBoostModel[M]](
-    estimator: XGBoostEstimator[T, M], dataset: Dataset[_]): Dataset[_] = {
+      estimator: XGBoostEstimator[T, M], dataset: Dataset[_]): Dataset[_] = {
 
     val selectedCols: ArrayBuffer[Column] = ArrayBuffer.empty
 
@@ -70,8 +70,8 @@ class GPUXGBoostPlugin extends XGBoostPlugin {
    * @return RDD[Watches]
    */
   override def buildRddWatches[T <: XGBoostEstimator[T, M], M <: XGBoostModel[M]](
-    estimator: XGBoostEstimator[T, M],
-    dataset: Dataset[_]): RDD[Watches] = {
+      estimator: XGBoostEstimator[T, M],
+      dataset: Dataset[_]): RDD[Watches] = {
     val train = preprocess(estimator, dataset)
     val schema = train.schema
 

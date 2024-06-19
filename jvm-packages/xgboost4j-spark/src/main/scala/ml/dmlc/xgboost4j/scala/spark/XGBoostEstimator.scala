@@ -43,12 +43,12 @@ import ml.dmlc.xgboost4j.scala.spark.params._
  * Hold the column index
  */
 private[spark] case class ColumnIndices(
-  labelId: Int,
-  featureId: Option[Int], // the feature type is VectorUDT or Array
-  featureIds: Option[Seq[Int]], // the feature type is columnar
-  weightId: Option[Int],
-  marginId: Option[Int],
-  groupId: Option[Int])
+    labelId: Int,
+    featureId: Option[Int], // the feature type is VectorUDT or Array
+    featureIds: Option[Seq[Int]], // the feature type is columnar
+    weightId: Option[Int],
+    marginId: Option[Int],
+    groupId: Option[Int])
 
 private[spark] trait NonParamVariables[T <: XGBoostEstimator[T, M], M <: XGBoostModel[M]] {
 
@@ -356,9 +356,9 @@ private[spark] abstract class XGBoostEstimator[
  * @tparam the exact model which must extend from XGBoostModel
  */
 private[spark] abstract class XGBoostModel[M <: XGBoostModel[M]](
-  override val uid: String,
-  private val model: Booster,
-  private val trainingSummary: Option[XGBoostTrainingSummary]) extends Model[M] with MLWritable
+    override val uid: String,
+    private val model: Booster,
+    private val trainingSummary: Option[XGBoostTrainingSummary]) extends Model[M] with MLWritable
   with XGBoostParams[M] with SparkParams[M] {
 
   protected val TMP_TRANSFORMED_COL = "_tmp_xgb_transformed_col"

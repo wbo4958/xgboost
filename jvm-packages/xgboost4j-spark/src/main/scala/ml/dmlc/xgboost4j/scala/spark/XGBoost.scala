@@ -28,15 +28,15 @@ import ml.dmlc.xgboost4j.java.{Communicator, RabitTracker, XGBoostError}
 import ml.dmlc.xgboost4j.scala.{XGBoost => SXGBoost, _}
 
 private[spark] case class RuntimeParams(
-  numWorkers: Int,
-  numRounds: Int,
-  obj: ObjectiveTrait,
-  eval: EvalTrait,
-  trackerConf: TrackerConf,
-  earlyStoppingRounds: Int,
-  device: String,
-  isLocal: Boolean,
-  runOnGpu: Boolean)
+    numWorkers: Int,
+    numRounds: Int,
+    obj: ObjectiveTrait,
+    eval: EvalTrait,
+    trackerConf: TrackerConf,
+    earlyStoppingRounds: Int,
+    device: String,
+    isLocal: Boolean,
+    runOnGpu: Boolean)
 
 /**
  * A trait to manage stage-level scheduling

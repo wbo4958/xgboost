@@ -18,10 +18,10 @@ package ml.dmlc.xgboost4j.scala
 
 import _root_.scala.collection.JavaConverters._
 
-import ml.dmlc.xgboost4j.java.{Column, ColumnBatch, QuantileDMatrix => JQuantileDMatrix, XGBoostError}
+import ml.dmlc.xgboost4j.java.{Column, ColumnBatch, XGBoostError, QuantileDMatrix => JQuantileDMatrix}
 
 class QuantileDMatrix private[scala](
-  private[scala] override val jDMatrix: JQuantileDMatrix) extends DMatrix(jDMatrix) {
+    private[scala] override val jDMatrix: JQuantileDMatrix) extends DMatrix(jDMatrix) {
 
   /**
    * Create QuantileDMatrix from iterator based on the cuda array interface

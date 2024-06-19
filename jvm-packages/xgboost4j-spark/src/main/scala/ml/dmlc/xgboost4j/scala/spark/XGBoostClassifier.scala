@@ -93,9 +93,9 @@ object XGBoostClassifier extends DefaultParamsReadable[XGBoostClassifier] {
 
 // TODO add num classes
 class XGBoostClassificationModel(
-  uid: String,
-  model: Booster,
-  trainingSummary: Option[XGBoostTrainingSummary] = None
+    uid: String,
+    model: Booster,
+    trainingSummary: Option[XGBoostTrainingSummary] = None
 )
   extends XGBoostModel[XGBoostClassificationModel](uid, model, trainingSummary)
     with ClassificationParams[XGBoostClassificationModel] {
