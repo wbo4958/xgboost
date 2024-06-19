@@ -24,7 +24,7 @@ import scala.jdk.CollectionConverters.iterableAsScalaIterableConverter
 import org.apache.commons.logging.LogFactory
 import org.apache.hadoop.fs.Path
 import org.apache.spark.ml.{Estimator, Model}
-import org.apache.spark.ml.linalg.Vector
+import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vector}
 import org.apache.spark.ml.param.{Param, ParamMap}
 import org.apache.spark.ml.util.{DefaultParamsWritable, MLReader, MLWritable, MLWriter}
 import org.apache.spark.ml.xgboost.SparkUtils
@@ -201,18 +201,50 @@ private[spark] abstract class XGBoostEstimator[
   /** visible for testing */
   private[spark] def toXGBLabeledPoint(dataset: Dataset[_],
                                        columnIndexes: ColumnIndices): RDD[XGBLabeledPoint] = {
-    dataset.rdd.map {
-      case row: Row =>
-        val label = row.getFloat(columnIndexes.labelId)
-        val features = row.getAs[Vector](columnIndexes.featureId.get)
-        val weight = columnIndexes.weightId.map(row.getFloat).getOrElse(1.0f)
-        val baseMargin = columnIndexes.marginId.map(row.getFloat).getOrElse(Float.NaN)
-        val group = columnIndexes.groupId.map(row.getFloat).getOrElse(-1.0f)
+    val missing = getMissing
+    dataset.toDF().rdd.mapPartitions { input: Iterator[Row] =>
 
-        // TODO support sparse vector.
-        // TODO support array
-        val values = features.toArray.map(_.toFloat)
-        XGBLabeledPoint(label, values.length, null, values, weight, group.toInt, baseMargin)
+      def isMissing(values: Array[Double]): Boolean = {
+        if (missing.isNaN) {
+          values.exists(_.toFloat.isNaN)
+        } else {
+          values.exists(_.toFloat == missing)
+        }
+      }
+
+      new Iterator[XGBLabeledPoint] {
+        private var tmp: Option[XGBLabeledPoint] = None
+
+        override def hasNext: Boolean = {
+          if (tmp.isDefined) {
+            return true
+          }
+          while (input.hasNext) {
+            val row = input.next()
+            val features = row.getAs[Vector](columnIndexes.featureId.get)
+            if (!isMissing(features.toArray)) {
+              val label = row.getFloat(columnIndexes.labelId)
+              val weight = columnIndexes.weightId.map(row.getFloat).getOrElse(1.0f)
+              val baseMargin = columnIndexes.marginId.map(row.getFloat).getOrElse(Float.NaN)
+              val group = columnIndexes.groupId.map(row.getFloat).getOrElse(-1.0f)
+              val (size, indices, values) = features match {
+                case v: SparseVector => (v.size, v.indices, v.values.map(_.toFloat))
+                case v: DenseVector => (v.size, null, v.values.map(_.toFloat))
+              }
+              tmp = Some(XGBLabeledPoint(label, size, indices, values, weight,
+                group.toInt, baseMargin))
+              return true
+            }
+          }
+          false
+        }
+
+        override def next(): XGBLabeledPoint = {
+          val xgbLabeledPoint = tmp.get
+          tmp = None
+          xgbLabeledPoint
+        }
+      }
     }
   }
 
