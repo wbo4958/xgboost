@@ -81,6 +81,13 @@ class GpuXGBoostPlugin extends XGBoostPlugin {
     estimator.repartitionIfNeeded(input)
   }
 
+  private def validate[T <: XGBoostEstimator[T, M], M <: XGBoostModel[M]](
+      estimator: XGBoostEstimator[T, M],
+      dataset: Dataset[_]): Unit = {
+    require(estimator.getTreeMethod == "gpu_hist" || estimator.getDevice != "cpu",
+      "Using Spark-Rapids to accelerate XGBoost must set device=cuda")
+  }
+
   /**
    * Convert Dataset to RDD[Watches] which will be fed into XGBoost
    *
@@ -91,6 +98,7 @@ class GpuXGBoostPlugin extends XGBoostPlugin {
   override def buildRddWatches[T <: XGBoostEstimator[T, M], M <: XGBoostModel[M]](
       estimator: XGBoostEstimator[T, M],
       dataset: Dataset[_]): RDD[Watches] = {
+    validate(estimator, dataset)
     val train = preprocess(estimator, dataset)
     val schema = train.schema
 

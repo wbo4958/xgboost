@@ -248,9 +248,7 @@ private[spark] abstract class XGBoostEstimator[
   protected def createModel(booster: Booster, summary: XGBoostTrainingSummary): M
 
   private def getRuntimeParameters(isLocal: Boolean): RuntimeParams = {
-
-    val runOnGpu = false
-
+    val runOnGpu = if (getDevice != "cpu" || getTreeMethod == "gpu_hist") true else false
     RuntimeParams(
       getNumWorkers,
       getNumRound,
