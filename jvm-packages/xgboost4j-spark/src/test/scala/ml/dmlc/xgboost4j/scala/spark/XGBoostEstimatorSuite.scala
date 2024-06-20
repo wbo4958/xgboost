@@ -271,4 +271,73 @@ class XGBoostEstimatorSuite extends AnyFunSuite with PerTest with TmpFolderPerSu
 
   }
 
+  test("test to RDD watches with eval") {
+    val trainData = Array(
+      Array(-1.0, -2.0, -3.0, -4.0, -5.0),
+      Array(2.0, 2.0, 2.0, 3.0, -2.0),
+      Array(-12.0, -13.0, -14.0, -14.0, -15.0),
+      Array(-20.5, -21.2, 0.0, 0.0, 2.0)
+    )
+    val trainDataset = ss.createDataFrame(sc.parallelize(Seq(
+      (11.0, 0, 0.15, 11.0, Vectors.dense(trainData(0)), "a"),
+      (12.0, 12, -0.15, 10.0, Vectors.dense(trainData(1)).toSparse, "b"),
+      (13.0, 12, -0.15, 10.0, Vectors.dense(trainData(2)), "b"),
+      (14.0, 12, -0.14, -12.1, Vectors.dense(trainData(3)), "c"),
+    ))).toDF("label", "group", "margin", "weight", "features", "other")
+    val evalData = Array(
+      Array(1.0, 2.0, 3.0, 4.0, 5.0),
+      Array(0.0, 0.0, 0.0, 0.0, 2.0),
+      Array(12.0, 13.0, 14.0, 14.0, 15.0),
+      Array(20.5, 21.2, 0.0, 0.0, 2.0)
+    )
+    val evalDataset = ss.createDataFrame(sc.parallelize(Seq(
+      (1.0, 0, 0.5, 1.0, Vectors.dense(evalData(0)), "a"),
+      (2.0, 2, -0.5, 0.0, Vectors.dense(evalData(1)).toSparse, "b"),
+      (3.0, 2, -0.5, 0.0, Vectors.dense(evalData(2)), "b"),
+      (4.0, 2, -0.4, -2.1, Vectors.dense(evalData(3)), "c"),
+    ))).toDF("label", "group", "margin", "weight", "features", "other")
+
+    val classifier = new XGBoostClassifier()
+      .setLabelCol("label")
+      .setFeaturesCol("features")
+      .setWeightCol("weight")
+      .setBaseMarginCol("margin")
+      .setEvalDataset(evalDataset)
+      .setNumWorkers(2)
+
+    val (df, indices) = classifier.preprocess(trainDataset)
+    val rdd = classifier.toRdd(df, indices)
+    val result = rdd.mapPartitions { iter =>
+      if (iter.hasNext) {
+        val watches = iter.next()
+        val size = watches.size
+        val rowNum = watches.datasets(1).rowNum
+        val labels = watches.datasets(1).getLabel
+        val weight = watches.datasets(1).getWeight
+        val margins = watches.datasets(1).getBaseMargin
+        watches.delete()
+        Iterator.single((size, rowNum, labels, weight, margins))
+      } else {
+        Iterator.empty
+      }
+    }.collect()
+
+    val labels: ArrayBuffer[Float] = ArrayBuffer.empty
+    val weight: ArrayBuffer[Float] = ArrayBuffer.empty
+    val margins: ArrayBuffer[Float] = ArrayBuffer.empty
+
+    var totalRows = 0L
+    for (row <- result) {
+      assert(row._1 === 2)
+      totalRows = totalRows + row._2
+      labels.append(row._3: _*)
+      weight.append(row._4: _*)
+      margins.append(row._5: _*)
+    }
+    assert(totalRows === 4)
+    assert(labels.toArray.sorted === Array(1.0f, 2.0f, 3.0f, 4.0f).sorted)
+    assert(weight.toArray.sorted === Array(0.0f, 0.0f, 1.0f, -2.1f).sorted)
+    assert(margins.toArray.sorted === Array(-0.5f, -0.5f, -0.4f, 0.5f).sorted)
+  }
+
 }

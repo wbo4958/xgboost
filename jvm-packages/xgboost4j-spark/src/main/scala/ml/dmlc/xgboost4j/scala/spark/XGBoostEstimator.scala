@@ -259,6 +259,8 @@ private[spark] abstract class XGBoostEstimator[
   private[spark] def toRdd(dataset: Dataset[_], columnIndices: ColumnIndices): RDD[Watches] = {
     val trainRDD = toXGBLabeledPoint(dataset, columnIndices)
 
+    // transform the labeledpoint to get margins.
+    // TODO, move it into JNI
     def transformLabeledPoint(iter: Iterator[XGBLabeledPoint]) = {
       val trainBaseMargins = new mutable.ArrayBuilder.ofFloat
       val transformedIter = iter.map { labeledPoint =>
