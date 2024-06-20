@@ -259,38 +259,38 @@ private[spark] abstract class XGBoostEstimator[
   private[spark] def toRdd(dataset: Dataset[_], columnIndices: ColumnIndices): RDD[Watches] = {
     val trainRDD = toXGBLabeledPoint(dataset, columnIndices)
 
-    // transform the labeledpoint to get margins.
+    // transform the labeledpoint to get margins and build DMatrix
+    // TODO support basemargin for multiclassification
     // TODO, move it into JNI
-    def transformLabeledPoint(iter: Iterator[XGBLabeledPoint]) = {
-      val trainBaseMargins = new mutable.ArrayBuilder.ofFloat
-      val transformedIter = iter.map { labeledPoint =>
-        trainBaseMargins += labeledPoint.baseMargin
-        labeledPoint
+    def buildDMatrix(iter: Iterator[XGBLabeledPoint]) = {
+      if (columnIndices.marginId.isDefined) {
+        val trainMargins = new mutable.ArrayBuilder.ofFloat
+        val transformedIter = iter.map { labeledPoint =>
+          trainMargins += labeledPoint.baseMargin
+          labeledPoint
+        }
+        val dm = new DMatrix(transformedIter)
+        dm.setBaseMargin(trainMargins.result())
+        dm
+      } else {
+        new DMatrix(iter)
       }
-      (transformedIter, trainBaseMargins)
     }
 
     getEvalDataset().map { eval =>
       val (evalDf, _) = preprocess(eval)
       val evalRDD = toXGBLabeledPoint(evalDf, columnIndices)
       trainRDD.zipPartitions(evalRDD) { (left, right) =>
-        val (trainIter, trainMargins) = transformLabeledPoint(left)
-        val (evalIter, evalMargins) = transformLabeledPoint(right)
-        val trainDMatrix = new DMatrix(trainIter)
-        trainDMatrix.setBaseMargin(trainMargins.result())
-        val evalDMatrix = new DMatrix(evalIter)
-        evalDMatrix.setBaseMargin(evalMargins.result())
+        val trainDMatrix = buildDMatrix(left)
+        val evalDMatrix = buildDMatrix(right)
         val watches = new Watches(Array(trainDMatrix, evalDMatrix),
           Array(Utils.TRAIN_NAME, Utils.VALIDATION_NAME), None)
         Iterator.single(watches)
       }
     }.getOrElse(
       trainRDD.mapPartitions { iter =>
-        // Handle weight/base margin
-        val (trainIter, trainMargins) = transformLabeledPoint(iter)
-        val trainDM = new DMatrix(trainIter)
-        trainDM.setBaseMargin(trainMargins.result())
-        val watches = new Watches(Array(trainDM), Array(Utils.TRAIN_NAME), None)
+        val dm = buildDMatrix(iter)
+        val watches = new Watches(Array(dm), Array(Utils.TRAIN_NAME), None)
         Iterator.single(watches)
       }
     )
@@ -390,7 +390,7 @@ private[spark] abstract class XGBoostEstimator[
     copyValues(createModel(booster, summary))
   }
 
-  override def copy(extra: ParamMap): Learner = defaultCopy(extra)
+  override def copy(extra: ParamMap): Learner = defaultCopy(extra).asInstanceOf[Learner]
 
   // Not used in XGBoost
   override def transformSchema(schema: StructType): StructType = {
