@@ -18,6 +18,7 @@ package ml.dmlc.xgboost4j.scala.spark
 
 import java.util.ServiceLoader
 
+import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.jdk.CollectionConverters.iterableAsScalaIterableConverter
 
@@ -258,12 +259,25 @@ private[spark] abstract class XGBoostEstimator[
   private[spark] def toRdd(dataset: Dataset[_], columnIndices: ColumnIndices): RDD[Watches] = {
     val trainRDD = toXGBLabeledPoint(dataset, columnIndices)
 
+    def transformLabeledPoint(iter: Iterator[XGBLabeledPoint]) = {
+      val trainBaseMargins = new mutable.ArrayBuilder.ofFloat
+      val transformedIter = iter.map { labeledPoint =>
+        trainBaseMargins += labeledPoint.baseMargin
+        labeledPoint
+      }
+      (transformedIter, trainBaseMargins)
+    }
+
     getEvalDataset().map { eval =>
       val (evalDf, _) = preprocess(eval)
       val evalRDD = toXGBLabeledPoint(evalDf, columnIndices)
-      trainRDD.zipPartitions(evalRDD) { (trainIter, evalIter) =>
+      trainRDD.zipPartitions(evalRDD) { (left, right) =>
+        val (trainIter, trainMargins) = transformLabeledPoint(left)
+        val (evalIter, evalMargins) = transformLabeledPoint(right)
         val trainDMatrix = new DMatrix(trainIter)
+        trainDMatrix.setBaseMargin(trainMargins.result())
         val evalDMatrix = new DMatrix(evalIter)
+        evalDMatrix.setBaseMargin(evalMargins.result())
         val watches = new Watches(Array(trainDMatrix, evalDMatrix),
           Array(Utils.TRAIN_NAME, Utils.VALIDATION_NAME), None)
         Iterator.single(watches)
@@ -271,7 +285,10 @@ private[spark] abstract class XGBoostEstimator[
     }.getOrElse(
       trainRDD.mapPartitions { iter =>
         // Handle weight/base margin
-        val watches = new Watches(Array(new DMatrix(iter)), Array(Utils.TRAIN_NAME), None)
+        val (trainIter, trainMargins) = transformLabeledPoint(iter)
+        val trainDM = new DMatrix(trainIter)
+        trainDM.setBaseMargin(trainMargins.result())
+        val watches = new Watches(Array(trainDM), Array(Utils.TRAIN_NAME), None)
         Iterator.single(watches)
       }
     )
