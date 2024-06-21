@@ -89,6 +89,9 @@ private[spark] abstract class XGBoostEstimator[
     }
   }
 
+  /** Visiable for testing */
+  private[spark] def getPlugin: Option[XGBoostPlugin] = plugin
+
   private def isPluginEnabled(dataset: Dataset[_]): Boolean = {
     plugin.map(_.isEnabled(dataset)).getOrElse(false)
   }
