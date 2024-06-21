@@ -303,13 +303,13 @@ private[spark] abstract class XGBoostEstimator[
     RuntimeParams(
       getNumWorkers,
       getNumRound,
-      null, // TODO support ObjectiveTrait
-      null, // TODO support EvalTrait
       TrackerConf(getRabitTrackerTimeout, getRabitTrackerHostIp, getRabitTrackerPort),
       getNumEarlyStoppingRounds,
       getDevice,
       isLocal,
-      runOnGpu
+      runOnGpu,
+      Option(getCustomObj),
+      Option(getCustomEval)
     )
   }
 
