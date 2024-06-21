@@ -23,6 +23,28 @@ import org.scalatest.funsuite.AnyFunSuite
 
 class XGBoostEstimatorSuite extends AnyFunSuite with PerTest with TmpFolderPerSuite {
 
+  test("RuntimeParameter") {
+    var runtimeParams = new XGBoostClassifier(
+      Map("device" -> "cpu", "num_workers" -> 1, "num_round" -> 1))
+      .getRuntimeParameters(true)
+    assert(!runtimeParams.runOnGpu)
+
+    runtimeParams = new XGBoostClassifier(
+      Map("device" -> "cuda", "num_workers" -> 1, "num_round" -> 1))
+      .getRuntimeParameters(true)
+    assert(runtimeParams.runOnGpu)
+
+    runtimeParams = new XGBoostClassifier(
+      Map("device" -> "cpu", "tree_method" -> "gpu_hist", "num_workers" -> 1, "num_round" -> 1))
+      .getRuntimeParameters(true)
+    assert(runtimeParams.runOnGpu)
+
+    runtimeParams = new XGBoostClassifier(
+      Map("device" -> "cuda", "tree_method" -> "gpu_hist",
+        "num_workers" -> 1, "num_round" -> 1))
+      .getRuntimeParameters(true)
+    assert(runtimeParams.runOnGpu)
+  }
   test("Check for Spark encryption over-the-wire") {
     val originalSslConfOpt = ss.conf.getOption("spark.ssl.enabled")
     ss.conf.set("spark.ssl.enabled", true)
