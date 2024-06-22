@@ -27,6 +27,7 @@ import org.apache.spark.sql.functions.{col, udf}
 
 import ml.dmlc.xgboost4j.scala.Booster
 import ml.dmlc.xgboost4j.scala.spark.params.ClassificationParams
+import ml.dmlc.xgboost4j.scala.spark.params.LearningTaskParams.{binaryClassificationObjs, multiClassificationObjs}
 
 
 class XGBoostClassifier(override val uid: String,
@@ -45,37 +46,47 @@ class XGBoostClassifier(override val uid: String,
   /**
    * Validate the parameters before training, throw exception if possible
    */
-  override protected def validate(dataset: Dataset[_]): Unit = {
+  override protected[spark] def validate(dataset: Dataset[_]): Unit = {
     super.validate(dataset)
 
     // The default objective is for regression case.
     val obj = if (isSet(objective)) {
-      Some(getObjective)
+      val tmpObj = getObjective
+      val supportedObjs = (binaryClassificationObjs.toSeq ++ multiClassificationObjs.toSeq)
+      require(supportedObjs.contains(tmpObj),
+        s"Wrong objective for XGBoostClassifier, supported objs: ${supportedObjs.mkString(",")}")
+      Some(tmpObj)
     } else {
       None
     }
 
     var numClasses = getNumClass
-    // If user didn't set it, inferred it.
+    // For binary classification
+    if (obj.isDefined && obj.exists(binaryClassificationObjs.contains)) {
+      numClasses = 2
+    }
+
+    // Infer num class if possible,
+    // Note that user sets the num classes explicitly, we're not checking that.
     if (numClasses == 0) {
       numClasses = SparkUtils.getNumClasses(dataset, getLabelCol)
     }
     assert(numClasses > 0)
 
     if (numClasses <= 2) {
-      if (!obj.exists(_.startsWith("binary:"))) {
+      if (!obj.exists(binaryClassificationObjs.contains)) {
         logger.warn(s"Inferred for binary classification, but found wrong objective: " +
           s"${getObjective}, rewrite objective to binary:logistic")
         setObjective("binary:logistic")
       }
     } else {
-      if (!obj.exists(_.startsWith("multi:"))) {
+      if (!obj.exists(multiClassificationObjs.contains)) {
         logger.warn(s"Inferred for multiclass classification, but found wrong objective: " +
           s"${getObjective}, rewrite objective to multi:softprob")
         setObjective("multi:softprob")
       }
-      setNumClass(numClasses)
     }
+    setNumClass(numClasses)
 
   }
 

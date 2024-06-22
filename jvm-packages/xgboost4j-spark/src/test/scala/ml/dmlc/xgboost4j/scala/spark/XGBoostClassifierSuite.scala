@@ -22,6 +22,7 @@ import org.apache.spark.ml.feature.VectorAssembler
 import org.apache.spark.ml.param.ParamMap
 import org.scalatest.funsuite.AnyFunSuite
 
+import ml.dmlc.xgboost4j.scala.spark.params.LearningTaskParams.{binaryClassificationObjs, multiClassificationObjs}
 import ml.dmlc.xgboost4j.scala.spark.params.XGBoostParams
 
 class XGBoostClassifierSuite extends AnyFunSuite with PerTest with TmpFolderPerSuite {
@@ -95,6 +96,86 @@ class XGBoostClassifierSuite extends AnyFunSuite with PerTest with TmpFolderPerS
     model.write.overwrite().save(modelPath)
     val modelLoaded = XGBoostClassificationModel.load(modelPath)
     check(modelLoaded)
+  }
+
+  test("XGBoostClassificationModel transformed schema") {
+    val trainDf = smallBinaryClassificationVector
+    val classifier = new XGBoostClassifier().setRabitTrackerHostIp("127.0.0.1")
+    val model = classifier.fit(trainDf)
+    val out = model.transform(trainDf)
+
+    out.printSchema()
+    //    assert(out.schema.names.contains(""))
+  }
+
+  test("Supported objectives") {
+    val classifier = new XGBoostClassifier()
+    val df = smallMultiClassificationVector
+    (binaryClassificationObjs.toSeq ++ multiClassificationObjs.toSeq).foreach { obj =>
+      classifier.setObjective(obj)
+      classifier.validate(df)
+    }
+
+    classifier.setObjective("reg:squaredlogerror")
+    intercept[IllegalArgumentException](
+      classifier.validate(df)
+    )
+  }
+
+  test("Binaryclassification infer objective and num_class") {
+    val trainDf = smallBinaryClassificationVector
+    var classifier = new XGBoostClassifier()
+    assert(classifier.getObjective === "reg:squarederror")
+    assert(classifier.getNumClass === 0)
+    classifier.validate(trainDf)
+    assert(classifier.getObjective === "binary:logistic")
+    assert(classifier.getNumClass === 2)
+
+    // Infer objective according num class
+    classifier = new XGBoostClassifier()
+    classifier.setNumClass(2)
+    classifier.validate(trainDf)
+    assert(classifier.getObjective === "binary:logistic")
+    assert(classifier.getNumClass === 2)
+
+    // Infer to num class according to num class
+    classifier = new XGBoostClassifier()
+    classifier.setObjective("binary:logistic")
+    classifier.validate(trainDf)
+    assert(classifier.getObjective === "binary:logistic")
+    assert(classifier.getNumClass === 2)
+  }
+
+  test("Classification infer objective and num_class") {
+    val trainDf = smallMultiClassificationVector
+    var classifier = new XGBoostClassifier()
+    assert(classifier.getObjective === "reg:squarederror")
+    assert(classifier.getNumClass === 0)
+    classifier.validate(trainDf)
+    assert(classifier.getObjective === "multi:softprob")
+    assert(classifier.getNumClass === 3)
+
+    // Infer to objective according to num class
+    classifier = new XGBoostClassifier()
+    classifier.setNumClass(3)
+    classifier.validate(trainDf)
+    assert(classifier.getObjective === "multi:softprob")
+    assert(classifier.getNumClass === 3)
+
+    // Infer to num class according to objective
+    classifier = new XGBoostClassifier()
+    classifier.setObjective("multi:softmax")
+    classifier.validate(trainDf)
+    assert(classifier.getObjective === "multi:softmax")
+    assert(classifier.getNumClass === 3)
+  }
+
+  test("Binary classification") {
+
+  }
+
+  test("Multiclass classification") {
+
   }
 
 

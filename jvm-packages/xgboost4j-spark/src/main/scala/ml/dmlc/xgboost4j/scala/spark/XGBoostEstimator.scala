@@ -342,7 +342,7 @@ private[spark] abstract class XGBoostEstimator[
   /**
    * Validate the parameters before training, throw exception if possible
    */
-  protected def validate(dataset: Dataset[_]): Unit = {
+  protected[spark] def validate(dataset: Dataset[_]): Unit = {
     validateSparkSslConf(dataset.sparkSession)
     val schema = dataset.schema
     SparkUtils.checkNumericType(schema, $(labelCol))
