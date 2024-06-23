@@ -18,6 +18,7 @@ package ml.dmlc.xgboost4j.scala.spark
 
 import scala.collection.mutable
 
+import org.apache.spark.ml.functions.array_to_vector
 import org.apache.spark.ml.linalg.{Vector, Vectors}
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable, MLReadable, MLReader}
@@ -158,7 +159,9 @@ class XGBoostClassificationModel(
     }
 
     if (isDefined(probabilityCol) && getProbabilityCol.nonEmpty) {
-      output = output.withColumnRenamed(TMP_TRANSFORMED_COL, getProbabilityCol)
+      output = output.withColumn(TMP_TRANSFORMED_COL,
+          array_to_vector(output.col(TMP_TRANSFORMED_COL)))
+        .withColumnRenamed(TMP_TRANSFORMED_COL, getProbabilityCol)
     }
     output.drop(TMP_TRANSFORMED_COL)
   }

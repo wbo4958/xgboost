@@ -103,10 +103,10 @@ class XGBoostClassifierSuite extends AnyFunSuite with PerTest with TmpFolderPerS
 
   test("XGBoostClassificationModel transformed schema") {
     val trainDf = smallBinaryClassificationVector
-    val classifier = new XGBoostClassifier().setNumRound(1)
+    val classifier = new XGBoostClassifier().setNumRound(1).setLeafPredictionCol("leaf").setContribPredictionCol("contrib")
     val model = classifier.fit(trainDf)
     var out = model.transform(trainDf)
-
+out.printSchema()
     // Transform should not discard the other columns of the transforming dataframe
     Seq("label", "margin", "weight", "features").foreach { v =>
       assert(out.schema.names.contains(v))

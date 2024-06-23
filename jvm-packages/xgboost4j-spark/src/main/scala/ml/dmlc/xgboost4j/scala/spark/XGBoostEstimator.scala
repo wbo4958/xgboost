@@ -25,6 +25,7 @@ import scala.jdk.CollectionConverters.iterableAsScalaIterableConverter
 import org.apache.commons.logging.LogFactory
 import org.apache.hadoop.fs.Path
 import org.apache.spark.ml.{Estimator, Model}
+import org.apache.spark.ml.functions.array_to_vector
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vector}
 import org.apache.spark.ml.param.{Param, ParamMap}
 import org.apache.spark.ml.util.{DefaultParamsWritable, MLReader, MLWritable, MLWriter}
@@ -488,7 +489,7 @@ private[spark] abstract class XGBoostModel[M <: XGBoostModel[M]](
     val bBooster = spark.sparkContext.broadcast(nativeBooster)
     val featureName = getFeaturesCol
 
-    val outputData = dataset.toDF().mapPartitions { rowIter =>
+    var outputData = dataset.toDF().mapPartitions { rowIter =>
 
       rowIter.grouped(inferBatchSize).flatMap { batchRow =>
         val features = batchRow.iterator.map(row => row.getAs[Vector](
@@ -524,6 +525,7 @@ private[spark] abstract class XGBoostModel[M <: XGBoostModel[M]](
 
     }(Encoders.row(schema))
     bBooster.unpersist(blocking = false)
+
     postTransform(outputData).toDF()
   }
 
