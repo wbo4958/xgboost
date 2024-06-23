@@ -100,12 +100,29 @@ class XGBoostClassifierSuite extends AnyFunSuite with PerTest with TmpFolderPerS
 
   test("XGBoostClassificationModel transformed schema") {
     val trainDf = smallBinaryClassificationVector
-    val classifier = new XGBoostClassifier().setRabitTrackerHostIp("127.0.0.1")
+    val classifier = new XGBoostClassifier().setNumRound(1).setNumClass(2)
     val model = classifier.fit(trainDf)
-    val out = model.transform(trainDf)
+    var out = model.transform(trainDf)
 
-    out.printSchema()
-    //    assert(out.schema.names.contains(""))
+    // Transform should not discard the other columns of the transforming dataframe
+    Seq("label", "margin", "weight", "features").foreach { v =>
+      assert(out.schema.names.contains(v))
+    }
+
+    // Transform needs to add extra columns
+    Seq("rawPrediction", "probability", "prediction").foreach { v =>
+      assert(out.schema.names.contains(v))
+    }
+
+    model.setRawPredictionCol("").setProbabilityCol("")
+    out = model.transform(trainDf)
+
+    // rawPrediction="", probability=""
+    Seq("rawPrediction", "probability").foreach { v =>
+      assert(!out.schema.names.contains(v))
+    }
+
+    assert(out.schema.names.contains("prediction"))
   }
 
   test("Supported objectives") {
@@ -129,24 +146,24 @@ class XGBoostClassifierSuite extends AnyFunSuite with PerTest with TmpFolderPerS
     assert(classifier.getNumClass === 0)
     classifier.validate(trainDf)
     assert(classifier.getObjective === "binary:logistic")
-    assert(classifier.getNumClass === 2)
+    assert(!classifier.isSet(classifier.numClass))
 
     // Infer objective according num class
     classifier = new XGBoostClassifier()
     classifier.setNumClass(2)
     classifier.validate(trainDf)
     assert(classifier.getObjective === "binary:logistic")
-    assert(classifier.getNumClass === 2)
+    assert(!classifier.isSet(classifier.numClass))
 
     // Infer to num class according to num class
     classifier = new XGBoostClassifier()
     classifier.setObjective("binary:logistic")
     classifier.validate(trainDf)
     assert(classifier.getObjective === "binary:logistic")
-    assert(classifier.getNumClass === 2)
+    assert(!classifier.isSet(classifier.numClass))
   }
 
-  test("Classification infer objective and num_class") {
+  test("MultiClassification infer objective and num_class") {
     val trainDf = smallMultiClassificationVector
     var classifier = new XGBoostClassifier()
     assert(classifier.getObjective === "reg:squarederror")
