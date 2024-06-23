@@ -48,7 +48,7 @@ class XGBoostClassifier(override val uid: String,
     // multiClassificationObjs
     val obj = if (isSet(objective)) {
       val tmpObj = getObjective
-      val supportedObjs = (binaryClassificationObjs.toSeq ++ multiClassificationObjs.toSeq)
+      val supportedObjs = binaryClassificationObjs.toSeq ++ multiClassificationObjs.toSeq
       require(supportedObjs.contains(tmpObj),
         s"Wrong objective for XGBoostClassifier, supported objs: ${supportedObjs.mkString(",")}")
       Some(tmpObj)
@@ -149,6 +149,7 @@ class XGBoostClassificationModel(
 
   override def postTransform(dataset: Dataset[_]): Dataset[_] = {
     var output = dataset
+    // Always use probability col to get the prediction
     if (isDefined(predictionCol) && getPredictionCol.nonEmpty) {
       val predCol = udf { probability: mutable.WrappedArray[Float] =>
         probability2prediction(Vectors.dense(probability.map(_.toDouble).toArray))

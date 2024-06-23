@@ -127,7 +127,7 @@ private[spark] trait LearningTaskParams extends Params {
 
 private[spark] object LearningTaskParams {
 
-  val binaryClassificationObjs = HashSet("binary:logistic", "binary:hinge")
+  val binaryClassificationObjs = HashSet("binary:logistic", "binary:hinge", "binary:logitraw")
   val multiClassificationObjs = HashSet("multi:softmax", "multi:softprob")
 
   val supportedObjectives = HashSet("reg:squarederror", "reg:squaredlogerror", "reg:logistic",

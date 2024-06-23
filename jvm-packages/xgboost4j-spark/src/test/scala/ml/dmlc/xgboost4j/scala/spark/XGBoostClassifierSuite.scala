@@ -19,9 +19,12 @@ package ml.dmlc.xgboost4j.scala.spark
 import java.io.File
 
 import org.apache.spark.ml.feature.VectorAssembler
+import org.apache.spark.ml.linalg.{DenseVector, Vector}
 import org.apache.spark.ml.param.ParamMap
+import org.apache.spark.sql.DataFrame
 import org.scalatest.funsuite.AnyFunSuite
 
+import ml.dmlc.xgboost4j.scala.{DMatrix, XGBoost => ScalaXGBoost}
 import ml.dmlc.xgboost4j.scala.spark.params.LearningTaskParams.{binaryClassificationObjs, multiClassificationObjs}
 import ml.dmlc.xgboost4j.scala.spark.params.XGBoostParams
 
@@ -100,7 +103,7 @@ class XGBoostClassifierSuite extends AnyFunSuite with PerTest with TmpFolderPerS
 
   test("XGBoostClassificationModel transformed schema") {
     val trainDf = smallBinaryClassificationVector
-    val classifier = new XGBoostClassifier().setNumRound(1).setNumClass(2)
+    val classifier = new XGBoostClassifier().setNumRound(1)
     val model = classifier.fit(trainDf)
     var out = model.transform(trainDf)
 
@@ -123,6 +126,12 @@ class XGBoostClassifierSuite extends AnyFunSuite with PerTest with TmpFolderPerS
     }
 
     assert(out.schema.names.contains("prediction"))
+
+    model.setLeafPredictionCol("leaf").setContribPredictionCol("contrib")
+    out = model.transform(trainDf)
+
+    assert(out.schema.names.contains("leaf"))
+    assert(out.schema.names.contains("contrib"))
   }
 
   test("Supported objectives") {
@@ -192,6 +201,59 @@ class XGBoostClassifierSuite extends AnyFunSuite with PerTest with TmpFolderPerS
   }
 
   test("Multiclass classification") {
+
+  }
+
+  test("XGBoost-Spark XGBoostClassifier output should match XGBoost4j") {
+    val trainingDM = new DMatrix(Classification.train.iterator)
+    val testDM = new DMatrix(Classification.test.iterator)
+    val trainingDF = buildDataFrame(Classification.train)
+    val testDF = buildDataFrame(Classification.test)
+    checkResultsWithXGBoost4j(trainingDM, testDM, trainingDF, testDF)
+  }
+
+  private def checkResultsWithXGBoost4j(
+      trainingDM: DMatrix,
+      testDM: DMatrix,
+      trainingDF: DataFrame,
+      testDF: DataFrame,
+      round: Int = 5): Unit = {
+    val paramMap = Map(
+      "eta" -> "1",
+      "max_depth" -> "6",
+      "base_score" -> 0.5,
+      "objective" -> "binary:logistic",
+      "max_bin" -> 16)
+    val model1 = ScalaXGBoost.train(trainingDM, paramMap, round)
+    val prediction1 = model1.predict(testDM)
+
+    val model2 = new XGBoostClassifier(paramMap)
+      .setNumRound(round).setNumWorkers(numWorkers).fit(trainingDF)
+
+    val prediction2 = model2.transform(testDF).collect().map(row =>
+      (row.getAs[Int]("id"), row.getAs[DenseVector]("probability"))).toMap
+
+    assert(testDF.count() === prediction2.size)
+    // the vector length in probability column is 2 since we have to fit to the evaluator in Spark
+    for (i <- prediction1.indices) {
+      assert(prediction1(i).length === prediction2(i).values.length - 1)
+      for (j <- prediction1(i).indices) {
+        assert(prediction1(i)(j) === prediction2(i)(j + 1))
+      }
+    }
+
+    val prediction3 = model1.predict(testDM, outPutMargin = true)
+    val prediction4 = model2.transform(testDF).collect().map(row =>
+      (row.getAs[Int]("id"), row.getAs[DenseVector]("rawPrediction"))).toMap
+
+    assert(testDF.count() === prediction4.size)
+    // the vector length in rawPrediction column is 2 since we have to fit to the evaluator in Spark
+    for (i <- prediction3.indices) {
+      assert(prediction3(i).length === prediction4(i).values.length - 1)
+      for (j <- prediction3(i).indices) {
+        assert(prediction3(i)(j) === prediction4(i)(j + 1))
+      }
+    }
 
   }
 
