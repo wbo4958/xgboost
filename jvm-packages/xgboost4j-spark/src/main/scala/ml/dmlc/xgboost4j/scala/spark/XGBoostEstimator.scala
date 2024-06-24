@@ -489,7 +489,7 @@ private[spark] abstract class XGBoostModel[M <: XGBoostModel[M]](
     val bBooster = spark.sparkContext.broadcast(nativeBooster)
     val featureName = getFeaturesCol
 
-    var outputData = dataset.toDF().mapPartitions { rowIter =>
+    var output = dataset.toDF().mapPartitions { rowIter =>
 
       rowIter.grouped(inferBatchSize).flatMap { batchRow =>
         val features = batchRow.iterator.map(row => row.getAs[Vector](
@@ -526,7 +526,18 @@ private[spark] abstract class XGBoostModel[M <: XGBoostModel[M]](
     }(Encoders.row(schema))
     bBooster.unpersist(blocking = false)
 
-    postTransform(outputData).toDF()
+    // Convert leaf/contrib to the vector from array
+    if (hasLeafPredictionCol) {
+      output = output.withColumn(getLeafPredictionCol,
+        array_to_vector(output.col(getLeafPredictionCol)))
+    }
+
+    if (hasContribPredictionCol) {
+      output = output.withColumn(getContribPredictionCol,
+        array_to_vector(output.col(getContribPredictionCol)))
+    }
+
+    postTransform(output).toDF()
   }
 
   override def write: MLWriter = new XGBoostModelWriter[XGBoostModel[_]](this)
