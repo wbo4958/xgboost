@@ -38,7 +38,7 @@ import org.apache.spark.sql.types.{ArrayType, FloatType, StructField, StructType
 import ml.dmlc.xgboost4j.{LabeledPoint => XGBLabeledPoint}
 import ml.dmlc.xgboost4j.scala.{Booster, DMatrix, XGBoost => SXGBoost}
 import ml.dmlc.xgboost4j.scala.spark.Utils.MLVectorToXGBLabeledPoint
-import ml.dmlc.xgboost4j.scala.spark.params._
+import ml.dmlc.xgboost4j.scala.spark.params.{ParamUtils, _}
 
 
 /**
@@ -68,7 +68,7 @@ private[spark] trait NonParamVariables[T <: XGBoostEstimator[T, M], M <: XGBoost
 
 private[spark] abstract class XGBoostEstimator[
   Learner <: XGBoostEstimator[Learner, M], M <: XGBoostModel[M]] extends Estimator[M]
-  with XGBoostParams[Learner] with SparkParams[Learner]
+  with XGBoostParams[Learner] with SparkParams[Learner] with ParamUtils[Learner]
   with NonParamVariables[Learner, M] with ParamMapConversion with DefaultParamsWritable {
 
   protected val logger = LogFactory.getLog("XGBoostSpark")
@@ -143,7 +143,7 @@ private[spark] abstract class XGBoostEstimator[
 
     // function to get the column id according to the parameter
     def columnId(param: Param[String]): Option[Int] = {
-      if (isDefined(param) && $(param).nonEmpty) {
+      if (isDefinedNonEmpty(param)) {
         Some(schema.fieldIndex($(param)))
       } else {
         None
@@ -163,10 +163,6 @@ private[spark] abstract class XGBoostEstimator[
       columnId(weightCol),
       columnId(baseMarginCol),
       groupId)
-  }
-
-  private[spark] def isDefinedNonEmpty(param: Param[String]): Boolean = {
-    if (isDefined(param) && $(param).nonEmpty) true else false
   }
 
   /**
@@ -347,11 +343,11 @@ private[spark] abstract class XGBoostEstimator[
     validateSparkSslConf(dataset.sparkSession)
     val schema = dataset.schema
     SparkUtils.checkNumericType(schema, $(labelCol))
-    if (isDefined(weightCol) && $(weightCol).nonEmpty) {
+    if (isDefinedNonEmpty(weightCol)) {
       SparkUtils.checkNumericType(schema, $(weightCol))
     }
 
-    if (isDefined(baseMarginCol) && $(baseMarginCol).nonEmpty) {
+    if (isDefinedNonEmpty(baseMarginCol)) {
       SparkUtils.checkNumericType(schema, $(baseMarginCol))
     }
 
@@ -414,7 +410,7 @@ private[spark] abstract class XGBoostModel[M <: XGBoostModel[M]](
     override val uid: String,
     private val model: Booster,
     private val trainingSummary: Option[XGBoostTrainingSummary]) extends Model[M] with MLWritable
-  with XGBoostParams[M] with SparkParams[M] {
+  with XGBoostParams[M] with SparkParams[M] with ParamUtils[M] {
 
   protected val TMP_TRANSFORMED_COL = "_tmp_xgb_transformed_col"
 
@@ -447,7 +443,7 @@ private[spark] abstract class XGBoostModel[M <: XGBoostModel[M]](
 
     /** If the parameter is defined, add it to schema and turn true */
     def addToSchema(param: Param[String], colName: Option[String] = None): Boolean = {
-      if (isDefined(param) && $(param).nonEmpty) {
+      if (isDefinedNonEmpty(param)) {
         val name = colName.getOrElse($(param))
         schema = schema.add(StructField(name, ArrayType(FloatType)))
         true
@@ -468,7 +464,7 @@ private[spark] abstract class XGBoostModel[M <: XGBoostModel[M]](
         hasRawPredictionCol = addToSchema(p.rawPredictionCol)
         hasTransformedCol = addToSchema(p.probabilityCol, Some(TMP_TRANSFORMED_COL))
 
-        if (isDefined(predictionCol) && getPredictionCol.nonEmpty) {
+        if (isDefinedNonEmpty(predictionCol)) {
           // Let's use transformed col to calculate the prediction
           if (!hasTransformedCol) {
             // Add the transformed col for predition

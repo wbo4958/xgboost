@@ -151,18 +151,24 @@ class XGBoostClassificationModel(
   override def postTransform(dataset: Dataset[_]): Dataset[_] = {
     var output = dataset
     // Always use probability col to get the prediction
-    if (isDefined(predictionCol) && getPredictionCol.nonEmpty) {
+    if (isDefinedNonEmpty(predictionCol)) {
       val predCol = udf { probability: mutable.WrappedArray[Float] =>
         probability2prediction(Vectors.dense(probability.map(_.toDouble).toArray))
       }
       output = output.withColumn(getPredictionCol, predCol(col(TMP_TRANSFORMED_COL)))
     }
 
-    if (isDefined(probabilityCol) && getProbabilityCol.nonEmpty) {
+    if (isDefinedNonEmpty(probabilityCol)) {
       output = output.withColumn(TMP_TRANSFORMED_COL,
           array_to_vector(output.col(TMP_TRANSFORMED_COL)))
         .withColumnRenamed(TMP_TRANSFORMED_COL, getProbabilityCol)
     }
+
+    if (isDefinedNonEmpty(rawPredictionCol)) {
+      output = output.withColumn(getRawPredictionCol,
+        array_to_vector(output.col(getRawPredictionCol)))
+    }
+
     output.drop(TMP_TRANSFORMED_COL)
   }
 
