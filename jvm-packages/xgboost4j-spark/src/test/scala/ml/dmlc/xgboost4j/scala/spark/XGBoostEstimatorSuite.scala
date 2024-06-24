@@ -22,8 +22,8 @@ import java.util.Arrays
 import scala.collection.mutable.ArrayBuffer
 
 import org.apache.spark.ml.linalg.Vectors
-import org.json4s.jackson.parseJson
 import org.json4s.{DefaultFormats, Formats}
+import org.json4s.jackson.parseJson
 import org.scalatest.funsuite.AnyFunSuite
 
 import ml.dmlc.xgboost4j.scala.DMatrix
