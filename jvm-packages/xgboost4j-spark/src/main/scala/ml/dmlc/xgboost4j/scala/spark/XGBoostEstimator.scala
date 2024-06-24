@@ -35,6 +35,7 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types.{ArrayType, FloatType, StructField, StructType}
 
+import ml.dmlc.xgboost4j.java.{Booster => JBooster}
 import ml.dmlc.xgboost4j.{LabeledPoint => XGBLabeledPoint}
 import ml.dmlc.xgboost4j.scala.{Booster, DMatrix, XGBoost => SXGBoost}
 import ml.dmlc.xgboost4j.scala.spark.Utils.MLVectorToXGBLabeledPoint
@@ -545,6 +546,7 @@ private[spark] abstract class XGBoostModel[M <: XGBoostModel[M]](
  * @param instance model to be written
  */
 private[spark] class XGBoostModelWriter[M <: XGBoostModel[M]](instance: M) extends MLWriter {
+
   override protected def saveImpl(path: String): Unit = {
     SparkUtils.saveMetadata(instance, path, sc)
 
@@ -552,8 +554,9 @@ private[spark] class XGBoostModelWriter[M <: XGBoostModel[M]](instance: M) exten
     val dataPath = new Path(path, "data").toString
     val internalPath = new Path(dataPath, "model")
     val outputStream = internalPath.getFileSystem(sc.hadoopConfiguration).create(internalPath)
+    val format = optionMap.getOrElse("format", JBooster.DEFAULT_FORMAT)
     try {
-      instance.nativeBooster.saveModel(outputStream)
+      instance.nativeBooster.saveModel(outputStream, format)
     } finally {
       outputStream.close()
     }
