@@ -69,15 +69,29 @@ object Classification extends TrainTestData {
 
   Random.setSeed(10)
   val randomWeights = Array.fill(train.length)(Random.nextFloat())
-  val randomMargins = Array.fill(train.length)(Random.nextFloat())
-  val trainWithWeightBaseMargin = train.zipWithIndex.map { case (v, index) =>
+  val trainWithWeight = train.zipWithIndex.map { case (v, index) =>
     XGBLabeledPoint(v.label, v.size, v.indices, v.values,
-      randomWeights(index), v.group, randomMargins(index))
+      randomWeights(index), v.group, v.baseMargin)
   }
 }
 
 object MultiClassification extends TrainTestData {
-  val train: Seq[XGBLabeledPoint] = getLabeledPoints("/dermatology.data")
+
+  private def split(): (Seq[XGBLabeledPoint], Seq[XGBLabeledPoint]) = {
+    val tmp: Seq[XGBLabeledPoint] = getLabeledPoints("/dermatology.data")
+    Random.setSeed(100)
+    val randomizedTmp = Random.shuffle(tmp)
+    val splitIndex = (randomizedTmp.length * 0.8).toInt
+    (randomizedTmp.take(splitIndex), randomizedTmp.drop(splitIndex))
+  }
+
+  val (train, test) = split()
+  Random.setSeed(10)
+  val randomWeights = Array.fill(train.length)(Random.nextFloat())
+  val trainWithWeight = train.zipWithIndex.map { case (v, index) =>
+    XGBLabeledPoint(v.label, v.size, v.indices, v.values,
+      randomWeights(index), v.group, v.baseMargin)
+  }
 
   private def getLabeledPoints(resource: String): Seq[XGBLabeledPoint] = {
     getResourceLines(resource).map { line =>
