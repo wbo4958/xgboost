@@ -18,11 +18,14 @@ package ml.dmlc.xgboost4j.scala.spark
 
 import java.io.File
 
+import scala.util.Random
+
 import org.apache.spark.ml.feature.VectorAssembler
 import org.apache.spark.ml.linalg.{DenseVector, Vector}
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.mllib.linalg.VectorUDT
 import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.functions.{array, explode, lit}
 import org.scalatest.funsuite.AnyFunSuite
 
 import ml.dmlc.xgboost4j.scala.{DMatrix, XGBoost => ScalaXGBoost}
@@ -104,11 +107,9 @@ class XGBoostClassifierSuite extends AnyFunSuite with PerTest with TmpFolderPerS
 
   test("XGBoostClassificationModel transformed schema") {
     val trainDf = smallBinaryClassificationVector
-    val classifier = new XGBoostClassifier().setNumRound(1).setLeafPredictionCol("leaf").setContribPredictionCol("contrib")
+    val classifier = new XGBoostClassifier().setNumRound(1)
     val model = classifier.fit(trainDf)
     var out = model.transform(trainDf)
-out.printSchema()
-    out.show()
     // Transform should not discard the other columns of the transforming dataframe
     Seq("label", "margin", "weight", "features").foreach { v =>
       assert(out.schema.names.contains(v))
@@ -214,12 +215,22 @@ out.printSchema()
     checkResultsWithXGBoost4j(trainingDM, testDM, trainingDF, testDF)
   }
 
+  test("XGBoost-Spark XGBoostClassifier output should match XGBoost4j with weight") {
+    val trainingDM = new DMatrix(Classification.trainWithWeightBaseMargin.iterator)
+    trainingDM.setWeight(Classification.randomWeights)
+    val testDM = new DMatrix(Classification.test.iterator)
+    val trainingDF = buildDataFrame(Classification.trainWithWeightBaseMargin)
+    val testDF = buildDataFrame(Classification.test)
+    checkResultsWithXGBoost4j(trainingDM, testDM, trainingDF, testDF, 5, Some("weight"))
+  }
+
   private def checkResultsWithXGBoost4j(
       trainingDM: DMatrix,
       testDM: DMatrix,
       trainingDF: DataFrame,
       testDF: DataFrame,
-      round: Int = 5): Unit = {
+      round: Int = 5,
+      weightCol: Option[String] = None): Unit = {
     val paramMap = Map(
       "eta" -> "1",
       "max_depth" -> "6",
@@ -229,8 +240,12 @@ out.printSchema()
     val model1 = ScalaXGBoost.train(trainingDM, paramMap, round)
     val prediction1 = model1.predict(testDM)
 
-    val model2 = new XGBoostClassifier(paramMap)
-      .setNumRound(round).setNumWorkers(numWorkers).fit(trainingDF)
+    val classifier = new XGBoostClassifier(paramMap)
+      .setNumRound(round)
+      .setNumWorkers(numWorkers)
+    weightCol.foreach(weight => classifier.setWeightCol(weight))
+
+    val model2 = classifier.fit(trainingDF)
 
     val prediction2 = model2.transform(testDF).collect().map(row =>
       (row.getAs[Int]("id"), row.getAs[DenseVector]("probability"))).toMap
@@ -238,9 +253,9 @@ out.printSchema()
     assert(testDF.count() === prediction2.size)
     // the vector length in probability column is 2 since we have to fit to the evaluator in Spark
     for (i <- prediction1.indices) {
-      assert(prediction1(i).length === prediction2(i).values.length - 1)
+      assert(prediction1(i).length === prediction2(i).values.length)
       for (j <- prediction1(i).indices) {
-        assert(prediction1(i)(j) === prediction2(i)(j + 1))
+        assert(prediction1(i)(j) === prediction2(i)(j))
       }
     }
 
@@ -251,12 +266,11 @@ out.printSchema()
     assert(testDF.count() === prediction4.size)
     // the vector length in rawPrediction column is 2 since we have to fit to the evaluator in Spark
     for (i <- prediction3.indices) {
-      assert(prediction3(i).length === prediction4(i).values.length - 1)
+      assert(prediction3(i).length === prediction4(i).values.length)
       for (j <- prediction3(i).indices) {
-        assert(prediction3(i)(j) === prediction4(i)(j + 1))
+        assert(prediction3(i)(j) === prediction4(i)(j))
       }
     }
-
   }
 
 

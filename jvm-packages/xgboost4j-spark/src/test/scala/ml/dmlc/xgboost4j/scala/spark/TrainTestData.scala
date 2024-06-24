@@ -17,6 +17,7 @@
 package ml.dmlc.xgboost4j.scala.spark
 
 import scala.io.Source
+import scala.util.Random
 
 import ml.dmlc.xgboost4j.{LabeledPoint => XGBLabeledPoint}
 
@@ -31,8 +32,8 @@ trait TrainTestData {
     Source.fromInputStream(is).getLines()
   }
 
-  protected def getLabeledPoints(resource: String, featureSize: Int, zeroBased: Boolean):
-  Seq[XGBLabeledPoint] = {
+  protected def getLabeledPoints(resource: String, featureSize: Int,
+                                 zeroBased: Boolean): Seq[XGBLabeledPoint] = {
     getResourceLines(resource).map { line =>
       val labelAndFeatures = line.split(" ")
       val label = labelAndFeatures.head.toFloat
@@ -65,6 +66,14 @@ trait TrainTestData {
 object Classification extends TrainTestData {
   val train: Seq[XGBLabeledPoint] = getLabeledPoints("/agaricus.txt.train", 126, zeroBased = false)
   val test: Seq[XGBLabeledPoint] = getLabeledPoints("/agaricus.txt.test", 126, zeroBased = false)
+
+  Random.setSeed(10)
+  val randomWeights = Array.fill(train.length)(Random.nextFloat())
+  val randomMargins = Array.fill(train.length)(Random.nextFloat())
+  val trainWithWeightBaseMargin = train.zipWithIndex.map { case (v, index) =>
+    XGBLabeledPoint(v.label, v.size, v.indices, v.values,
+      randomWeights(index), v.group, randomMargins(index))
+  }
 }
 
 object MultiClassification extends TrainTestData {
