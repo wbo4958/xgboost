@@ -22,14 +22,14 @@ import scala.jdk.CollectionConverters.{asScalaIteratorConverter, seqAsJavaListCo
 import ai.rapids.cudf.Table
 import com.nvidia.spark.rapids.{ColumnarRdd, GpuColumnVectorUtils}
 import org.apache.commons.logging.LogFactory
+import org.apache.spark.TaskContext
+import org.apache.spark.ml.functions.array_to_vector
 import org.apache.spark.ml.param.Param
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{Column, DataFrame, Dataset, Row}
-import org.apache.spark.sql.catalyst.expressions.UnsafeProjection
 import org.apache.spark.sql.catalyst.{CatalystTypeConverters, InternalRow}
+import org.apache.spark.sql.catalyst.expressions.UnsafeProjection
 import org.apache.spark.sql.vectorized.ColumnarBatch
-import org.apache.spark.TaskContext
-import org.apache.spark.ml.functions.array_to_vector
 
 import ml.dmlc.xgboost4j.java.{CudfColumnBatch, GpuColumnBatch}
 import ml.dmlc.xgboost4j.scala.{DMatrix, QuantileDMatrix}

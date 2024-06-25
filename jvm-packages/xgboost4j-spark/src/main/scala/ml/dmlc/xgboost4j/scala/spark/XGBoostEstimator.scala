@@ -386,7 +386,7 @@ private[spark] trait XGBoostEstimator[
     validate(dataset)
 
     val rdd = if (isPluginEnabled(dataset)) {
-      getPlugin.foreach(_.buildRddWatches(this, dataset))
+      getPlugin.get.buildRddWatches(this, dataset)
     } else {
       val (input, columnIndexes) = preprocess(dataset)
       toRdd(input, columnIndexes)
