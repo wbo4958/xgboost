@@ -490,51 +490,47 @@ private[spark] trait XGBoostModel[M <: XGBoostModel[M]] extends Model[M] with ML
     (schema, PredictedColumns(predLeaf, predContrib, predRaw, predTmp))
   }
 
-  private[spark] def predictInternal(booster: Booster, dm: DMatrix) = {
-
+  /** Predict */
+  private[spark] def predictInternal(booster: Booster, dm: DMatrix, pred: PredictedColumns,
+                                     batchRow: Iterator[Row]): Seq[Row] = {
+    var tmpOut = batchRow.toSeq.map(_.toSeq)
+    val zip = (left: Seq[Seq[_]], right: Array[Array[Float]]) => left.zip(right).map {
+      case (a, b) => a ++ Seq(b)
+    }
+    if (pred.predLeaf) {
+      tmpOut = zip(tmpOut, booster.predictLeaf(dm))
+    }
+    if (pred.predContrib) {
+      tmpOut = zip(tmpOut, booster.predictContrib(dm))
+    }
+    if (pred.predRaw) {
+      tmpOut = zip(tmpOut, booster.predict(dm, outPutMargin = true))
+    }
+    if (pred.predTmp) {
+      tmpOut = zip(tmpOut, booster.predict(dm, outPutMargin = false))
+    }
+    tmpOut.map(Row.fromSeq)
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
 
-    val spark = dataset.sparkSession
+    val bBooster = dataset.sparkSession.sparkContext.broadcast(nativeBooster)
 
     val (schema, pred) = preprocess(dataset)
 
     // TODO configurable
     val inferBatchSize = 32 << 10
     // Broadcast the booster to each executor.
-    val bBooster = spark.sparkContext.broadcast(nativeBooster)
     val featureName = getFeaturesCol
 
     var output = dataset.toDF().mapPartitions { rowIter =>
-
       rowIter.grouped(inferBatchSize).flatMap { batchRow =>
         val features = batchRow.iterator.map(row => row.getAs[Vector](
           row.fieldIndex(featureName)))
-
         // DMatrix used to prediction
         val dm = new DMatrix(features.map(_.asXGB))
-
         try {
-          var tmpOut = batchRow.map(_.toSeq)
-
-          val zip = (left: Seq[Seq[_]], right: Array[Array[Float]]) => left.zip(right).map {
-            case (a, b) => a ++ Seq(b)
-          }
-
-          if (pred.predLeaf) {
-            tmpOut = zip(tmpOut, bBooster.value.predictLeaf(dm))
-          }
-          if (pred.predContrib) {
-            tmpOut = zip(tmpOut, bBooster.value.predictContrib(dm))
-          }
-          if (pred.predRaw) {
-            tmpOut = zip(tmpOut, bBooster.value.predict(dm, outPutMargin = true))
-          }
-          if (pred.predTmp) {
-            tmpOut = zip(tmpOut, bBooster.value.predict(dm, outPutMargin = false))
-          }
-          tmpOut.map(Row.fromSeq)
+          predictInternal(bBooster.value, dm, pred, batchRow.toIterator)
         } finally {
           dm.delete()
         }

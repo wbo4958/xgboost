@@ -179,7 +179,6 @@ class GpuXGBoostPlugin extends XGBoostPlugin {
       // UnsafeProjection is not serializable so do it on the executor side
       val toUnsafe = UnsafeProjection.create(originalSchema)
 
-
       synchronized {
         val device = booster.getAttr("device")
         if (device != null && device.trim.isEmpty) {
@@ -237,8 +236,7 @@ class GpuXGBoostPlugin extends XGBoostPlugin {
                       table.getRowCount().toInt)
                     val rowIterator = currentBatch.rowIterator().asScala.map(toUnsafe)
                       .map(converter(_))
-
-
+                    model.predictInternal(booster, dm, pred, rowIterator).toIterator
                   } finally {
                     dm.delete()
                   }
