@@ -29,6 +29,7 @@ import org.apache.spark.sql.catalyst.expressions.UnsafeProjection
 import org.apache.spark.sql.catalyst.{CatalystTypeConverters, InternalRow}
 import org.apache.spark.sql.vectorized.ColumnarBatch
 import org.apache.spark.TaskContext
+import org.apache.spark.ml.functions.array_to_vector
 
 import ml.dmlc.xgboost4j.java.{CudfColumnBatch, GpuColumnBatch}
 import ml.dmlc.xgboost4j.scala.{DMatrix, QuantileDMatrix}
@@ -273,7 +274,19 @@ class GpuXGBoostPlugin extends XGBoostPlugin {
     }
     bBooster.unpersist(false)
     bOriginalSchema.unpersist(false)
+    var output = dataset.sparkSession.createDataFrame(rdd, transformedSchema)
 
-    dataset.toDF()
+    // Convert leaf/contrib to the vector from array
+    if (pred.predLeaf) {
+      output = output.withColumn(model.getLeafPredictionCol,
+        array_to_vector(output.col(model.getLeafPredictionCol)))
+    }
+
+    if (pred.predContrib) {
+      output = output.withColumn(model.getContribPredictionCol,
+        array_to_vector(output.col(model.getContribPredictionCol)))
+    }
+
+    model.postTransform(output).toDF()
   }
 }
