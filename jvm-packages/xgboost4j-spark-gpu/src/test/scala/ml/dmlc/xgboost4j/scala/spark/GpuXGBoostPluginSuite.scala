@@ -231,32 +231,17 @@ class GpuXGBoostPluginSuite extends GpuTestSuite {
     }
   }
 
-  def readToQuantileDMatrix(): Unit = {
-    val cols = (0 until 12).map(v => s"f$v")
-    val label = "label"
-
-    val builder = Schema.builder()
-    (cols ++ Seq(label)).foreach(name => builder.column(DType.FLOAT32, name))
-    val schema = builder.build();
-
-    val opts = CSVOptions.builder()
-      .hasHeader().build();
-
-    val table = Table.readCSV(schema, opts, new File(getResourcePath("/veterans_lung_cancer.csv")))
-
-
-
-  }
 
   test("XGBoost-Spark should match xgboost4j") {
     withGpuSparkSession() { spark =>
 
-      val cols = (0 until 12).map(v => s"f$v")
+      val cols = Array("c0", "c1", "c2", "c3", "c4", "c5")
       val label = "label"
 
-      val schema = StructType((cols ++ Seq(label)).map(v => StructField(v, FloatType)))
-      val df = spark.read.schema(schema).option("header", true)
-        .csv(getResourcePath("/veterans_lung_cancer.csv"))
+      val table = Table.readParquet(new File(getResourcePath("/binary.train.parquet")))
+      val df = spark.read.parquet(getResourcePath("/binary.train.parquet"))
+
+
       df.show()
     }
   }
