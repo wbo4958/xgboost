@@ -18,11 +18,13 @@ package ml.dmlc.xgboost4j.java;
 
 import ai.rapids.cudf.ColumnVector;
 import ai.rapids.cudf.ColumnView;
-import ai.rapids.cudf.HostColumnVector;
 import ai.rapids.cudf.Table;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import junit.framework.TestCase;
 import org.junit.Test;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
@@ -160,12 +162,12 @@ public class DMatrixTest {
     Table X1 = new Table.TestBuilder().column(features1).build();
     Table y1 = new Table.TestBuilder().column(label1).build();
 
-//    HostColumnVector hcv = X1.getColumn(0).copyToHost();
+    //    HostColumnVector hcv = X1.getColumn(0).copyToHost();
 
-//
+    //
     ColumnVector t = X1.getColumn(0);
     ColumnView cv = t.getChildColumnView(0);
-//
+    //
     System.out.println("----");
 
     Float[][] features2 = {
@@ -189,5 +191,31 @@ public class DMatrixTest {
     System.out.println("--------------");
 
 
+  }
+
+  @Test
+  public void testMakingJson() {
+    List<DataColumn> dataColumns = new ArrayList<>();
+
+    DataColumn mask1 = new DataColumn(111, 000, "<t1", 1, null);
+    dataColumns.add(new DataColumn(2, 1234, "<f4", 1, mask1));
+    dataColumns.add(new DataColumn(5, 6234, "<f4", 1, null));
+
+    ObjectMapper mapper = new ObjectMapper();
+
+    String json = null;
+    try {
+      json = mapper.writeValueAsString(dataColumns);
+    } catch (JsonProcessingException e) {
+      throw new RuntimeException(e);
+    }
+
+    //    String json = null;
+//    try {
+//      json = dataColumns.get(0).toJson();
+//    } catch (JsonProcessingException e) {
+//      throw new RuntimeException(e);
+//    }
+    System.out.println(json);
   }
 }
