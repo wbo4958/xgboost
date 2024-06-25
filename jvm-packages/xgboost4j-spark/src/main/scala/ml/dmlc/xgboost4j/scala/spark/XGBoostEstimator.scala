@@ -407,6 +407,10 @@ private[spark] trait XGBoostEstimator[
   }
 }
 
+/** Specify what to be predicted */
+private[spark] case class PredictedColumns(predLeaf: Boolean, predContrib: Boolean,
+                                           predRaw: Boolean, predTmp: Boolean)
+
 /**
  * XGBoost base model
  *
@@ -436,12 +440,14 @@ private[spark] trait XGBoostModel[M <: XGBoostModel[M]] extends Model[M] with ML
     validateAndTransformSchema(schema, false)
   }
 
-  def postTransform(dataset: Dataset[_]): Dataset[_] = dataset
+  protected def postTransform(dataset: Dataset[_]): Dataset[_] = dataset
 
-  override def transform(dataset: Dataset[_]): DataFrame = {
-
-    val spark = dataset.sparkSession
-
+  /**
+   * Preprocess the schema before transforming.
+   *
+   * @return the transformed schema and the
+   */
+  private[spark] def preprocess(dataset: Dataset[_]): (StructType, PredictedColumns) = {
     // Be careful about the order of columns
     var schema = dataset.schema
 
@@ -456,32 +462,39 @@ private[spark] trait XGBoostModel[M <: XGBoostModel[M]] extends Model[M] with ML
       }
     }
 
-    val hasLeafPredictionCol = addToSchema(leafPredictionCol)
-    val hasContribPredictionCol = addToSchema(contribPredictionCol)
+    val predLeaf = addToSchema(leafPredictionCol)
+    val predContrib = addToSchema(contribPredictionCol)
 
-    var hasRawPredictionCol = false
+    var predRaw = false
     // For classification case, the tranformed col is probability,
     // while for others, it's the prediction value.
-    var hasTransformedCol = false
+    var predTmp = false
     this match {
       case p: XGBProbabilisticClassifierParams[_] => // classification case
-        hasRawPredictionCol = addToSchema(p.rawPredictionCol)
-        hasTransformedCol = addToSchema(p.probabilityCol, Some(TMP_TRANSFORMED_COL))
+        predRaw = addToSchema(p.rawPredictionCol)
+        predTmp = addToSchema(p.probabilityCol, Some(TMP_TRANSFORMED_COL))
 
         if (isDefinedNonEmpty(predictionCol)) {
           // Let's use transformed col to calculate the prediction
-          if (!hasTransformedCol) {
+          if (!predTmp) {
             // Add the transformed col for predition
             schema = schema.add(
               StructField(TMP_TRANSFORMED_COL, ArrayType(FloatType)))
-            hasTransformedCol = true
+            predTmp = true
           }
         }
       case _ =>
         // Rename TMP_TRANSFORMED_COL to prediction in the postTransform.
-        hasTransformedCol = addToSchema(predictionCol, Some(TMP_TRANSFORMED_COL))
-
+        predTmp = addToSchema(predictionCol, Some(TMP_TRANSFORMED_COL))
     }
+    (schema, PredictedColumns(predLeaf, predContrib, predRaw, predTmp))
+  }
+
+  override def transform(dataset: Dataset[_]): DataFrame = {
+
+    val spark = dataset.sparkSession
+
+    val (schema, pred) = preprocess(dataset)
 
     // TODO configurable
     val inferBatchSize = 32 << 10
@@ -505,16 +518,16 @@ private[spark] trait XGBoostModel[M <: XGBoostModel[M]] extends Model[M] with ML
             case (a, b) => a ++ Seq(b)
           }
 
-          if (hasLeafPredictionCol) {
+          if (pred.predLeaf) {
             tmpOut = zip(tmpOut, bBooster.value.predictLeaf(dm))
           }
-          if (hasContribPredictionCol) {
+          if (pred.predContrib) {
             tmpOut = zip(tmpOut, bBooster.value.predictContrib(dm))
           }
-          if (hasRawPredictionCol) {
+          if (pred.predRaw) {
             tmpOut = zip(tmpOut, bBooster.value.predict(dm, outPutMargin = true))
           }
-          if (hasTransformedCol) {
+          if (pred.predTmp) {
             tmpOut = zip(tmpOut, bBooster.value.predict(dm, outPutMargin = false))
           }
           tmpOut.map(Row.fromSeq)
@@ -527,12 +540,12 @@ private[spark] trait XGBoostModel[M <: XGBoostModel[M]] extends Model[M] with ML
     bBooster.unpersist(blocking = false)
 
     // Convert leaf/contrib to the vector from array
-    if (hasLeafPredictionCol) {
+    if (pred.predLeaf) {
       output = output.withColumn(getLeafPredictionCol,
         array_to_vector(output.col(getLeafPredictionCol)))
     }
 
-    if (hasContribPredictionCol) {
+    if (pred.predContrib) {
       output = output.withColumn(getContribPredictionCol,
         array_to_vector(output.col(getContribPredictionCol)))
     }

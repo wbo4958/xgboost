@@ -128,7 +128,7 @@ class XGBoostClassificationModel(
 
   def this(uid: String) = this(uid, 0, null)
 
-  override def postTransform(dataset: Dataset[_]): Dataset[_] = {
+  override protected def postTransform(dataset: Dataset[_]): Dataset[_] = {
     var output = dataset
     // Always use probability col to get the prediction
     if (isDefinedNonEmpty(predictionCol)) {
