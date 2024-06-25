@@ -490,6 +490,10 @@ private[spark] trait XGBoostModel[M <: XGBoostModel[M]] extends Model[M] with ML
     (schema, PredictedColumns(predLeaf, predContrib, predRaw, predTmp))
   }
 
+  private[spark] def predictInternal(booster: Booster, dm: DMatrix) = {
+
+  }
+
   override def transform(dataset: Dataset[_]): DataFrame = {
 
     val spark = dataset.sparkSession
