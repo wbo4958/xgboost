@@ -123,10 +123,10 @@ class GpuXGBoostPlugin extends XGBoostPlugin {
       val colBatchIter = iter.map { table =>
         withResource(new GpuColumnBatch(table, null)) { batch =>
           new CudfColumnBatch(
-            batch.slice(indices.featureIds.get.map(Integer.valueOf).asJava),
-            batch.slice(indices.labelId),
-            batch.slice(indices.weightId.getOrElse(-1)),
-            batch.slice(indices.marginId.getOrElse(-1)));
+            batch.select(indices.featureIds.get.map(Integer.valueOf).asJava),
+            batch.select(indices.labelId),
+            batch.select(indices.weightId.getOrElse(-1)),
+            batch.select(indices.marginId.getOrElse(-1)));
         }
       }
       new QuantileDMatrix(colBatchIter, missing, maxBin, nthread)
@@ -221,7 +221,7 @@ class GpuXGBoostPlugin extends XGBoostPlugin {
             iter = withResource(tableIters.next()) { table =>
               val gpuColumnBatch = new GpuColumnBatch(table, originalSchema)
               // Create DMatrix
-              val featureTable = gpuColumnBatch.slice(featureIds.map(Integer.valueOf).asJava)
+              val featureTable = gpuColumnBatch.select(featureIds.map(Integer.valueOf).asJava)
               if (featureTable == null) {
                 throw new RuntimeException("Something wrong for feature indices")
               }
