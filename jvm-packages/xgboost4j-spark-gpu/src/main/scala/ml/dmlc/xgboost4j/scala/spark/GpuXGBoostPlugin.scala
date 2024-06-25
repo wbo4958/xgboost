@@ -274,19 +274,8 @@ class GpuXGBoostPlugin extends XGBoostPlugin {
     }
     bBooster.unpersist(false)
     bOriginalSchema.unpersist(false)
-    var output = dataset.sparkSession.createDataFrame(rdd, transformedSchema)
 
-    // Convert leaf/contrib to the vector from array
-    if (pred.predLeaf) {
-      output = output.withColumn(model.getLeafPredictionCol,
-        array_to_vector(output.col(model.getLeafPredictionCol)))
-    }
-
-    if (pred.predContrib) {
-      output = output.withColumn(model.getContribPredictionCol,
-        array_to_vector(output.col(model.getContribPredictionCol)))
-    }
-
-    model.postTransform(output).toDF()
+    val output = dataset.sparkSession.createDataFrame(rdd, transformedSchema)
+    model.postTransform(output, pred).toDF()
   }
 }
