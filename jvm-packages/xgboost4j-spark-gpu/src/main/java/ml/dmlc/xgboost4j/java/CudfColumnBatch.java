@@ -40,10 +40,10 @@ public class CudfColumnBatch extends ColumnBatch {
   @JsonIgnore
   private final Table baseMarginTable;
 
-  private List<CudfColumn> features_str;
-  private List<CudfColumn> label_str;
-  private List<CudfColumn> weight_str;
-  private List<CudfColumn> basemargin_str;
+  private List<CudfColumn> features;
+  private List<CudfColumn> label;
+  private List<CudfColumn> weight;
+  private List<CudfColumn> baseMargin;
 
   public CudfColumnBatch(Table featureTable, Table labelTable, Table weightTable,
                          Table baseMarginTable) {
@@ -52,19 +52,19 @@ public class CudfColumnBatch extends ColumnBatch {
     this.weightTable = weightTable;
     this.baseMarginTable = baseMarginTable;
 
-    features_str = initializeCudfColumns(featureTable);
+    features = initializeCudfColumns(featureTable);
     if (labelTable != null) {
       assert labelTable.getNumberOfColumns() == 1;
-      label_str = initializeCudfColumns(labelTable);
+      label = initializeCudfColumns(labelTable);
     }
 
     if (weightTable != null) {
       assert weightTable.getNumberOfColumns() == 1;
-      weight_str = initializeCudfColumns(weightTable);
+      weight = initializeCudfColumns(weightTable);
     }
 
     if (baseMarginTable != null) {
-      basemargin_str = initializeCudfColumns(baseMarginTable);
+      baseMargin = initializeCudfColumns(baseMarginTable);
     }
   }
 
@@ -77,20 +77,20 @@ public class CudfColumnBatch extends ColumnBatch {
       .collect(Collectors.toList());
   }
 
-  public List<CudfColumn> getFeatures_str() {
-    return features_str;
+  public List<CudfColumn> getFeatures() {
+    return features;
   }
 
-  public List<CudfColumn> getLabel_str() {
-    return label_str;
+  public List<CudfColumn> getLabel() {
+    return label;
   }
 
-  public List<CudfColumn> getWeight_str() {
-    return weight_str;
+  public List<CudfColumn> getWeight() {
+    return weight;
   }
 
-  public List<CudfColumn> getBasemargin_str() {
-    return basemargin_str;
+  public List<CudfColumn> getBaseMargin() {
+    return baseMargin;
   }
 
   public String toJson() {
@@ -107,7 +107,7 @@ public class CudfColumnBatch extends ColumnBatch {
   public String toFeaturesJson() {
     ObjectMapper mapper = new ObjectMapper();
     try {
-      return mapper.writeValueAsString(features_str);
+      return mapper.writeValueAsString(features);
     } catch (JsonProcessingException e) {
       throw new RuntimeException(e);
     }
