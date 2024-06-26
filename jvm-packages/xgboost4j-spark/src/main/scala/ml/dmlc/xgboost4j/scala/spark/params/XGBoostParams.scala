@@ -25,7 +25,6 @@ import org.apache.spark.sql.types.{DoubleType, StructType}
 
 import ml.dmlc.xgboost4j.scala.{EvalTrait, ObjectiveTrait}
 
-
 trait HasLeafPredictionCol extends Params {
   /**
    * Param for leaf prediction column name.

@@ -41,7 +41,6 @@ import ml.dmlc.xgboost4j.scala.{Booster, DMatrix, XGBoost => SXGBoost}
 import ml.dmlc.xgboost4j.scala.spark.Utils.MLVectorToXGBLabeledPoint
 import ml.dmlc.xgboost4j.scala.spark.params.{ParamUtils, _}
 
-
 /**
  * Hold the column index
  */
