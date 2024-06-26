@@ -35,7 +35,7 @@ import ml.dmlc.xgboost4j.scala.{DMatrix, QuantileDMatrix}
 import ml.dmlc.xgboost4j.scala.spark.params.HasGroupCol
 
 /**
- * GpuXGBoostPlugin is the XGBoost plugin which leverage spark-rapids
+ * GpuXGBoostPlugin is the XGBoost plugin which leverages spark-rapids
  * to accelerate the XGBoost from ETL to train.
  */
 class GpuXGBoostPlugin extends XGBoostPlugin {
