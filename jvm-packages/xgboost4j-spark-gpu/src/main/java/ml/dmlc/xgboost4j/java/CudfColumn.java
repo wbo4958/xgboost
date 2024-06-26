@@ -105,7 +105,9 @@ public class CudfColumn extends Column {
     ObjectMapper mapper = new ObjectMapper();
     mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
     try {
-      return mapper.writeValueAsString(this);
+      List<CudfColumn> objects = new ArrayList<>(1);
+      objects.add(this);
+      return mapper.writeValueAsString(objects);
     } catch (JsonProcessingException e) {
       throw new RuntimeException(e);
     }

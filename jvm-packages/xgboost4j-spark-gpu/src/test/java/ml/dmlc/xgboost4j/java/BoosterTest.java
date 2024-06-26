@@ -85,7 +85,9 @@ public class BoosterTest {
         try (Table y = new Table(labels);) {
 
           CudfColumnBatch batch = new CudfColumnBatch(X, y, null, null);
+          System.out.println(batch.toJson());
           CudfColumn labelColumn = CudfColumn.from(tmpTable.getColumn(12));
+          System.out.println(labelColumn.toJson());
 
           //set watchList
           HashMap<String, DMatrix> watches = new HashMap<>();

@@ -18,6 +18,8 @@ package ml.dmlc.xgboost4j.java;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import ai.rapids.cudf.ColumnVector;
 import ai.rapids.cudf.Table;
@@ -41,9 +43,18 @@ public class CudfColumnBatch extends ColumnBatch {
   private final Table baseMarginTable;
 
   private List<CudfColumn> features;
-  private CudfColumn label;
-  private CudfColumn weight;
-  private CudfColumn baseMargin;
+  private List<CudfColumn> label;
+  private List<CudfColumn> weight;
+  private List<CudfColumn> baseMargin;
+
+  private List<CudfColumn> initializeCudfColumns(Table table) {
+    assert table != null && table.getNumberOfColumns() > 0;
+
+    return IntStream.range(0, table.getNumberOfColumns())
+    .mapToObj(table::getColumn)
+    .map(CudfColumn::from)
+    .collect(Collectors.toList());
+  }
 
   public CudfColumnBatch(Table featureTable, Table labelTable, Table weightTable,
                          Table baseMarginTable) {
@@ -52,26 +63,19 @@ public class CudfColumnBatch extends ColumnBatch {
     this.weightTable = weightTable;
     this.baseMarginTable = baseMarginTable;
 
-    features = new ArrayList<>();
-    for (int index = 0; index < featureTable.getNumberOfColumns(); index++) {
-      ColumnVector cv = featureTable.getColumn(index);
-      features.add(CudfColumn.from(cv));
-    }
-
+    features = initializeCudfColumns(featureTable);
     if (labelTable != null) {
       assert labelTable.getNumberOfColumns() == 1;
-      label = CudfColumn.from(labelTable.getColumn(0));
+      label = initializeCudfColumns(labelTable);
     }
 
     if (weightTable != null) {
       assert weightTable.getNumberOfColumns() == 1;
-      weight = CudfColumn.from(weightTable.getColumn(0));
+      weight = initializeCudfColumns(weightTable);
     }
 
-    // TODO baseMargin should be an array for multi classification
     if (baseMarginTable != null) {
-      assert baseMarginTable.getNumberOfColumns() == 1;
-      baseMargin = CudfColumn.from(baseMarginTable.getColumn(0));
+      baseMargin = initializeCudfColumns(baseMarginTable);
     }
   }
 
@@ -79,15 +83,15 @@ public class CudfColumnBatch extends ColumnBatch {
     return features;
   }
 
-  public CudfColumn getLabel() {
+  public List<CudfColumn> getLabel() {
     return label;
   }
 
-  public CudfColumn getWeight() {
+  public List<CudfColumn> getWeight() {
     return weight;
   }
 
-  public CudfColumn getBaseMargin() {
+  public List<CudfColumn> getBaseMargin() {
     return baseMargin;
   }
 
