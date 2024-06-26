@@ -140,52 +140,43 @@ public class DMatrixTest {
 
   @Test
   public void testMakingDMatrixViaArray() {
-    //    ColumnVector child1 = ColumnVector.fromFloats(1, 2, 3, 4, 5, 6);
-    //    ColumnVector child2 = ColumnVector.fromFloats(11, 12, 13, 14, 15, 16);
-    //    ColumnVector list = ColumnVector.makeList(child1, child2);
-    //    child2.close();
-    //    child1.close();
-
-    Float[][] features1 = {
-      {1.0f, 12.0f},
-      {2.0f, 13.0f},
-      null,
-      {4.0f, null},
-      {5.0f, 16.0f}
-    };
-
-    Float[] label1 = {0.0f, 1.0f, 0.0f, 1.0f, 0.0f};
-
-    Table X1 = new Table.TestBuilder().column(features1).build();
-    Table y1 = new Table.TestBuilder().column(label1).build();
-
-    //    HostColumnVector hcv = X1.getColumn(0).copyToHost();
-
-    //
-    ColumnVector t = X1.getColumn(0);
-    ColumnView cv = t.getChildColumnView(0);
-    //
-    System.out.println("----");
-
-    Float[][] features2 = {
-      {6.0f, 17.0f},
-      {7.0f, 18.0f},
-    };
-    Float[] label2 = {0.0f, 1.0f, 0.0f, 1.0f, 0.0f};
-    Table X2 = new Table.TestBuilder().column(features2).build();
-    Table y2 = new Table.TestBuilder().column(label2).build();
-
-    List<ColumnBatch> tables = new LinkedList<>();
-    tables.add(new CudfColumnBatch(X1, y1, null, null));
-    tables.add(new CudfColumnBatch(X2, y2, null, null));
-
-    try {
-      DMatrix dmat = new QuantileDMatrix(tables.iterator(), 0.0f, 8, 1);
-    } catch (XGBoostError e) {
-      throw new RuntimeException(e);
-    }
-
-    System.out.println("--------------");
+//    Float[][] features1 = {
+//      {1.0f, 12.0f},
+//      {2.0f, 13.0f},
+//      null,
+//      {4.0f, null},
+//      {5.0f, 16.0f}
+//    };
+//
+//    Float[] label1 = {0.0f, 1.0f, 0.0f, 1.0f, 0.0f};
+//
+//    Table X1 = new Table.TestBuilder().column(features1).build();
+//    Table y1 = new Table.TestBuilder().column(label1).build();
+//
+//    ColumnVector t = X1.getColumn(0);
+//    ColumnView cv = t.getChildColumnView(0);
+//    //
+//    System.out.println("----");
+//
+//    Float[][] features2 = {
+//      {6.0f, 17.0f},
+//      {7.0f, 18.0f},
+//    };
+//    Float[] label2 = {0.0f, 1.0f, 0.0f, 1.0f, 0.0f};
+//    Table X2 = new Table.TestBuilder().column(features2).build();
+//    Table y2 = new Table.TestBuilder().column(label2).build();
+//
+//    List<ColumnBatch> tables = new LinkedList<>();
+//    tables.add(new CudfColumnBatch(X1, y1, null, null));
+//    tables.add(new CudfColumnBatch(X2, y2, null, null));
+//
+//    try {
+//      DMatrix dmat = new QuantileDMatrix(tables.iterator(), 0.0f, 8, 1);
+//    } catch (XGBoostError e) {
+//      throw new RuntimeException(e);
+//    }
+//
+//    System.out.println("--------------");
 
   }
 
