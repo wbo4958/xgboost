@@ -187,36 +187,6 @@ public class DMatrixTest {
 
     System.out.println("--------------");
 
-
   }
 
-  @Test
-  public void testMakingJson() {
-    Float[][] features1 = {
-      {1.0f, 12.0f},
-      {2.0f, 13.0f},
-      null,
-      {4.0f, null},
-      {5.0f, 16.0f}
-    };
-
-    Float[] label1 = {0.0f, 1.0f, 0.0f, 1.0f, 0.0f};
-
-    //    Table X1 = new Table.TestBuilder().column(features1).build();
-    Float[] X11 = {10.0f, 11.0f, null, 11.0f, 10.0f};
-    Table X1 = new Table.TestBuilder().column(X11).build();
-
-    Table y1 = new Table.TestBuilder().column(label1).build();
-
-    CudfColumnBatch dataColumnBatch = new CudfColumnBatch(X1, y1, null, null);
-
-    String json = dataColumnBatch.toJson();
-    //    String json = null;
-    //    try {
-    //      json = dataColumns.get(0).toJson();
-    //    } catch (JsonProcessingException e) {
-    //      throw new RuntimeException(e);
-    //    }
-    System.out.println(json);
-  }
 }

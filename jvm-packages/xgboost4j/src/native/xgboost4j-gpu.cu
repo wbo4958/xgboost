@@ -249,11 +249,11 @@ class DataIteratorProxy {
       // batch should be ColumnBatch from jvm
       jobject batch = CheckJvmCall(jenv_->CallObjectMethod(jiter_, next), jenv_);
       jclass batch_class = CheckJvmCall(jenv_->GetObjectClass(batch), jenv_);
-      jmethodID getArrayInterfaceJson = CheckJvmCall(jenv_->GetMethodID(
-        batch_class, "getArrayInterfaceJson", "()Ljava/lang/String;"), jenv_);
+      jmethodID toJson = CheckJvmCall(jenv_->GetMethodID(
+        batch_class, "toJson", "()Ljava/lang/String;"), jenv_);
 
       auto jinterface =
-        static_cast<jstring>(jenv_->CallObjectMethod(batch, getArrayInterfaceJson));
+        static_cast<jstring>(jenv_->CallObjectMethod(batch, toJson));
       CheckJvmCall(jinterface, jenv_);
       char const *c_interface_str =
           CheckJvmCall(jenv_->GetStringUTFChars(jinterface, nullptr), jenv_);
