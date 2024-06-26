@@ -108,6 +108,7 @@ class XGBoostClassifier(override val uid: String,
   XGBoostClassificationModel = {
     new XGBoostClassificationModel(uid, numberClasses, booster, Some(summary))
   }
+
 }
 
 object XGBoostClassifier extends DefaultParamsReadable[XGBoostClassifier] {
