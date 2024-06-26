@@ -19,12 +19,9 @@ package ml.dmlc.xgboost4j.java;
 import ai.rapids.cudf.ColumnVector;
 import ai.rapids.cudf.ColumnView;
 import ai.rapids.cudf.Table;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import junit.framework.TestCase;
 import org.junit.Test;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
@@ -195,27 +192,31 @@ public class DMatrixTest {
 
   @Test
   public void testMakingJson() {
-    List<DataColumn> dataColumns = new ArrayList<>();
+    Float[][] features1 = {
+      {1.0f, 12.0f},
+      {2.0f, 13.0f},
+      null,
+      {4.0f, null},
+      {5.0f, 16.0f}
+    };
 
-    DataColumn mask1 = new DataColumn(111, 000, "<t1", 1, null);
-    dataColumns.add(new DataColumn(2, 1234, "<f4", 1, mask1));
-    dataColumns.add(new DataColumn(5, 6234, "<f4", 1, null));
+    Float[] label1 = {0.0f, 1.0f, 0.0f, 1.0f, 0.0f};
 
-    ObjectMapper mapper = new ObjectMapper();
+    //    Table X1 = new Table.TestBuilder().column(features1).build();
+    Float[] X11 = {10.0f, 11.0f, null, 11.0f, 10.0f};
+    Table X1 = new Table.TestBuilder().column(X11).build();
 
-    String json = null;
-    try {
-      json = mapper.writeValueAsString(dataColumns);
-    } catch (JsonProcessingException e) {
-      throw new RuntimeException(e);
-    }
+    Table y1 = new Table.TestBuilder().column(label1).build();
 
+    DataColumnBatch dataColumnBatch = new DataColumnBatch(X1, y1, null, null);
+
+    String json = dataColumnBatch.toJson();
     //    String json = null;
-//    try {
-//      json = dataColumns.get(0).toJson();
-//    } catch (JsonProcessingException e) {
-//      throw new RuntimeException(e);
-//    }
+    //    try {
+    //      json = dataColumns.get(0).toJson();
+    //    } catch (JsonProcessingException e) {
+    //      throw new RuntimeException(e);
+    //    }
     System.out.println(json);
   }
 }

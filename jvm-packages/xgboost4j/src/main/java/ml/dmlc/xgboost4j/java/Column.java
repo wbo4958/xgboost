@@ -30,7 +30,7 @@ public abstract class Column implements AutoCloseable {
    * {@link DMatrix#setWeight(Column)}
    * {@link DMatrix#setBaseMargin(Column)}
    */
-  public abstract String getArrayInterfaceJson();
+  public abstract String toJson();
 
   @Override
   public void close() throws Exception {
