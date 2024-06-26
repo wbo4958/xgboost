@@ -32,14 +32,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class CudfColumn extends Column {
   private List<Long> shape = new ArrayList<>();   // row count
-  private List<String> data = new ArrayList<>(); //  gpu data buffer address
+  private List<Object> data = new ArrayList<>(); //  gpu data buffer address
   private String typestr;
   private int version = 1;
   private CudfColumn mask = null;
 
   public CudfColumn(long shape, long data, String typestr, int version) {
     this.shape.add(shape);
-    this.data.add(data + ",false");
+    this.data.add(data);
+    this.data.add(false);
     this.typestr = typestr;
     this.version = version;
   }
@@ -80,7 +81,7 @@ public class CudfColumn extends Column {
     return shape;
   }
 
-  public List<String> getData() {
+  public List<Object> getData() {
     return data;
   }
 

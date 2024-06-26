@@ -98,13 +98,11 @@ public class CudfColumnBatch extends ColumnBatch {
   public String toJson() {
     ObjectMapper mapper = new ObjectMapper();
     mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
-    String json = "";
     try {
-      json = mapper.writeValueAsString(this);
+      return mapper.writeValueAsString(this);
     } catch (JsonProcessingException e) {
       throw new RuntimeException(e);
     }
-    return json;
   }
 
   @Override
