@@ -16,71 +16,98 @@
 
 package ml.dmlc.xgboost4j.java;
 
-import java.util.stream.IntStream;
+import java.util.ArrayList;
+import java.util.List;
 
+import ai.rapids.cudf.ColumnVector;
 import ai.rapids.cudf.Table;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
- * Class to wrap CUDF Table to generate the cuda array interface.
+ * CudfColumnBatch wraps multiple CudfColumns to provide the cuda
+ * array interface json string for all columns.
  */
 public class CudfColumnBatch extends ColumnBatch {
-  private final Table feature;
-  private final Table label;
-  private final Table weight;
-  private final Table baseMargin;
+  @JsonIgnore
+  private final Table featureTable;
+  @JsonIgnore
+  private final Table labelTable;
+  @JsonIgnore
+  private final Table weightTable;
+  @JsonIgnore
+  private final Table baseMarginTable;
 
-  public CudfColumnBatch(Table feature, Table labels, Table weights, Table baseMargins) {
-    this.feature = feature;
-    this.label = labels;
-    this.weight = weights;
-    this.baseMargin = baseMargins;
+  private List<CudfColumn> features;
+  private CudfColumn label;
+  private CudfColumn weight;
+  private CudfColumn baseMargin;
+
+  public CudfColumnBatch(Table featureTable, Table labelTable, Table weightTable,
+                         Table baseMarginTable) {
+    this.featureTable = featureTable;
+    this.labelTable = labelTable;
+    this.weightTable = weightTable;
+    this.baseMarginTable = baseMarginTable;
+
+    features = new ArrayList<>();
+    for (int index = 0; index < featureTable.getNumberOfColumns(); index++) {
+      ColumnVector cv = featureTable.getColumn(index);
+      features.add(CudfColumn.from(cv));
+    }
+
+    if (labelTable != null) {
+      assert labelTable.getNumberOfColumns() == 1;
+      label = CudfColumn.from(labelTable.getColumn(0));
+    }
+
+    if (weightTable != null) {
+      assert weightTable.getNumberOfColumns() == 1;
+      weight = CudfColumn.from(weightTable.getColumn(0));
+    }
+
+    // TODO baseMargin should be an array for multi classification
+    if (baseMarginTable != null) {
+      assert baseMarginTable.getNumberOfColumns() == 1;
+      baseMargin = CudfColumn.from(baseMarginTable.getColumn(0));
+    }
   }
 
-  @Override
-  public String getFeatureArrayInterface() {
-    return getArrayInterface(this.feature);
+  public List<CudfColumn> getFeatures() {
+    return features;
   }
 
-  @Override
-  public String getLabelsArrayInterface() {
-    return getArrayInterface(this.label);
+  public CudfColumn getLabel() {
+    return label;
   }
 
-  @Override
-  public String getWeightsArrayInterface() {
-    return getArrayInterface(this.weight);
+  public CudfColumn getWeight() {
+    return weight;
   }
 
-  @Override
-  public String getBaseMarginsArrayInterface() {
-    return getArrayInterface(this.baseMargin);
+  public CudfColumn getBaseMargin() {
+    return baseMargin;
+  }
+
+  public String toJson() {
+    ObjectMapper mapper = new ObjectMapper();
+    mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
+    String json = "";
+    try {
+      json = mapper.writeValueAsString(this);
+    } catch (JsonProcessingException e) {
+      throw new RuntimeException(e);
+    }
+    return json;
   }
 
   @Override
   public void close() {
-    if (feature != null) feature.close();
-    if (label != null) label.close();
-    if (weight != null) weight.close();
-    if (baseMargin != null) baseMargin.close();
+    if (featureTable != null) featureTable.close();
+    if (labelTable != null) labelTable.close();
+    if (weightTable != null) weightTable.close();
+    if (baseMarginTable != null) baseMarginTable.close();
   }
-
-  private String getArrayInterface(Table table) {
-    if (table == null || table.getNumberOfColumns() == 0) {
-      return "";
-    }
-    return CudfUtils.buildArrayInterface(getAsCudfColumn(table));
-  }
-
-  private CudfColumn[] getAsCudfColumn(Table table) {
-    if (table == null || table.getNumberOfColumns() == 0) {
-      // This will never happen.
-      return new CudfColumn[]{};
-    }
-
-    return IntStream.range(0, table.getNumberOfColumns())
-      .mapToObj((i) -> table.getColumn(i))
-      .map(CudfColumn::from)
-      .toArray(CudfColumn[]::new);
-  }
-
 }

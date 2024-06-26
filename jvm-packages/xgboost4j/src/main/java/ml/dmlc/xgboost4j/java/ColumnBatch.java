@@ -17,15 +17,8 @@
 package ml.dmlc.xgboost4j.java;
 
 /**
- * The abstracted XGBoost ColumnBatch to get array interface from columnar data format.
- * For example, the cuDF dataframe which employs apache arrow specification.
+ * This class wraps multiple Column and provides the array interface json
+ * for all columns.
  */
 public abstract class ColumnBatch extends Column {
-  /**
-   * Get the cuda array interface json string for the whole ColumnBatch including
-   * the must-have feature, label columns and the optional weight, base margin columns.
-   * <p>
-   * This function is be called by native code during iteration and can be made as private
-   * method.  We keep it as public simply to silent the linter.
-   */
 }

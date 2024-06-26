@@ -16,15 +16,15 @@
 
 package ml.dmlc.xgboost4j.java;
 
+import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.List;
+
 import ai.rapids.cudf.ColumnVector;
 import ai.rapids.cudf.ColumnView;
 import ai.rapids.cudf.Table;
 import junit.framework.TestCase;
 import org.junit.Test;
-
-import java.util.Arrays;
-import java.util.LinkedList;
-import java.util.List;
 
 import static org.junit.Assert.assertArrayEquals;
 
@@ -208,7 +208,7 @@ public class DMatrixTest {
 
     Table y1 = new Table.TestBuilder().column(label1).build();
 
-    DataColumnBatch dataColumnBatch = new DataColumnBatch(X1, y1, null, null);
+    CudfColumnBatch dataColumnBatch = new CudfColumnBatch(X1, y1, null, null);
 
     String json = dataColumnBatch.toJson();
     //    String json = null;

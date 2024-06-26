@@ -24,7 +24,7 @@ import ai.rapids.cudf.Table;
 import org.apache.spark.sql.types.*;
 
 /**
- * Wrapper of CudfTable with schema for scala
+ * Wrapper of Cudf Table with schema for scala
  */
 public class GpuColumnBatch implements AutoCloseable {
   private final StructType schema;
