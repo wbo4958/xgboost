@@ -184,7 +184,7 @@ public class DMatrix {
    */
   public DMatrix(ColumnBatch columnBatch, float missing, int nthread) throws XGBoostError {
     long[] out = new long[1];
-    String json = columnBatch.toJson();
+    String json = columnBatch.toFeaturesJson();
     if (json == null || json.isEmpty()) {
       throw new XGBoostError("Expecting non-empty feature columns' array interface");
     }

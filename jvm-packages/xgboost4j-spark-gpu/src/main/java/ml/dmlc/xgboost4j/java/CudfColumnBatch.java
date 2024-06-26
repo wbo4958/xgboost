@@ -16,12 +16,10 @@
 
 package ml.dmlc.xgboost4j.java;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import ai.rapids.cudf.ColumnVector;
 import ai.rapids.cudf.Table;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -42,19 +40,10 @@ public class CudfColumnBatch extends ColumnBatch {
   @JsonIgnore
   private final Table baseMarginTable;
 
-  private List<CudfColumn> features;
-  private List<CudfColumn> label;
-  private List<CudfColumn> weight;
-  private List<CudfColumn> baseMargin;
-
-  private List<CudfColumn> initializeCudfColumns(Table table) {
-    assert table != null && table.getNumberOfColumns() > 0;
-
-    return IntStream.range(0, table.getNumberOfColumns())
-    .mapToObj(table::getColumn)
-    .map(CudfColumn::from)
-    .collect(Collectors.toList());
-  }
+  private List<CudfColumn> features_str;
+  private List<CudfColumn> label_str;
+  private List<CudfColumn> weight_str;
+  private List<CudfColumn> basemargin_str;
 
   public CudfColumnBatch(Table featureTable, Table labelTable, Table weightTable,
                          Table baseMarginTable) {
@@ -63,36 +52,45 @@ public class CudfColumnBatch extends ColumnBatch {
     this.weightTable = weightTable;
     this.baseMarginTable = baseMarginTable;
 
-    features = initializeCudfColumns(featureTable);
+    features_str = initializeCudfColumns(featureTable);
     if (labelTable != null) {
       assert labelTable.getNumberOfColumns() == 1;
-      label = initializeCudfColumns(labelTable);
+      label_str = initializeCudfColumns(labelTable);
     }
 
     if (weightTable != null) {
       assert weightTable.getNumberOfColumns() == 1;
-      weight = initializeCudfColumns(weightTable);
+      weight_str = initializeCudfColumns(weightTable);
     }
 
     if (baseMarginTable != null) {
-      baseMargin = initializeCudfColumns(baseMarginTable);
+      basemargin_str = initializeCudfColumns(baseMarginTable);
     }
   }
 
-  public List<CudfColumn> getFeatures() {
-    return features;
+  private List<CudfColumn> initializeCudfColumns(Table table) {
+    assert table != null && table.getNumberOfColumns() > 0;
+
+    return IntStream.range(0, table.getNumberOfColumns())
+      .mapToObj(table::getColumn)
+      .map(CudfColumn::from)
+      .collect(Collectors.toList());
   }
 
-  public List<CudfColumn> getLabel() {
-    return label;
+  public List<CudfColumn> getFeatures_str() {
+    return features_str;
   }
 
-  public List<CudfColumn> getWeight() {
-    return weight;
+  public List<CudfColumn> getLabel_str() {
+    return label_str;
   }
 
-  public List<CudfColumn> getBaseMargin() {
-    return baseMargin;
+  public List<CudfColumn> getWeight_str() {
+    return weight_str;
+  }
+
+  public List<CudfColumn> getBasemargin_str() {
+    return basemargin_str;
   }
 
   public String toJson() {
@@ -100,6 +98,16 @@ public class CudfColumnBatch extends ColumnBatch {
     mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
     try {
       return mapper.writeValueAsString(this);
+    } catch (JsonProcessingException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  @Override
+  public String toFeaturesJson() {
+    ObjectMapper mapper = new ObjectMapper();
+    try {
+      return mapper.writeValueAsString(features_str);
     } catch (JsonProcessingException e) {
       throw new RuntimeException(e);
     }

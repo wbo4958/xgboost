@@ -21,4 +21,7 @@ package ml.dmlc.xgboost4j.java;
  * for all columns.
  */
 public abstract class ColumnBatch extends Column {
+
+  /** Get features cuda array interface json string */
+  public abstract String toFeaturesJson();
 }
