@@ -29,29 +29,6 @@ import ml.dmlc.xgboost4j.scala.spark.params.XGBoostParams
 
 class XGBoostClassifierSuite extends AnyFunSuite with PerTest with TmpFolderPerSuite {
 
-  test("params") {
-    val xgbParams: Map[String, Any] = Map(
-      "max_depth" -> 5,
-      "eta" -> 0.2,
-      "objective" -> "binary:logistic"
-    )
-    val classifier = new XGBoostClassifier(xgbParams)
-      .setFeaturesCol("abc")
-      .setMissing(0.2f)
-      .setAlpha(0.97)
-
-    assert(classifier.getMaxDepth === 5)
-    assert(classifier.getEta === 0.2)
-    assert(classifier.getObjective === "binary:logistic")
-    assert(classifier.getFeaturesCol === "abc")
-    assert(classifier.getMissing === 0.2f)
-    assert(classifier.getAlpha === 0.97)
-
-    classifier.setEta(0.66).setMaxDepth(7)
-    assert(classifier.getMaxDepth === 7)
-    assert(classifier.getEta === 0.66)
-  }
-
   test("XGBoostClassifier copy") {
     val classifier = new XGBoostClassifier().setNthread(2).setNumWorkers(10)
     val classifierCopied = classifier.copy(ParamMap.empty)

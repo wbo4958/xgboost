@@ -386,7 +386,7 @@ private[spark] case class PredictedColumns(
 /**
  * XGBoost base model
  */
-private[spark] trait XGBoostModel[M <: XGBoostModel[M]] extends Model[M] with MLWritable
+private[spark] trait XGBoostModel[M <: XGBoostModel[M]] extends  Model[M] with MLWritable
   with XGBoostParams[M] with SparkParams[M] with ParamUtils[M] with PluginMixin {
 
   protected val TMP_TRANSFORMED_COL = "_tmp_xgb_transformed_col"
@@ -521,8 +521,12 @@ private[spark] trait XGBoostModel[M <: XGBoostModel[M]] extends Model[M] with ML
 
   override def write: MLWriter = new XGBoostModelWriter[XGBoostModel[_]](this)
 
-  override def predict(features: Vector): Double = {
-    0
+  protected def predictSingleInstance(features: Vector): Array[Float] = {
+    if (nativeBooster == null) {
+      throw new IllegalArgumentException("The model has not been trained")
+    }
+    val dm = new DMatrix(Iterator(features.asXGB), null, getMissing)
+    nativeBooster.predict(data = dm)(0)
   }
 }
 

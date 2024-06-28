@@ -28,41 +28,17 @@ import ml.dmlc.xgboost4j.scala.spark.params.LearningTaskParams.{BINARY_CLASSIFIC
 import ml.dmlc.xgboost4j.scala.spark.params.XGBoostParams
 
 class XGBoostRegressorSuite extends AnyFunSuite with PerTest with TmpFolderPerSuite {
+  test("XGBoostRegressor copy") {
+    val regressor = new XGBoostRegressor().setNthread(2).setNumWorkers(10)
+    val regressortCopied = regressor.copy(ParamMap.empty)
 
-  test("params") {
-    val xgbParams: Map[String, Any] = Map(
-      "max_depth" -> 5,
-      "eta" -> 0.2,
-      "objective" -> "binary:logistic"
-    )
-    val classifier = new XGBoostRegressor(xgbParams)
-      .setFeaturesCol("abc")
-      .setMissing(0.2f)
-      .setAlpha(0.97)
-
-    assert(classifier.getMaxDepth === 5)
-    assert(classifier.getEta === 0.2)
-    assert(classifier.getObjective === "binary:logistic")
-    assert(classifier.getFeaturesCol === "abc")
-    assert(classifier.getMissing === 0.2f)
-    assert(classifier.getAlpha === 0.97)
-
-    classifier.setEta(0.66).setMaxDepth(7)
-    assert(classifier.getMaxDepth === 7)
-    assert(classifier.getEta === 0.66)
+    assert(regressor.uid === regressortCopied.uid)
+    assert(regressor.getNthread === regressortCopied.getNthread)
+    assert(regressor.getNumWorkers === regressor.getNumWorkers)
   }
 
-  test("XGBoostClassifier copy") {
-    val classifier = new XGBoostClassifier().setNthread(2).setNumWorkers(10)
-    val classifierCopied = classifier.copy(ParamMap.empty)
-
-    assert(classifier.uid === classifierCopied.uid)
-    assert(classifier.getNthread === classifierCopied.getNthread)
-    assert(classifier.getNumWorkers === classifier.getNumWorkers)
-  }
-
-  test("XGBoostClassification copy") {
-    val model = new XGBoostClassificationModel("hello").setNthread(2).setNumWorkers(10)
+  test("XGBoostRegressionModel copy") {
+    val model = new XGBoostRegressionModel("hello").setNthread(2).setNumWorkers(10)
     val modelCopied = model.copy(ParamMap.empty)
     assert(model.uid === modelCopied.uid)
     assert(model.getNthread === modelCopied.getNthread)
@@ -74,38 +50,35 @@ class XGBoostRegressorSuite extends AnyFunSuite with PerTest with TmpFolderPerSu
     val xgbParams: Map[String, Any] = Map(
       "max_depth" -> 5,
       "eta" -> 0.2,
-      "objective" -> "binary:logistic"
     )
 
     def check(xgboostParams: XGBoostParams[_]): Unit = {
       assert(xgboostParams.getMaxDepth === 5)
       assert(xgboostParams.getEta === 0.2)
-      assert(xgboostParams.getObjective === "binary:logistic")
+      assert(xgboostParams.getObjective === "reg:squarederror")
     }
 
-    val classifierPath = new File(tempDir.toFile, "classifier").getPath
-    val classifier = new XGBoostClassifier(xgbParams).setNumRound(2)
-    check(classifier)
+    val classifierPath = new File(tempDir.toFile, "regressor").getPath
+    val regressor = new XGBoostRegressor(xgbParams).setNumRound(1)
+    check(regressor)
 
-    classifier.write.overwrite().save(classifierPath)
-    val loadedClassifier = XGBoostClassifier.load(classifierPath)
-    check(loadedClassifier)
+    regressor.write.overwrite().save(classifierPath)
+    val loadedRegressor = XGBoostRegressor.load(classifierPath)
+    check(loadedRegressor)
 
-    val model = loadedClassifier.fit(trainDf)
+    val model = loadedRegressor.fit(trainDf)
     check(model)
-    assert(model.numClasses === 2)
 
     val modelPath = new File(tempDir.toFile, "model").getPath
     model.write.overwrite().save(modelPath)
     val modelLoaded = XGBoostClassificationModel.load(modelPath)
-    assert(modelLoaded.numClasses === 2)
     check(modelLoaded)
   }
 
   test("XGBoostClassificationModel transformed schema") {
     val trainDf = smallBinaryClassificationVector
-    val classifier = new XGBoostClassifier().setNumRound(1)
-    val model = classifier.fit(trainDf)
+    val regressor = new XGBoostRegressor().setNumRound(1)
+    val model = regressor.fit(trainDf)
     var out = model.transform(trainDf)
     // Transform should not discard the other columns of the transforming dataframe
     Seq("label", "margin", "weight", "features").foreach { v =>
@@ -117,7 +90,6 @@ class XGBoostRegressorSuite extends AnyFunSuite with PerTest with TmpFolderPerSu
       assert(out.schema.names.contains(v))
     }
 
-    model.setRawPredictionCol("").setProbabilityCol("")
     out = model.transform(trainDf)
 
     // rawPrediction="", probability=""
@@ -135,65 +107,65 @@ class XGBoostRegressorSuite extends AnyFunSuite with PerTest with TmpFolderPerSu
   }
 
   test("Supported objectives") {
-    val classifier = new XGBoostClassifier()
+    val regressor = new XGBoostRegressor()
     val df = smallMultiClassificationVector
     (BINARY_CLASSIFICATION_OBJS.toSeq ++ MULTICLASSIFICATION_OBJS.toSeq).foreach { obj =>
-      classifier.setObjective(obj)
-      classifier.validate(df)
+      regressor.setObjective(obj)
+      regressor.validate(df)
     }
 
-    classifier.setObjective("reg:squaredlogerror")
+    regressor.setObjective("reg:squaredlogerror")
     intercept[IllegalArgumentException](
-      classifier.validate(df)
+      regressor.validate(df)
     )
   }
 
   test("Binaryclassification infer objective and num_class") {
     val trainDf = smallBinaryClassificationVector
-    var classifier = new XGBoostClassifier()
-    assert(classifier.getObjective === "reg:squarederror")
-    assert(classifier.getNumClass === 0)
-    classifier.validate(trainDf)
-    assert(classifier.getObjective === "binary:logistic")
-    assert(!classifier.isSet(classifier.numClass))
+    var regressor = new XGBoostRegressor()
+    assert(regressor.getObjective === "reg:squarederror")
+    assert(regressor.getNumClass === 0)
+    regressor.validate(trainDf)
+    assert(regressor.getObjective === "binary:logistic")
+    assert(!regressor.isSet(regressor.numClass))
 
     // Infer objective according num class
-    classifier = new XGBoostClassifier()
-    classifier.setNumClass(2)
+    regressor = new XGBoostRegressor()
+    regressor.setNumClass(2)
     intercept[IllegalArgumentException](
-      classifier.validate(trainDf)
+      regressor.validate(trainDf)
     )
 
     // Infer to num class according to num class
-    classifier = new XGBoostClassifier()
-    classifier.setObjective("binary:logistic")
-    classifier.validate(trainDf)
-    assert(classifier.getObjective === "binary:logistic")
-    assert(!classifier.isSet(classifier.numClass))
+    regressor = new XGBoostRegressor()
+    regressor.setObjective("binary:logistic")
+    regressor.validate(trainDf)
+    assert(regressor.getObjective === "binary:logistic")
+    assert(!regressor.isSet(regressor.numClass))
   }
 
   test("MultiClassification infer objective and num_class") {
     val trainDf = smallMultiClassificationVector
-    var classifier = new XGBoostClassifier()
-    assert(classifier.getObjective === "reg:squarederror")
-    assert(classifier.getNumClass === 0)
-    classifier.validate(trainDf)
-    assert(classifier.getObjective === "multi:softprob")
-    assert(classifier.getNumClass === 3)
+    var regressor = new XGBoostRegressor()
+    assert(regressor.getObjective === "reg:squarederror")
+    assert(regressor.getNumClass === 0)
+    regressor.validate(trainDf)
+    assert(regressor.getObjective === "multi:softprob")
+    assert(regressor.getNumClass === 3)
 
     // Infer to objective according to num class
-    classifier = new XGBoostClassifier()
-    classifier.setNumClass(3)
-    classifier.validate(trainDf)
-    assert(classifier.getObjective === "multi:softprob")
-    assert(classifier.getNumClass === 3)
+    regressor = new XGBoostRegressor()
+    regressor.setNumClass(3)
+    regressor.validate(trainDf)
+    assert(regressor.getObjective === "multi:softprob")
+    assert(regressor.getNumClass === 3)
 
     // Infer to num class according to objective
-    classifier = new XGBoostClassifier()
-    classifier.setObjective("multi:softmax")
-    classifier.validate(trainDf)
-    assert(classifier.getObjective === "multi:softmax")
-    assert(classifier.getNumClass === 3)
+    regressor = new XGBoostRegressor()
+    regressor.setObjective("multi:softmax")
+    regressor.validate(trainDf)
+    assert(regressor.getObjective === "multi:softmax")
+    assert(regressor.getNumClass === 3)
   }
 
   test("XGBoost-Spark binary classification output should match XGBoost4j") {
@@ -252,12 +224,12 @@ class XGBoostRegressorSuite extends AnyFunSuite with PerTest with TmpFolderPerSu
       "max_bin" -> 16) ++ xgbParams
     val xgb4jModel = ScalaXGBoost.train(trainingDM, paramMap, round)
 
-    val classifier = new XGBoostClassifier(paramMap)
+    val regressor = new XGBoostRegressor(paramMap)
       .setNumRound(round)
       .setNumWorkers(numWorkers)
       .setLeafPredictionCol("leaf")
       .setContribPredictionCol("contrib")
-    weightCol.foreach(weight => classifier.setWeightCol(weight))
+    weightCol.foreach(weight => regressor.setWeightCol(weight))
 
     def checkEqual(left: Array[Array[Float]], right: Map[Int, Array[Float]]) = {
       assert(left.size === right.size)
@@ -266,7 +238,7 @@ class XGBoostRegressorSuite extends AnyFunSuite with PerTest with TmpFolderPerSu
       }
     }
 
-    val xgbSparkModel = classifier.fit(trainingDF)
+    val xgbSparkModel = regressor.fit(trainingDF)
     val rows = xgbSparkModel.transform(testDF).collect()
 
     // Check Leaf
@@ -294,7 +266,7 @@ class XGBoostRegressorSuite extends AnyFunSuite with PerTest with TmpFolderPerSu
     val xgb4jProb = xgb4jModel.predict(testDM)
     val xgbSparkProb = rows.map(row =>
       (row.getAs[Int]("id"), row.getAs[DenseVector]("probability").toArray.map(_.toFloat))).toMap
-    if (BINARY_CLASSIFICATION_OBJS.contains(classifier.getObjective)) {
+    if (BINARY_CLASSIFICATION_OBJS.contains(regressor.getObjective)) {
       checkEqualForBinary(xgb4jProb, xgbSparkProb)
     } else {
       checkEqual(xgb4jProb, xgbSparkProb)
@@ -304,7 +276,7 @@ class XGBoostRegressorSuite extends AnyFunSuite with PerTest with TmpFolderPerSu
     val xgb4jRawPred = xgb4jModel.predict(testDM, outPutMargin = true)
     val xgbSparkRawPred = rows.map(row =>
       (row.getAs[Int]("id"), row.getAs[DenseVector]("rawPrediction").toArray.map(_.toFloat))).toMap
-    if (BINARY_CLASSIFICATION_OBJS.contains(classifier.getObjective)) {
+    if (BINARY_CLASSIFICATION_OBJS.contains(regressor.getObjective)) {
       checkEqualForBinary(xgb4jRawPred, xgbSparkRawPred)
     } else {
       checkEqual(xgb4jRawPred, xgbSparkRawPred)

@@ -1,3 +1,19 @@
+/*
+ Copyright (c) 2014-2024 by Contributors
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ */
+
 package ml.dmlc.xgboost4j.scala.spark
 
 import org.apache.spark.ml.{PredictionModel, Predictor}
@@ -50,15 +66,22 @@ object XGBoostRegressor extends DefaultParamsReadable[XGBoostRegressor] {
   private val _uid = Identifiable.randomUID("xgbr")
 }
 
-class XGBoostRegressionModel private[ml](override val uid: String,
+class XGBoostRegressionModel private[ml](val uid: String,
                                          val nativeBooster: Booster,
-                                         val summary: Option[XGBoostTrainingSummary])
+                                         val summary: Option[XGBoostTrainingSummary] = None)
   extends PredictionModel[Vector, XGBoostRegressionModel]
     with XGBoostModel[XGBoostRegressionModel] {
+
+  def this(uid: String) = this(uid, null)
 
   override def copy(extra: ParamMap): XGBoostRegressionModel = {
     val newModel = copyValues(new XGBoostRegressionModel(uid, nativeBooster, summary), extra)
     newModel.setParent(parent)
+  }
+
+  override def predict(features: Vector): Double = {
+    val values = predictSingleInstance(features)
+    values(0)
   }
 }
 
