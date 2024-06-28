@@ -329,10 +329,11 @@ class XGBoostEstimatorSuite extends AnyFunSuite with PerTest with TmpFolderPerSu
       if (iter.hasNext) {
         val watches = iter.next()
         val size = watches.size
-        val rowNum = watches.datasets(1).rowNum
-        val labels = watches.datasets(1).getLabel
-        val weight = watches.datasets(1).getWeight
-        val margins = watches.datasets(1).getBaseMargin
+        val evalDM = watches.toMap(Utils.VALIDATION_NAME)
+        val rowNum = evalDM.rowNum
+        val labels = evalDM.getLabel
+        val weight = evalDM.getWeight
+        val margins = evalDM.getBaseMargin
         watches.delete()
         Iterator.single((size, rowNum, labels, weight, margins))
       } else {
@@ -358,7 +359,7 @@ class XGBoostEstimatorSuite extends AnyFunSuite with PerTest with TmpFolderPerSu
     assert(margins.toArray.sorted === Array(-0.5f, -0.5f, -0.4f, 0.5f).sorted)
   }
 
-  test("XGBoost-Spark model format should match xgboost4j ") {
+  test("XGBoost-Spark model format should match xgboost4j") {
     val trainingDF = buildDataFrame(MultiClassification.train)
 
     Seq(new XGBoostClassifier()).foreach { est =>
