@@ -28,12 +28,13 @@ import org.apache.spark.ml.{Estimator, Model}
 import org.apache.spark.ml.functions.array_to_vector
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.param.{Param, ParamMap}
-import org.apache.spark.ml.util.{DefaultParamsWritable, MLReader, MLWritable, MLWriter}
+import org.apache.spark.ml.util.{DefaultParamsWritable, MLReadable, MLReader, MLWritable, MLWriter}
 import org.apache.spark.ml.xgboost.{SparkUtils, XGBProbabilisticClassifierParams}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types.{ArrayType, FloatType, StructField, StructType}
+import org.json4s.DefaultFormats
 
 import ml.dmlc.xgboost4j.{LabeledPoint => XGBLabeledPoint}
 import ml.dmlc.xgboost4j.java.{Booster => JBooster}
@@ -519,6 +520,10 @@ private[spark] trait XGBoostModel[M <: XGBoostModel[M]] extends Model[M] with ML
   }
 
   override def write: MLWriter = new XGBoostModelWriter[XGBoostModel[_]](this)
+
+  override def predict(features: Vector): Double = {
+    0
+  }
 }
 
 /**

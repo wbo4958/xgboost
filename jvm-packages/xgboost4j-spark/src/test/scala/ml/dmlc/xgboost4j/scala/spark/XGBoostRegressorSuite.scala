@@ -27,7 +27,7 @@ import ml.dmlc.xgboost4j.scala.{DMatrix, XGBoost => ScalaXGBoost}
 import ml.dmlc.xgboost4j.scala.spark.params.LearningTaskParams.{BINARY_CLASSIFICATION_OBJS, MULTICLASSIFICATION_OBJS}
 import ml.dmlc.xgboost4j.scala.spark.params.XGBoostParams
 
-class XGBoostClassifierSuite extends AnyFunSuite with PerTest with TmpFolderPerSuite {
+class XGBoostRegressorSuite extends AnyFunSuite with PerTest with TmpFolderPerSuite {
 
   test("params") {
     val xgbParams: Map[String, Any] = Map(
@@ -35,7 +35,7 @@ class XGBoostClassifierSuite extends AnyFunSuite with PerTest with TmpFolderPerS
       "eta" -> 0.2,
       "objective" -> "binary:logistic"
     )
-    val classifier = new XGBoostClassifier(xgbParams)
+    val classifier = new XGBoostRegressor(xgbParams)
       .setFeaturesCol("abc")
       .setMissing(0.2f)
       .setAlpha(0.97)

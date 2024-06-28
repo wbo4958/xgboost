@@ -30,6 +30,30 @@ import ml.dmlc.xgboost4j.scala.DMatrix
 import ml.dmlc.xgboost4j.scala.spark.Utils.TRAIN_NAME
 
 class XGBoostEstimatorSuite extends AnyFunSuite with PerTest with TmpFolderPerSuite {
+
+  val xgbParams: Map[String, Any] = Map(
+    "max_depth" -> 5,
+    "eta" -> 0.2,
+    "objective" -> "binary:logistic"
+  )
+  Seq(new XGBoostClassifier(xgbParams), new XGBoostRegressor(xgbParams)).foreach { estimator =>
+    test(s"$estimator params") {
+
+      estimator.setFeaturesCol("abc").setAlpha(0.97).setMissing(0.2f)
+
+      assert(estimator.getMaxDepth === 5)
+      assert(estimator.getEta === 0.2)
+      assert(estimator.getObjective === "binary:logistic")
+      assert(estimator.getFeaturesCol === "abc")
+      assert(estimator.getMissing === 0.2f)
+      assert(estimator.getAlpha === 0.97)
+
+      estimator.setEta(0.66).setMaxDepth(7)
+      assert(estimator.getMaxDepth === 7)
+      assert(estimator.getEta === 0.66)
+    }
+  }
+
   test("nthread") {
     val classifier = new XGBoostClassifier().setNthread(100)
 
@@ -214,7 +238,7 @@ class XGBoostEstimatorSuite extends AnyFunSuite with PerTest with TmpFolderPerSu
     }
 
     assert(result(0).label === 1.0f && result(0).baseMargin.isNaN &&
-      result(0).weight === 1.0f &&  toArray(0) === data(0).map(_.toFloat))
+      result(0).weight === 1.0f && toArray(0) === data(0).map(_.toFloat))
     assert(result(1).label == 2.0f && result(1).baseMargin.isNaN &&
       result(1).weight === 0.0f && toArray(1) === data(1).map(_.toFloat))
     assert(result(2).label === 3.0f && result(2).baseMargin.isNaN &&
