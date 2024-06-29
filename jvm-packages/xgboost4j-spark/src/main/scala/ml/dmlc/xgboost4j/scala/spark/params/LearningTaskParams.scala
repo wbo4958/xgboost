@@ -131,9 +131,9 @@ private[spark] object LearningTaskParams {
 
   val BINARY_CLASSIFICATION_OBJS = HashSet("binary:logistic", "binary:hinge", "binary:logitraw")
   val MULTICLASSIFICATION_OBJS = HashSet("multi:softmax", "multi:softprob")
-  val RANK_OBJS = HashSet("rank:ndcg", "rank:map", "rank:pairwise")
+  val RANKER_OBJS = HashSet("rank:ndcg", "rank:map", "rank:pairwise")
   val REGRESSION_OBJS = SUPPORTED_OBJECTIVES -- BINARY_CLASSIFICATION_OBJS --
-    MULTICLASSIFICATION_OBJS -- RANK_OBJS
+    MULTICLASSIFICATION_OBJS -- RANKER_OBJS
 
   val SUPPORTED_EVAL_METRICS = HashSet("rmse", "rmsle", "mae", "mape", "mphe", "logloss", "error",
     "error@t", "merror", "mlogloss", "auc", "aucpr", "pre", "ndcg", "map", "ndcg@n", "map@n",

@@ -28,13 +28,12 @@ import org.apache.spark.ml.{Estimator, Model}
 import org.apache.spark.ml.functions.array_to_vector
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.param.{Param, ParamMap}
-import org.apache.spark.ml.util.{DefaultParamsWritable, MLReadable, MLReader, MLWritable, MLWriter}
+import org.apache.spark.ml.util.{DefaultParamsWritable, MLReader, MLWritable, MLWriter}
 import org.apache.spark.ml.xgboost.{SparkUtils, XGBProbabilisticClassifierParams}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
-import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.functions.{col, udf}
 import org.apache.spark.sql.types.{ArrayType, FloatType, StructField, StructType}
-import org.json4s.DefaultFormats
 
 import ml.dmlc.xgboost4j.{LabeledPoint => XGBLabeledPoint}
 import ml.dmlc.xgboost4j.java.{Booster => JBooster}
@@ -386,7 +385,7 @@ private[spark] case class PredictedColumns(
 /**
  * XGBoost base model
  */
-private[spark] trait XGBoostModel[M <: XGBoostModel[M]] extends  Model[M] with MLWritable
+private[spark] trait XGBoostModel[M <: XGBoostModel[M]] extends Model[M] with MLWritable
   with XGBoostParams[M] with SparkParams[M] with ParamUtils[M] with PluginMixin {
 
   protected val TMP_TRANSFORMED_COL = "_tmp_xgb_transformed_col"
@@ -568,4 +567,22 @@ private[spark] abstract class XGBoostModelReader[M <: XGBoostModel[M]] extends M
       dataInStream.close()
     }
   }
+}
+
+// Trait for Ranker and Regressor Model
+private[spark] trait RankerRegressorBaseModel[M <: XGBoostModel[M]] extends XGBoostModel[M] {
+
+  override protected[spark] def postTransform(dataset: Dataset[_],
+                                              pred: PredictedColumns): Dataset[_] = {
+    var output = dataset
+    if (isDefinedNonEmpty(predictionCol) && pred.predTmp) {
+      val predictUDF = udf { (originalPrediction: mutable.WrappedArray[Float]) =>
+        originalPrediction(0).toDouble
+      }
+      output = output
+        .withColumn($(predictionCol), predictUDF(col(TMP_TRANSFORMED_COL)))
+    }
+    output
+  }
+
 }

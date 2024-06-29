@@ -82,19 +82,6 @@ class XGBoostRegressionModel private[ml](val uid: String,
     newModel.setParent(parent)
   }
 
-  override protected[spark] def postTransform(dataset: Dataset[_],
-                                              pred: PredictedColumns): Dataset[_] = {
-    var output = dataset
-    if (isDefinedNonEmpty(predictionCol) && pred.predTmp) {
-      val predictUDF = udf { (originalPrediction: mutable.WrappedArray[Float]) =>
-        originalPrediction(0).toDouble
-      }
-      output = output
-        .withColumn($(predictionCol), predictUDF(col(TMP_TRANSFORMED_COL)))
-    }
-    output
-  }
-
   override def predict(features: Vector): Double = {
     val values = predictSingleInstance(features)
     values(0)
