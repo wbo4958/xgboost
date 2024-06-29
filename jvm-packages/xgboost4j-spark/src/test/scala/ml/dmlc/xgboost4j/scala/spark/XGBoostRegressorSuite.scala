@@ -24,7 +24,7 @@ import org.apache.spark.sql.DataFrame
 import org.scalatest.funsuite.AnyFunSuite
 
 import ml.dmlc.xgboost4j.scala.{DMatrix, XGBoost => ScalaXGBoost}
-import ml.dmlc.xgboost4j.scala.spark.params.LearningTaskParams.{BINARY_CLASSIFICATION_OBJS, MULTICLASSIFICATION_OBJS}
+import ml.dmlc.xgboost4j.scala.spark.params.LearningTaskParams.{BINARY_CLASSIFICATION_OBJS, MULTICLASSIFICATION_OBJS, REGRESSION_OBJS}
 import ml.dmlc.xgboost4j.scala.spark.params.XGBoostParams
 
 class XGBoostRegressorSuite extends AnyFunSuite with PerTest with TmpFolderPerSuite {
@@ -75,7 +75,7 @@ class XGBoostRegressorSuite extends AnyFunSuite with PerTest with TmpFolderPerSu
     check(modelLoaded)
   }
 
-  test("XGBoostClassificationModel transformed schema") {
+  test("XGBoostRegressionModel transformed schema") {
     val trainDf = smallBinaryClassificationVector
     val regressor = new XGBoostRegressor().setNumRound(1)
     val model = regressor.fit(trainDf)
@@ -85,15 +85,8 @@ class XGBoostRegressorSuite extends AnyFunSuite with PerTest with TmpFolderPerSu
       assert(out.schema.names.contains(v))
     }
 
-    // Transform needs to add extra columns
+    // Regressor does not have extra classification columns
     Seq("rawPrediction", "probability", "prediction").foreach { v =>
-      assert(out.schema.names.contains(v))
-    }
-
-    out = model.transform(trainDf)
-
-    // rawPrediction="", probability=""
-    Seq("rawPrediction", "probability").foreach { v =>
       assert(!out.schema.names.contains(v))
     }
 
@@ -109,104 +102,34 @@ class XGBoostRegressorSuite extends AnyFunSuite with PerTest with TmpFolderPerSu
   test("Supported objectives") {
     val regressor = new XGBoostRegressor()
     val df = smallMultiClassificationVector
-    (BINARY_CLASSIFICATION_OBJS.toSeq ++ MULTICLASSIFICATION_OBJS.toSeq).foreach { obj =>
+    REGRESSION_OBJS.foreach { obj =>
       regressor.setObjective(obj)
       regressor.validate(df)
     }
 
-    regressor.setObjective("reg:squaredlogerror")
+    regressor.setObjective("binary:logistic")
     intercept[IllegalArgumentException](
       regressor.validate(df)
     )
   }
 
-  test("Binaryclassification infer objective and num_class") {
-    val trainDf = smallBinaryClassificationVector
-    var regressor = new XGBoostRegressor()
-    assert(regressor.getObjective === "reg:squarederror")
-    assert(regressor.getNumClass === 0)
-    regressor.validate(trainDf)
-    assert(regressor.getObjective === "binary:logistic")
-    assert(!regressor.isSet(regressor.numClass))
-
-    // Infer objective according num class
-    regressor = new XGBoostRegressor()
-    regressor.setNumClass(2)
-    intercept[IllegalArgumentException](
-      regressor.validate(trainDf)
-    )
-
-    // Infer to num class according to num class
-    regressor = new XGBoostRegressor()
-    regressor.setObjective("binary:logistic")
-    regressor.validate(trainDf)
-    assert(regressor.getObjective === "binary:logistic")
-    assert(!regressor.isSet(regressor.numClass))
-  }
-
-  test("MultiClassification infer objective and num_class") {
-    val trainDf = smallMultiClassificationVector
-    var regressor = new XGBoostRegressor()
-    assert(regressor.getObjective === "reg:squarederror")
-    assert(regressor.getNumClass === 0)
-    regressor.validate(trainDf)
-    assert(regressor.getObjective === "multi:softprob")
-    assert(regressor.getNumClass === 3)
-
-    // Infer to objective according to num class
-    regressor = new XGBoostRegressor()
-    regressor.setNumClass(3)
-    regressor.validate(trainDf)
-    assert(regressor.getObjective === "multi:softprob")
-    assert(regressor.getNumClass === 3)
-
-    // Infer to num class according to objective
-    regressor = new XGBoostRegressor()
-    regressor.setObjective("multi:softmax")
-    regressor.validate(trainDf)
-    assert(regressor.getObjective === "multi:softmax")
-    assert(regressor.getNumClass === 3)
-  }
-
   test("XGBoost-Spark binary classification output should match XGBoost4j") {
-    val trainingDM = new DMatrix(Classification.train.iterator)
-    val testDM = new DMatrix(Classification.test.iterator)
-    val trainingDF = buildDataFrame(Classification.train)
-    val testDF = buildDataFrame(Classification.test)
+    val trainingDM = new DMatrix(Regression.train.iterator)
+    val testDM = new DMatrix(Regression.test.iterator)
+    val trainingDF = buildDataFrame(Regression.train)
+    val testDF = buildDataFrame(Regression.test)
     val paramMap = Map("objective" -> "binary:logistic")
     checkResultsWithXGBoost4j(trainingDM, testDM, trainingDF, testDF, 5, paramMap)
   }
 
   test("XGBoost-Spark binary classification output with weight should match XGBoost4j") {
-    val trainingDM = new DMatrix(Classification.trainWithWeight.iterator)
-    trainingDM.setWeight(Classification.randomWeights)
-    val testDM = new DMatrix(Classification.test.iterator)
-    val trainingDF = buildDataFrame(Classification.trainWithWeight)
-    val testDF = buildDataFrame(Classification.test)
-    val paramMap = Map("objective" -> "binary:logistic")
+    val trainingDM = new DMatrix(Regression.trainWithWeight.iterator)
+    trainingDM.setWeight(Regression.randomWeights)
+    val testDM = new DMatrix(Regression.test.iterator)
+    val trainingDF = buildDataFrame(Regression.trainWithWeight)
+    val testDF = buildDataFrame(Regression.test)
     checkResultsWithXGBoost4j(trainingDM, testDM, trainingDF, testDF,
-      5, paramMap, Some("weight"))
-  }
-
-  Seq("multi:softprob", "multi:softmax").foreach { objective =>
-    test(s"XGBoost-Spark multi classification with $objective output should match XGBoost4j") {
-      val trainingDM = new DMatrix(MultiClassification.train.iterator)
-      val testDM = new DMatrix(MultiClassification.test.iterator)
-      val trainingDF = buildDataFrame(MultiClassification.train)
-      val testDF = buildDataFrame(MultiClassification.test)
-      val paramMap = Map("objective" -> "multi:softprob", "num_class" -> 6)
-      checkResultsWithXGBoost4j(trainingDM, testDM, trainingDF, testDF, 5, paramMap)
-    }
-  }
-
-  test("XGBoost-Spark multi classification output with weight should match XGBoost4j") {
-    val trainingDM = new DMatrix(MultiClassification.trainWithWeight.iterator)
-    trainingDM.setWeight(MultiClassification.randomWeights)
-    val testDM = new DMatrix(MultiClassification.test.iterator)
-    val trainingDF = buildDataFrame(MultiClassification.trainWithWeight)
-    val testDF = buildDataFrame(MultiClassification.test)
-    val paramMap = Map("objective" -> "multi:softprob", "num_class" -> 6)
-    checkResultsWithXGBoost4j(trainingDM, testDM, trainingDF, testDF, 5, paramMap, Some("weight"))
+      5, Map.empty, Some("weight"))
   }
 
   private def checkResultsWithXGBoost4j(
@@ -270,16 +193,6 @@ class XGBoostRegressorSuite extends AnyFunSuite with PerTest with TmpFolderPerSu
       checkEqualForBinary(xgb4jProb, xgbSparkProb)
     } else {
       checkEqual(xgb4jProb, xgbSparkProb)
-    }
-
-    // Check rawPrediction
-    val xgb4jRawPred = xgb4jModel.predict(testDM, outPutMargin = true)
-    val xgbSparkRawPred = rows.map(row =>
-      (row.getAs[Int]("id"), row.getAs[DenseVector]("rawPrediction").toArray.map(_.toFloat))).toMap
-    if (BINARY_CLASSIFICATION_OBJS.contains(regressor.getObjective)) {
-      checkEqualForBinary(xgb4jRawPred, xgbSparkRawPred)
-    } else {
-      checkEqual(xgb4jRawPred, xgbSparkRawPred)
     }
   }
 

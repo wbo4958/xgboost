@@ -16,12 +16,15 @@
 
 package ml.dmlc.xgboost4j.scala.spark
 
+import scala.collection.mutable
+
 import org.apache.spark.ml.{PredictionModel, Predictor}
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable, MLReadable, MLReader}
 import org.apache.spark.ml.xgboost.SparkUtils
 import org.apache.spark.sql.Dataset
+import org.apache.spark.sql.functions.{col, udf}
 
 import ml.dmlc.xgboost4j.scala.Booster
 import ml.dmlc.xgboost4j.scala.spark.XGBoostRegressor._uid
@@ -77,6 +80,19 @@ class XGBoostRegressionModel private[ml](val uid: String,
   override def copy(extra: ParamMap): XGBoostRegressionModel = {
     val newModel = copyValues(new XGBoostRegressionModel(uid, nativeBooster, summary), extra)
     newModel.setParent(parent)
+  }
+
+  override protected[spark] def postTransform(dataset: Dataset[_],
+                                              pred: PredictedColumns): Dataset[_] = {
+    var output = dataset
+    if (isDefinedNonEmpty(predictionCol) && pred.predTmp) {
+      val predictUDF = udf { (originalPrediction: mutable.WrappedArray[Float]) =>
+        originalPrediction(0).toDouble
+      }
+      output = output
+        .withColumn($(predictionCol), predictUDF(col(TMP_TRANSFORMED_COL)))
+    }
+    output
   }
 
   override def predict(features: Vector): Double = {
