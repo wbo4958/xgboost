@@ -33,7 +33,7 @@ import org.apache.spark.ml.xgboost.{SparkUtils, XGBProbabilisticClassifierParams
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions.{col, udf}
-import org.apache.spark.sql.types.{ArrayType, FloatType, StructField, StructType}
+import org.apache.spark.sql.types._
 
 import ml.dmlc.xgboost4j.{LabeledPoint => XGBLabeledPoint}
 import ml.dmlc.xgboost4j.java.{Booster => JBooster}
@@ -101,17 +101,19 @@ private[spark] trait XGBoostEstimator[
   protected val logger = LogFactory.getLog("XGBoostSpark")
 
   /**
-   * Pre-convert input double data to floats to align with XGBoost's internal float-based
-   * operations to save memory usage.
+   * Cast the field in schema to the desired data type.
    *
-   * @param dataset the input dataset
-   * @param name    which column will be casted to float if possible.
+   * @param dataset    the input dataset
+   * @param name       which column will be casted to float if possible.
+   * @param targetType the targetd data type
    * @return Dataset
    */
-  private[spark] def castToFloatIfNeeded(schema: StructType, name: String): Column = {
-    if (!schema(name).dataType.isInstanceOf[FloatType]) {
+  private[spark] def castIfNeeded(schema: StructType,
+                                  name: String,
+                                  targetType: DataType = FloatType): Column = {
+    if (!(schema(name).dataType == targetType)) {
       val meta = schema(name).metadata
-      col(name).as(name, meta).cast(FloatType)
+      col(name).as(name, meta).cast(targetType)
     } else {
       col(name)
     }
@@ -180,20 +182,20 @@ private[spark] trait XGBoostEstimator[
     val selectedCols: ArrayBuffer[Column] = ArrayBuffer.empty
     val schema = dataset.schema
 
-    def selectCol(c: Param[String]) = {
+    def selectCol(c: Param[String], targetType: DataType = FloatType) = {
       if (isDefinedNonEmpty(c)) {
         // Validation col should be a boolean column.
         if (c == featuresCol) {
           selectedCols.append(col($(c)))
         } else {
-          selectedCols.append(castToFloatIfNeeded(schema, $(c)))
+          selectedCols.append(castIfNeeded(schema, $(c), targetType))
         }
       }
     }
 
-    Seq(labelCol, featuresCol, weightCol, baseMarginCol).foreach(selectCol)
+    Seq(labelCol, featuresCol, weightCol, baseMarginCol).foreach(p => selectCol(p, FloatType))
     this match {
-      case p: HasGroupCol => selectCol(p.groupCol)
+      case p: HasGroupCol => selectCol(p.groupCol, IntegerType)
       case _ =>
     }
     val input = repartitionIfNeeded(dataset.select(selectedCols: _*))
@@ -210,7 +212,7 @@ private[spark] trait XGBoostEstimator[
       val label = row.getFloat(columnIndexes.labelId)
       val weight = columnIndexes.weightId.map(row.getFloat).getOrElse(1.0f)
       val baseMargin = columnIndexes.marginId.map(row.getFloat).getOrElse(Float.NaN)
-      val group = columnIndexes.groupId.map(row.getFloat).getOrElse(-1.0f)
+      val group = columnIndexes.groupId.map(row.getInt).getOrElse(-1)
       // To make "0" meaningful, we convert sparse vector if possible to dense to create DMatrix.
       val values = features.toArray.map(_.toFloat)
       XGBLabeledPoint(label, values.length, null, values, weight, group.toInt, baseMargin)
@@ -232,18 +234,25 @@ private[spark] trait XGBoostEstimator[
 
     val missing = getMissing
 
-    // transform the labeledpoint to get margins and build DMatrix
+    // transform the labeledpoint to get margins/groups and build DMatrix
     // TODO support basemargin for multiclassification
     // TODO, move it into JNI
     def buildDMatrix(iter: Iterator[XGBLabeledPoint]) = {
-      val dmatrix = if (columnIndices.marginId.isDefined) {
-        val trainMargins = new mutable.ArrayBuilder.ofFloat
+      val dmatrix = if (columnIndices.marginId.isDefined || columnIndices.groupId.isDefined) {
+        val margins = new mutable.ArrayBuilder.ofFloat
+        val groups = new mutable.ArrayBuilder.ofInt
         val transformedIter = iter.map { labeledPoint =>
-          trainMargins += labeledPoint.baseMargin
+          if (columnIndices.marginId.isDefined) {
+            margins += labeledPoint.baseMargin
+          }
+          if (columnIndices.groupId.isDefined) {
+            groups += labeledPoint.group
+          }
           labeledPoint
         }
         val dm = new DMatrix(transformedIter, null, missing)
-        dm.setBaseMargin(trainMargins.result())
+        columnIndices.marginId.foreach(_ => dm.setBaseMargin(margins.result()))
+        columnIndices.marginId.foreach(_ => dm.setGroup(groups.result()))
         dm
       } else {
         new DMatrix(iter, null, missing)

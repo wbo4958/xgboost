@@ -249,8 +249,7 @@ test("to XGBoostLabeledPoint RDD") {
 
 Seq((Float.NaN, 2), (0.0f, 7 + 2), (15.0f, 1 + 2), (10101011.0f, 0 + 2)).foreach {
   case (missing, expectedMissingValue) =>
-
-    test(s"test to RDD watches with missing $missing") {
+    test(s"to RDD watches with missing $missing") {
       val data = Array(
         Array(1.0, 2.0, 3.0, 4.0, 5.0),
         Array(1.0, Float.NaN, 0.0, 0.0, 2.0),
@@ -260,15 +259,16 @@ Seq((Float.NaN, 2), (0.0f, 7 + 2), (15.0f, 1 + 2), (10101011.0f, 0 + 2)).foreach
       val dataset = ss.createDataFrame(sc.parallelize(Seq(
         (1.0, 0, 0.5, 1.0, Vectors.dense(data(0)), "a"),
         (2.0, 2, -0.5, 0.0, Vectors.dense(data(1)).toSparse, "b"),
-        (3.0, 2, -0.5, 0.0, Vectors.dense(data(2)), "b"),
-        (4.0, 2, -0.4, -2.1, Vectors.dense(data(3)), "c")
+        (3.0, 3, -0.5, 0.0, Vectors.dense(data(2)), "b"),
+        (4.0, 4, -0.4, -2.1, Vectors.dense(data(3)), "c")
       ))).toDF("label", "group", "margin", "weight", "features", "other")
 
-      val classifier = new XGBoostClassifier()
+      val classifier = new XGBoostRanker()
         .setLabelCol("label")
         .setFeaturesCol("features")
         .setWeightCol("weight")
         .setBaseMarginCol("margin")
+        .setGroupCol("group")
         .setMissing(missing)
         .setNumWorkers(2)
 
@@ -284,8 +284,9 @@ Seq((Float.NaN, 2), (0.0f, 7 + 2), (15.0f, 1 + 2), (10101011.0f, 0 + 2)).foreach
           val weight = trainDM.getWeight
           val margins = trainDM.getBaseMargin
           val nonMissing = trainDM.nonMissingNum
+          val groups = trainDM.getGroup()
           watches.delete()
-          Iterator.single((size, rowNum, labels, weight, margins, nonMissing))
+          Iterator.single((size, rowNum, labels, weight, margins, nonMissing, groups))
         } else {
           Iterator.empty
         }
@@ -294,6 +295,7 @@ Seq((Float.NaN, 2), (0.0f, 7 + 2), (15.0f, 1 + 2), (10101011.0f, 0 + 2)).foreach
       val labels: ArrayBuffer[Float] = ArrayBuffer.empty
       val weight: ArrayBuffer[Float] = ArrayBuffer.empty
       val margins: ArrayBuffer[Float] = ArrayBuffer.empty
+      val groups: ArrayBuffer[Int] = ArrayBuffer.empty
       var nonMissingValues = 0L
       var totalRows = 0L
 
@@ -304,16 +306,18 @@ Seq((Float.NaN, 2), (0.0f, 7 + 2), (15.0f, 1 + 2), (10101011.0f, 0 + 2)).foreach
         weight.append(row._4: _*)
         margins.append(row._5: _*)
         nonMissingValues = nonMissingValues + row._6
+        groups.append(row._7: _*)
       }
       assert(totalRows === 4)
       assert(nonMissingValues === data.size * data(0).length - expectedMissingValue)
       assert(labels.toArray.sorted === Array(1.0f, 2.0f, 3.0f, 4.0f).sorted)
       assert(weight.toArray.sorted === Array(0.0f, 0.0f, 1.0f, -2.1f).sorted)
       assert(margins.toArray.sorted === Array(-0.5f, -0.5f, -0.4f, 0.5f).sorted)
+      assert(groups.toArray.sorted === Array(0, 2, 3, 4).sorted)
     }
 }
 
-test("test to RDD watches with eval") {
+test("to RDD watches with eval") {
   val trainData = Array(
     Array(-1.0, -2.0, -3.0, -4.0, -5.0),
     Array(2.0, 2.0, 2.0, 3.0, -2.0),

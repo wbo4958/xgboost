@@ -39,6 +39,8 @@ class XGBoostRanker(override val uid: String,
 
   def this(xgboostParams: Map[String, Any]) = this(_uid, xgboostParams)
 
+  def setGroupCol(value: String): XGBoostRanker = set(groupCol, value)
+
   xgboost2SparkParams(xgboostParams)
 
   /**
@@ -89,6 +91,8 @@ class XGBoostRankerModel private[ml](val uid: String,
     with RankerRegressorBaseModel[XGBoostRankerModel] with HasGroupCol {
 
   def this(uid: String) = this(uid, null)
+
+  def setGroupCol(value: String): XGBoostRankerModel = set(groupCol, value)
 
   override def copy(extra: ParamMap): XGBoostRankerModel = {
     val newModel = copyValues(new XGBoostRankerModel(uid, nativeBooster, summary), extra)
