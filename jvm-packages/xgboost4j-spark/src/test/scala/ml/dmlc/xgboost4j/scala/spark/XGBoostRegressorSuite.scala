@@ -71,7 +71,7 @@ class XGBoostRegressorSuite extends AnyFunSuite with PerTest with TmpFolderPerSu
 
     val modelPath = new File(tempDir.toFile, "model").getPath
     model.write.overwrite().save(modelPath)
-    val modelLoaded = XGBoostClassificationModel.load(modelPath)
+    val modelLoaded = XGBoostRegressionModel.load(modelPath)
     check(modelLoaded)
   }
 
@@ -84,7 +84,7 @@ class XGBoostRegressorSuite extends AnyFunSuite with PerTest with TmpFolderPerSu
     Seq("label", "margin", "weight", "features").foreach { v =>
       assert(out.schema.names.contains(v))
     }
-    // Regressor does not have extra classification columns
+    // Regressor does not have extra columns
     Seq("rawPrediction", "probability").foreach { v =>
       assert(!out.schema.names.contains(v))
     }
@@ -110,7 +110,7 @@ class XGBoostRegressorSuite extends AnyFunSuite with PerTest with TmpFolderPerSu
     )
   }
 
-  test("XGBoost-Spark binary classification output should match XGBoost4j") {
+  test("XGBoost-Spark output should match XGBoost4j") {
     val trainingDM = new DMatrix(Regression.train.iterator)
     val testDM = new DMatrix(Regression.test.iterator)
     val trainingDF = buildDataFrame(Regression.train)
@@ -119,7 +119,7 @@ class XGBoostRegressorSuite extends AnyFunSuite with PerTest with TmpFolderPerSu
     checkResultsWithXGBoost4j(trainingDM, testDM, trainingDF, testDF, 5, paramMap)
   }
 
-  test("XGBoost-Spark binary classification output with weight should match XGBoost4j") {
+  test("XGBoost-Spark output with weight should match XGBoost4j") {
     val trainingDM = new DMatrix(Regression.trainWithWeight.iterator)
     trainingDM.setWeight(Regression.randomWeights)
     val testDM = new DMatrix(Regression.test.iterator)
