@@ -59,7 +59,7 @@ class XGBoostRanker(override val uid: String,
       setObjective("rank:map")
     }
 
-    require(!isDefinedNonEmpty(groupCol), "groupCol needs to be set")
+    require(isDefinedNonEmpty(groupCol), "groupCol needs to be set")
   }
 
   /**

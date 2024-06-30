@@ -165,7 +165,7 @@ test("nthread configuration must be no larger than spark.task.cpus") {
   }
 }
 
-test("test preprocess dataset") {
+test("preprocess dataset") {
   val dataset = ss.createDataFrame(sc.parallelize(Seq(
     (1.0, 0, 0.5, 1.0, Vectors.dense(1.0, 2.0, 3.0), "a"),
     (0.0, 2, -0.5, 0.0, Vectors.dense(0.2, 1.2, 2.0), "b"),
