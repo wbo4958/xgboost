@@ -67,8 +67,8 @@ class XGBoostRanker(override val uid: String,
    * @return
    */
   override private[spark] def preprocess(dataset: Dataset[_]): (Dataset[_], ColumnIndices) = {
-    val (dataset, columnIndices) = super.preprocess(dataset)
-    (dataset.sortWithinPartitions(getGroupCol), columnIndices)
+    val (output, columnIndices) = super.preprocess(dataset)
+    (output.sortWithinPartitions(getGroupCol), columnIndices)
   }
 
   override protected def createModel(

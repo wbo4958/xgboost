@@ -73,7 +73,7 @@ class XGBoostRegressionModel private[ml](val uid: String,
                                          val nativeBooster: Booster,
                                          val summary: Option[XGBoostTrainingSummary] = None)
   extends PredictionModel[Vector, XGBoostRegressionModel]
-    with XGBoostModel[XGBoostRegressionModel] {
+    with RankerRegressorBaseModel[XGBoostRegressionModel] {
 
   def this(uid: String) = this(uid, null)
 

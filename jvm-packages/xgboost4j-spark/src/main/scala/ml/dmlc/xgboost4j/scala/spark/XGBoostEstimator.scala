@@ -574,13 +574,14 @@ private[spark] trait RankerRegressorBaseModel[M <: XGBoostModel[M]] extends XGBo
 
   override protected[spark] def postTransform(dataset: Dataset[_],
                                               pred: PredictedColumns): Dataset[_] = {
-    var output = dataset
+    var output = super.postTransform(dataset, pred)
     if (isDefinedNonEmpty(predictionCol) && pred.predTmp) {
       val predictUDF = udf { (originalPrediction: mutable.WrappedArray[Float]) =>
         originalPrediction(0).toDouble
       }
       output = output
         .withColumn($(predictionCol), predictUDF(col(TMP_TRANSFORMED_COL)))
+        .drop(TMP_TRANSFORMED_COL)
     }
     output
   }

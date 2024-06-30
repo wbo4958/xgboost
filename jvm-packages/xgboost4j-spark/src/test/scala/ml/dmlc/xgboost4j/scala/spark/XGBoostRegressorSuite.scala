@@ -24,7 +24,7 @@ import org.apache.spark.sql.DataFrame
 import org.scalatest.funsuite.AnyFunSuite
 
 import ml.dmlc.xgboost4j.scala.{DMatrix, XGBoost => ScalaXGBoost}
-import ml.dmlc.xgboost4j.scala.spark.params.LearningTaskParams.{BINARY_CLASSIFICATION_OBJS, MULTICLASSIFICATION_OBJS, REGRESSION_OBJS}
+import ml.dmlc.xgboost4j.scala.spark.params.LearningTaskParams.REGRESSION_OBJS
 import ml.dmlc.xgboost4j.scala.spark.params.XGBoostParams
 
 class XGBoostRegressorSuite extends AnyFunSuite with PerTest with TmpFolderPerSuite {
@@ -58,12 +58,12 @@ class XGBoostRegressorSuite extends AnyFunSuite with PerTest with TmpFolderPerSu
       assert(xgboostParams.getObjective === "reg:squarederror")
     }
 
-    val classifierPath = new File(tempDir.toFile, "regressor").getPath
+    val regressorPath = new File(tempDir.toFile, "regressor").getPath
     val regressor = new XGBoostRegressor(xgbParams).setNumRound(1)
     check(regressor)
 
-    regressor.write.overwrite().save(classifierPath)
-    val loadedRegressor = XGBoostRegressor.load(classifierPath)
+    regressor.write.overwrite().save(regressorPath)
+    val loadedRegressor = XGBoostRegressor.load(regressorPath)
     check(loadedRegressor)
 
     val model = loadedRegressor.fit(trainDf)
@@ -84,17 +84,14 @@ class XGBoostRegressorSuite extends AnyFunSuite with PerTest with TmpFolderPerSu
     Seq("label", "margin", "weight", "features").foreach { v =>
       assert(out.schema.names.contains(v))
     }
-
     // Regressor does not have extra classification columns
-    Seq("rawPrediction", "probability", "prediction").foreach { v =>
+    Seq("rawPrediction", "probability").foreach { v =>
       assert(!out.schema.names.contains(v))
     }
-
     assert(out.schema.names.contains("prediction"))
-
+    assert(out.schema.names.length === 5)
     model.setLeafPredictionCol("leaf").setContribPredictionCol("contrib")
     out = model.transform(trainDf)
-
     assert(out.schema.names.contains("leaf"))
     assert(out.schema.names.contains("contrib"))
   }
@@ -118,7 +115,7 @@ class XGBoostRegressorSuite extends AnyFunSuite with PerTest with TmpFolderPerSu
     val testDM = new DMatrix(Regression.test.iterator)
     val trainingDF = buildDataFrame(Regression.train)
     val testDF = buildDataFrame(Regression.test)
-    val paramMap = Map("objective" -> "binary:logistic")
+    val paramMap = Map("objective" -> "reg:squarederror")
     checkResultsWithXGBoost4j(trainingDM, testDM, trainingDF, testDF, 5, paramMap)
   }
 
@@ -176,24 +173,12 @@ class XGBoostRegressorSuite extends AnyFunSuite with PerTest with TmpFolderPerSu
       (row.getAs[Int]("id"), row.getAs[DenseVector]("contrib").toArray.map(_.toFloat))).toMap
     checkEqual(xgb4jContrib, xgbSparkContrib)
 
-    def checkEqualForBinary(left: Array[Array[Float]], right: Map[Int, Array[Float]]) = {
-      assert(left.size === right.size)
-      left.zipWithIndex.foreach { case (leftValue, index) =>
-        assert(leftValue.length === 1)
-        assert(leftValue.length === right(index).length - 1)
-        assert(leftValue(0) === right(index)(1))
-      }
-    }
-
-    // Check probability
-    val xgb4jProb = xgb4jModel.predict(testDM)
-    val xgbSparkProb = rows.map(row =>
-      (row.getAs[Int]("id"), row.getAs[DenseVector]("probability").toArray.map(_.toFloat))).toMap
-    if (BINARY_CLASSIFICATION_OBJS.contains(regressor.getObjective)) {
-      checkEqualForBinary(xgb4jProb, xgbSparkProb)
-    } else {
-      checkEqual(xgb4jProb, xgbSparkProb)
-    }
+    // Check prediction
+    val xgb4jPred = xgb4jModel.predict(testDM)
+    val xgbSparkPred = rows.map(row => {
+      val pred = row.getAs[Double]("prediction").toFloat
+      (row.getAs[Int]("id"), Array(pred))}).toMap
+    checkEqual(xgb4jPred, xgbSparkPred)
   }
 
 }

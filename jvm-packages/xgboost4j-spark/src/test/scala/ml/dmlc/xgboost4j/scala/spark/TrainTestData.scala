@@ -149,3 +149,4 @@ object Regression extends TrainTestData {
       XGBLabeledPoint(0.0f, TRAIN_COL_NUM, Array(0, 1, 2), Array(1.0f, 2.0f, 3.0f))
     )
   }
+}
