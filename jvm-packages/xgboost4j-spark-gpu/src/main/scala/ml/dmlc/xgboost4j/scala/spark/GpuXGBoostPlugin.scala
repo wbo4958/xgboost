@@ -17,7 +17,7 @@
 package ml.dmlc.xgboost4j.scala.spark
 
 import scala.collection.mutable.ArrayBuffer
-import scala.jdk.CollectionConverters.asScalaIteratorConverter
+import scala.jdk.CollectionConverters._
 
 import ai.rapids.cudf.Table
 import com.nvidia.spark.rapids.{ColumnarRdd, GpuColumnVectorUtils}
@@ -92,7 +92,7 @@ class GpuXGBoostPlugin extends XGBoostPlugin {
       val col = estimator.castIfNeeded(dataset.schema, name)
       selectedCols.append(col)
     }
-    val input = dataset.select(selectedCols: _*)
+    val input = dataset.select(selectedCols.toArray: _*)
     estimator.repartitionIfNeeded(input)
   }
 
