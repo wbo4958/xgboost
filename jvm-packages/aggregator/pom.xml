@@ -10,32 +10,26 @@
   </parent>
 
   <name>xgboost-spark</name>
-  <artifactId>xgboost-spark_${scala.binary.version}</artifactId>
-
-  <properties>
-    <maven.compiler.source>8</maven.compiler.source>
-    <maven.compiler.target>8</maven.compiler.target>
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-  </properties>
+  <artifactId>xgboost-spark_2.12</artifactId>
 
   <dependencies>
     <dependency>
       <groupId>ml.dmlc</groupId>
-      <artifactId>xgboost4j_${scala.binary.version}</artifactId>
+      <artifactId>xgboost4j_2.12</artifactId>
       <version>${project.version}</version>
       <scope>compile</scope>
     </dependency>
 
     <dependency>
       <groupId>ml.dmlc</groupId>
-      <artifactId>xgboost4j-spark_${scala.binary.version}</artifactId>
+      <artifactId>xgboost4j-spark_2.12</artifactId>
       <version>${project.version}</version>
       <scope>compile</scope>
     </dependency>
   </dependencies>
 
   <build>
-    <finalName>xgboost-spark-${scala.binary.version}-${project.version}</finalName>
+    <finalName>xgboost-spark_2.12-${project.version}</finalName>
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
@@ -45,8 +39,8 @@
           <createDependencyReducedPom>true</createDependencyReducedPom>
           <artifactSet>
             <includes>
-              <include>ml.dmlc:xgboost4j_${scala.binary.version}</include>
-              <include>ml.dmlc:xgboost4j-spark_${scala.binary.version}</include>
+              <include>ml.dmlc:xgboost4j_2.12</include>
+              <include>ml.dmlc:xgboost4j-spark_2.12</include>
             </includes>
           </artifactSet>
         </configuration>

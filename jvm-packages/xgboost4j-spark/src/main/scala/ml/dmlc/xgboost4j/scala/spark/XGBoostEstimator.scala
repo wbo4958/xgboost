@@ -20,7 +20,7 @@ import java.util.ServiceLoader
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
-import scala.jdk.CollectionConverters.iterableAsScalaIterableConverter
+import scala.jdk.CollectionConverters._
 
 import org.apache.commons.logging.LogFactory
 import org.apache.hadoop.fs.Path
@@ -182,7 +182,7 @@ private[spark] trait XGBoostEstimator[
     val selectedCols: ArrayBuffer[Column] = ArrayBuffer.empty
     val schema = dataset.schema
 
-    def selectCol(c: Param[String], targetType: DataType = FloatType) = {
+    def selectCol(c: Param[String], targetType: DataType) = {
       if (isDefinedNonEmpty(c)) {
         // Validation col should be a boolean column.
         if (c == featuresCol) {
@@ -198,7 +198,7 @@ private[spark] trait XGBoostEstimator[
       case p: HasGroupCol => selectCol(p.groupCol, IntegerType)
       case _ =>
     }
-    val input = repartitionIfNeeded(dataset.select(selectedCols: _*))
+    val input = repartitionIfNeeded(dataset.select(selectedCols.toArray: _*))
 
     val columnIndices = buildColumnIndices(input.schema)
     (input, columnIndices)
@@ -551,7 +551,7 @@ private[spark] trait XGBoostModel[M <: XGBoostModel[M]] extends Model[M] with ML
     postTransform(output, pred).toDF()
   }
 
-  override def write: MLWriter = new XGBoostModelWriter[XGBoostModel[_]](this)
+  override def write: MLWriter = new XGBoostModelWriter(this)
 
   protected def predictSingleInstance(features: Vector): Array[Float] = {
     if (nativeBooster == null) {
@@ -567,7 +567,7 @@ private[spark] trait XGBoostModel[M <: XGBoostModel[M]] extends Model[M] with ML
  *
  * @param instance model to be written
  */
-private[spark] class XGBoostModelWriter[M <: XGBoostModel[M]](instance: M) extends MLWriter {
+private[spark] class XGBoostModelWriter(instance: XGBoostModel[_]) extends MLWriter {
 
   override protected def saveImpl(path: String): Unit = {
     if (Option(instance.nativeBooster).isEmpty) {
