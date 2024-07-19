@@ -74,13 +74,6 @@
 
   <profiles>
     <profile>
-      <id>scala-2.13</id>
-      <properties>
-        <scala.binary.version>2.13</scala.binary.version>
-        <scala.version>2.13.14</scala.version>
-      </properties>
-    </profile>
-    <profile>
       <!-- default active profile excluding gpu related test suites -->
       <id>default</id>
       <activation>
