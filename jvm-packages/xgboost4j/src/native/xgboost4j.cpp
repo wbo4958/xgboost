@@ -1330,16 +1330,16 @@ JNIEXPORT jint JNICALL Java_ml_dmlc_xgboost4j_java_XGBoostJNI_XGDeviceQuantileDM
 /*
  * Class:     ml_dmlc_xgboost4j_java_XGBoostJNI
  * Method:    XGQuantileDMatrixCreateFromCallback
- * Signature: (Ljava/util/Iterator;Ljava/util/Iterator;Ljava/lang/String;[J)I
+ * Signature: (Ljava/util/Iterator;[JLjava/lang/String;[J)I
  */
 JNIEXPORT jint JNICALL Java_ml_dmlc_xgboost4j_java_XGBoostJNI_XGQuantileDMatrixCreateFromCallback(
-    JNIEnv *jenv, jclass jcls, jobject jdata_iter, jobject jref_iter, jstring jconf,
+    JNIEnv *jenv, jclass jcls, jobject jdata_iter, jlongArray jref, jstring jconf,
     jlongArray jout) {
   std::unique_ptr<char const, Deleter<char const>> conf{jenv->GetStringUTFChars(jconf, nullptr),
                                                         [&](char const *ptr) {
                                                           jenv->ReleaseStringUTFChars(jconf, ptr);
                                                         }};
-  return xgboost::jni::XGQuantileDMatrixCreateFromCallbackImpl(jenv, jcls, jdata_iter, jref_iter,
+  return xgboost::jni::XGQuantileDMatrixCreateFromCallbackImpl(jenv, jcls, jdata_iter, jref,
                                                                conf.get(), jout);
 }
 

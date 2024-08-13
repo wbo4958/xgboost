@@ -172,7 +172,7 @@ class XGBoostJNI {
     long handle, String field, String json);
 
   public final static native int XGQuantileDMatrixCreateFromCallback(
-    java.util.Iterator<ColumnBatch> iter, java.util.Iterator<ColumnBatch> ref, String config, long[] out);
+    java.util.Iterator<ColumnBatch> iter, long[] ref, String config, long[] out);
 
   public final static native int XGDMatrixCreateFromArrayInterfaceColumns(
     String featureJson, float missing, int nthread, long[] out);
