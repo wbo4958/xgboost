@@ -122,8 +122,8 @@ public class DMatrixTest {
       tables.add(new CudfColumnBatch(X_0, y_0, w_0, m_0, q_0));
       tables.add(new CudfColumnBatch(X_1, y_1, w_1, m_1, q_1));
 
-      DMatrix dmat = new QuantileDMatrix(tables.iterator(), 0.0f, 256, 1);
-
+      QuantileDMatrix dmat = new QuantileDMatrix(tables.iterator(), 0.0f, 256, 1);
+      dmat.getQuantileCut();
       float[] anchorLabel = convertFloatTofloat(label1, label2);
       float[] anchorWeight = convertFloatTofloat(weight1, weight2);
       float[] anchorBaseMargin = convertFloatTofloat(baseMargin1, baseMargin2);

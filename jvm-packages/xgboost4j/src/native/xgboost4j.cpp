@@ -1517,3 +1517,31 @@ Java_ml_dmlc_xgboost4j_java_XGBoostJNI_XGBoosterGetStrFeatureInfo(
 
   return ret;
 }
+
+/*
+ * Class:     ml_dmlc_xgboost4j_java_XGBoostJNI
+ * Method:    XGDMatrixGetQuantileCut
+ * Signature: (J[Ljava/lang/String;[Ljava/lang/String;[Ljava/lang/String;)I
+ */
+JNIEXPORT jint JNICALL Java_ml_dmlc_xgboost4j_java_XGBoostJNI_XGDMatrixGetQuantileCut
+  (JNIEnv *jenv, jclass jclz, jlong jhandle, jobjectArray jconf, jobjectArray jout_indptr, jobjectArray jout_data) {
+
+  auto handle = reinterpret_cast<DMatrixHandle>(jhandle);
+
+  xgboost::Json config{xgboost::Null{}};
+  std::string s_config;
+  xgboost::Json::Dump(config, &s_config);
+
+  const char *out_indptr;
+  const char *out_data;
+  int ret = XGDMatrixGetQuantileCut(handle, s_config.c_str(), &out_indptr,  &out_data);
+  JVM_CHECK_CALL(ret);
+
+  jstring jindptr = jenv->NewStringUTF(out_indptr);
+  jenv->SetObjectArrayElement(jout_indptr, 0, jindptr);
+
+  jstring jdata = jenv->NewStringUTF(out_data);
+  jenv->SetObjectArrayElement(jout_data, 0, jdata);
+
+  return ret;
+}

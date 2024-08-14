@@ -15,7 +15,9 @@
  */
 package ml.dmlc.xgboost4j.java;
 
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Map;
 
 /**
  * QuantileDMatrix will only be used to train
@@ -114,5 +116,15 @@ public class QuantileDMatrix extends DMatrix {
   private String getConfig(float missing, int maxBin, int nthread) {
     return String.format("{\"missing\":%f,\"max_bin\":%d,\"nthread\":%d}",
                          missing, maxBin, nthread);
+  }
+
+  public Map<String, String> getQuantileCut() throws XGBoostError {
+    String[] indptrs = new String[1];
+    String[] data = new String[1];
+    XGBoostJNI.checkCall(XGBoostJNI.XGDMatrixGetQuantileCut(handle, null, indptrs, data));
+    Map<String, String> map = new HashMap<>();
+    map.put("indptr", indptrs[0]);
+    map.put("data", data[0]);
+    return map;
   }
 }
