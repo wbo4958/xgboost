@@ -1,7 +1,6 @@
-//
-// Created by bobwang on 2021/9/8.
-//
-
+/**
+ * Copyright 2021-2024, XGBoost Contributors
+ */
 #ifndef XGBOOST_USE_CUDA
 
 #include <jni.h>

@@ -181,6 +181,6 @@ class XGBoostJNI {
 
   public final static native int XGBoosterGetStrFeatureInfo(long handle, String field, String[] out);
 
-  public final static native int XGDMatrixGetQuantileCut(long handle, String[] config, String[] outIndPtr, String[] outData);
+  public final static native int XGDMatrixGetQuantileCut(long handle, long[][] outIndptr, float[][] outValues);
 
 }
