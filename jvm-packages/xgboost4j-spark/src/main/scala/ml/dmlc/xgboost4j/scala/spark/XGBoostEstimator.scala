@@ -16,12 +16,11 @@
 
 package ml.dmlc.xgboost4j.scala.spark
 
-import java.util.ServiceLoader
-
-import scala.collection.mutable
-import scala.collection.mutable.ArrayBuffer
-import scala.jdk.CollectionConverters._
-
+import ml.dmlc.xgboost4j.{LabeledPoint => XGBLabeledPoint}
+import ml.dmlc.xgboost4j.java.{Booster => JBooster}
+import ml.dmlc.xgboost4j.scala.{Booster, DMatrix, XGBoost => SXGBoost}
+import ml.dmlc.xgboost4j.scala.spark.Utils.MLVectorToXGBLabeledPoint
+import ml.dmlc.xgboost4j.scala.spark.params._
 import org.apache.commons.logging.LogFactory
 import org.apache.hadoop.fs.Path
 import org.apache.spark.ml.{Estimator, Model}
@@ -35,11 +34,10 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.functions.{col, udf}
 import org.apache.spark.sql.types._
 
-import ml.dmlc.xgboost4j.{LabeledPoint => XGBLabeledPoint}
-import ml.dmlc.xgboost4j.java.{Booster => JBooster}
-import ml.dmlc.xgboost4j.scala.{Booster, DMatrix, XGBoost => SXGBoost}
-import ml.dmlc.xgboost4j.scala.spark.Utils.MLVectorToXGBLabeledPoint
-import ml.dmlc.xgboost4j.scala.spark.params._
+import java.util.ServiceLoader
+import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
+import scala.jdk.CollectionConverters._
 
 /**
  * Hold the column index
@@ -83,6 +81,27 @@ private[spark] trait PluginMixin {
       case _ => None
     }
   }
+
+  val testPlugin: Option[Estimator[_]] = {
+
+    val classLoader = Option(Thread.currentThread().getContextClassLoader)
+      .getOrElse(getClass.getClassLoader)
+
+    val serviceLoader = ServiceLoader.load(classOf[Estimator[_]], classLoader)
+
+    // For now, we only trust GpuXGBoostPlugin.
+    val z = serviceLoader.asScala.toList
+
+    z match {
+      case Nil => None
+      case head :: Nil =>
+        Some(head)
+      case _ => None
+    }
+  }
+
+  protected[spark] def getTestPlugin: Option[Estimator[_]] = testPlugin
+
 
   /** Visible for testing */
   protected[spark] def getPlugin: Option[XGBoostPlugin] = plugin

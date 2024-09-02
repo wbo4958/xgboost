@@ -31,6 +31,14 @@ import scala.collection.mutable.ArrayBuffer
 
 class GpuXGBoostPluginSuite extends GpuTestSuite {
 
+  test("adfasdfadsfafd") {
+    withGpuSparkSession() { spark =>
+      val estimator = new XGBoostClassifier()
+      val plugin = estimator.getTestPlugin
+      println("---")
+
+    }
+  }
   test("params") {
     withGpuSparkSession() { spark =>
       import spark.implicits._
