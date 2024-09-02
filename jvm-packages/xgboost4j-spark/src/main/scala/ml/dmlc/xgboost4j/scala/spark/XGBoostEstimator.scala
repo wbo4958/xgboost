@@ -80,9 +80,10 @@ private[spark] trait PluginMixin {
         Some(head)
       case _ => None
     }
+
   }
 
-  val testPlugin: Option[Estimator[_]] = {
+  val testPlugin: Option[Map[String, Class[_]]] = {
 
     val classLoader = Option(Thread.currentThread().getContextClassLoader)
       .getOrElse(getClass.getClassLoader)
@@ -92,15 +93,11 @@ private[spark] trait PluginMixin {
     // For now, we only trust GpuXGBoostPlugin.
     val z = serviceLoader.asScala.toList
 
-    z match {
-      case Nil => None
-      case head :: Nil =>
-        Some(head)
-      case _ => None
-    }
+    if (!z.isEmpty) Option(z.map(est => est.getClass.getName -> est.getClass).toMap)
+    else None
   }
 
-  protected[spark] def getTestPlugin: Option[Estimator[_]] = testPlugin
+  protected[spark] def getTestPlugin: Option[Map[String, Class[_]]] = testPlugin
 
 
   /** Visible for testing */

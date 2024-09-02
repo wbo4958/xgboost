@@ -25,6 +25,7 @@ import ml.dmlc.xgboost4j.scala.spark.Utils.withResource
 import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.sql.{Dataset, SparkSession}
 import org.apache.spark.SparkConf
+import org.apache.spark.ml.Estimator
 
 import java.io.File
 import scala.collection.mutable.ArrayBuffer
@@ -35,6 +36,9 @@ class GpuXGBoostPluginSuite extends GpuTestSuite {
     withGpuSparkSession() { spark =>
       val estimator = new XGBoostClassifier()
       val plugin = estimator.getTestPlugin
+      val clazz = plugin.get.get("org.apache.spark.ml.classification.LogisticRegression")
+      val k = clazz.get.getConstructor(classOf[String])
+        .newInstance("hellowuid").asInstanceOf[Estimator[_]]
       println("---")
 
     }
