@@ -248,6 +248,7 @@ private[spark] object XGBoost extends StageLevelScheduling {
         rabitEnv.put("DMLC_TASK_ID", partitionId.toString)
         try {
           Communicator.init(rabitEnv)
+          logger.info("After initializing Communicator")
           require(iter.hasNext, "Failed to create DMatrix")
           val watches = iter.next()
           try {

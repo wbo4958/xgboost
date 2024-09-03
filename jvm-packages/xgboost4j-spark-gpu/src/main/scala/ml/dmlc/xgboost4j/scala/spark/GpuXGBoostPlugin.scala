@@ -156,6 +156,7 @@ class GpuXGBoostPlugin extends XGBoostPlugin {
     }.getOrElse(
       ColumnarRdd(train.toDF()).mapPartitions { iter =>
         val dm = buildQuantileDMatrix(iter)
+        logger.info("Successfully build QuantileDMatrix")
         Iterator.single(new Watches(Array(dm), Array(Utils.TRAIN_NAME), None))
       }
     )

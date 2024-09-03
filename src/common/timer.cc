@@ -14,6 +14,7 @@
 
 namespace xgboost::common {
 void Monitor::Start(std::string const &name) {
+  LOG(DEBUG) << "======== Monitor Start: " << name << " ========";
   if (ConsoleLogger::ShouldLog(ConsoleLogger::LV::kDebug)) {
     auto &stats = statistics_map_[name];
     stats.timer.Start();
@@ -25,6 +26,7 @@ void Monitor::Start(std::string const &name) {
 }
 
 void Monitor::Stop(const std::string &name) {
+  LOG(DEBUG) << "======== Monitor Stop: " << name << " ========";
   if (ConsoleLogger::ShouldLog(ConsoleLogger::LV::kDebug)) {
     auto &stats = statistics_map_[name];
     stats.timer.Stop();
