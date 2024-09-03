@@ -1,3 +1,2 @@
 org.apache.spark.ml.classification.RandomForestClassifier
 org.apache.spark.ml.classification.LogisticRegression
-org.apache.spark.ml.classification.GBTClassifier
