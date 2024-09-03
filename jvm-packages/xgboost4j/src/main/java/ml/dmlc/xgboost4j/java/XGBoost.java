@@ -196,6 +196,8 @@ public class XGBoost {
       allMats[0] = dtrain;
     }
 
+    System.out.println("initialize booster train rows:" + allMats[0].rowNum());
+
     //initialize booster
     if (booster == null) {
       // Start training on a new booster
@@ -218,6 +220,7 @@ public class XGBoost {
 
     // begin to train
     for (int iter = 0; iter < numRounds; iter++) {
+      System.out.println("update the booster for the " + iter + " round");
       if (obj != null) {
         booster.update(dtrain, iter, obj);
       } else {
