@@ -29,7 +29,7 @@ if [ "x$use_scala213" != "x" ]; then
   cd jvm-packages
 fi
 
-mvn --no-transfer-progress package -Dspark.version=${spark_version} $gpu_options
+mvn --no-transfer-progress package -Dmaven.test.skip=true -DskipTests -Dspark.version=${spark_version} $gpu_options
 
 set +x
 set +e

@@ -17,13 +17,11 @@
 package ml.dmlc.xgboost4j.scala.spark
 
 import java.io.File
-
 import org.apache.commons.io.FileUtils
 import org.apache.commons.logging.LogFactory
-import org.apache.spark.{SparkConf, SparkContext, TaskContext}
+import org.apache.spark.{BarrierTaskContext, SparkConf, SparkContext, TaskContext}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.resource.{ResourceProfileBuilder, TaskResourceRequests}
-
 import ml.dmlc.xgboost4j.java.{Communicator, RabitTracker}
 import ml.dmlc.xgboost4j.scala.{XGBoost => SXGBoost, _}
 
@@ -212,6 +210,9 @@ private[spark] object XGBoost extends StageLevelScheduling {
       logger.info("Leveraging gpu device " + gpuId + " to train")
       params = params + ("device" -> s"cuda:$gpuId")
     }
+    BarrierTaskContext.get().barrier()
+
+    logger.info(s"Training dataset: ${watches.datasets(0).rowNum}")
     val booster = SXGBoost.train(watches.toMap("train"), params, runtimeParams.numRounds,
       watches.toMap, metrics, runtimeParams.obj.getOrElse(null),
       runtimeParams.eval.getOrElse(null), earlyStoppingRound = numEarlyStoppingRounds)
@@ -244,6 +245,8 @@ private[spark] object XGBoost extends StageLevelScheduling {
       val rabitEnv = tracker.getWorkerArgs()
 
       val boostersAndMetrics = input.barrier().mapPartitions { iter =>
+        BarrierTaskContext.get().barrier()
+        logger.info(s"Running XGBoost with parameters: $xgboostParams")
         val partitionId = TaskContext.getPartitionId()
         rabitEnv.put("DMLC_TASK_ID", partitionId.toString)
         try {
@@ -252,6 +255,7 @@ private[spark] object XGBoost extends StageLevelScheduling {
           val watches = iter.next()
           try {
             val (booster, metrics) = trainBooster(watches, runtimeParams, xgboostParams)
+            BarrierTaskContext.get().barrier()
             if (partitionId == 0) {
               Iterator(booster -> watches.toMap.keys.zip(metrics).toMap)
             } else {
