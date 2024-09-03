@@ -226,6 +226,7 @@ public class XGBoost {
       } else {
         booster.update(dtrain, iter);
       }
+      System.out.println("update the booster for the " + iter + " round -");
       saveCheckpoint(booster, iter, checkpointIterations, ecm);
 
       // evaluation
