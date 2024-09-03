@@ -452,6 +452,7 @@ class LearnerConfiguration : public Learner {
 
   // Configuration before data is known.
   void Configure() override {
+      LOG(DEBUG) << "learner Configure: 0";
     // Varient of double checked lock
     if (!this->need_configuration_) {
       return;
@@ -478,26 +479,34 @@ class LearnerConfiguration : public Learner {
     if (!initialized || ctx_.seed != old_seed) {
       common::GlobalRandom().seed(ctx_.seed);
     }
+      LOG(DEBUG) << "learner Configure: 1";
 
     // must precede configure gbm since num_features is required for gbm
     this->ConfigureNumFeatures();
     args = {cfg_.cbegin(), cfg_.cend()};  // renew
     this->ConfigureObjective(old_tparam, &args);
+      LOG(DEBUG) << "learner Configure: 2";
 
     learner_model_param_.task = obj_->Task();  // required by gbm configuration.
     this->ConfigureGBM(old_tparam, args);
     ctx_.ConfigureGpuId(this->gbm_->UseGPU());
+      LOG(DEBUG) << "learner Configure: 3";
 
     this->ConfigureModelParamWithoutBaseScore();
+      LOG(DEBUG) << "learner Configure: 4";
 
     this->ConfigureMetrics(args);
+      LOG(DEBUG) << "learner Configure: 5";
 
     this->need_configuration_ = false;
     if (ctx_.validate_parameters) {
       this->ValidateParameters();
     }
+      LOG(DEBUG) << "learner Configure:6";
 
     cfg_.clear();
+          LOG(DEBUG) << "learner Configure: 7";
+
     monitor_.Stop("Configure");
   }
 
@@ -1267,28 +1276,40 @@ class LearnerImpl : public LearnerIO {
   void UpdateOneIter(int iter, std::shared_ptr<DMatrix> train) override {
     monitor_.Start("UpdateOneIter");
     TrainingObserver::Instance().Update(iter);
+          LOG(DEBUG) << "learner UpdateOneIter: 0";
     this->Configure();
+              LOG(DEBUG) << "learner UpdateOneIter: 1";
+
     this->InitBaseScore(train.get());
+          LOG(DEBUG) << "learner UpdateOneIter: 2";
 
     if (ctx_.seed_per_iteration) {
       common::GlobalRandom().seed(ctx_.seed * kRandSeedMagic + iter);
     }
+          LOG(DEBUG) << "learner UpdateOneIter: 3";
 
     this->ValidateDMatrix(train.get(), true);
+          LOG(DEBUG) << "learner UpdateOneIter: 4";
 
     auto& predt = prediction_container_.Cache(train, ctx_.Device());
-
+          LOG(DEBUG) << "learner UpdateOneIter: 5";
     monitor_.Start("PredictRaw");
     this->PredictRaw(train.get(), &predt, true, 0, 0);
     TrainingObserver::Instance().Observe(predt.predictions, "Predictions");
     monitor_.Stop("PredictRaw");
+          LOG(DEBUG) << "learner UpdateOneIter: 6";
 
     monitor_.Start("GetGradient");
     GetGradient(predt.predictions, train->Info(), iter, &gpair_);
+              LOG(DEBUG) << "learner UpdateOneIter: 7";
+
     monitor_.Stop("GetGradient");
     TrainingObserver::Instance().Observe(*gpair_.Data(), "Gradients");
+          LOG(DEBUG) << "learner UpdateOneIter: 8";
 
     gbm_->DoBoost(train.get(), &gpair_, &predt, obj_.get());
+              LOG(DEBUG) << "learner UpdateOneIter: 9";
+
     monitor_.Stop("UpdateOneIter");
   }
 
