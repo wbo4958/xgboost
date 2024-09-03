@@ -662,11 +662,11 @@ struct GPUHistMakerDevice {
     auto& tree = *p_tree;
     // Process maximum 32 nodes at a time
     Driver<GPUExpandEntry> driver(param, 32);
-
+LOG(DEBUG) << "GPUHist UpdateTree: 1";
     monitor.Start("Reset");
     this->Reset(gpair_all, p_fmat, p_fmat->Info().num_col_);
     monitor.Stop("Reset");
-
+LOG(DEBUG) << "GPUHist UpdateTree: 2";
     monitor.Start("InitRoot");
     driver.Push({this->InitRoot(p_tree)});
     monitor.Stop("InitRoot");
@@ -677,6 +677,7 @@ struct GPUHistMakerDevice {
       for (auto& candidate : expand_set) {
         this->ApplySplit(candidate, p_tree);
       }
+      LOG(DEBUG) << "GPUHist UpdateTree: 3";
       // Get the candidates we are allowed to expand further
       // e.g. We do not bother further processing nodes whose children are beyond max depth
       std::vector<GPUExpandEntry> filtered_expand_set;
@@ -690,15 +691,17 @@ struct GPUHistMakerDevice {
       // Update position is only run when child is valid, instead of right after apply
       // split (as in approx tree method).  Hense we have the finalise position call
       // in GPU Hist.
+      LOG(DEBUG) << "GPUHist UpdateTree: 4";
       this->UpdatePosition(filtered_expand_set, p_tree);
       monitor.Stop("UpdatePosition");
-
+LOG(DEBUG) << "GPUHist UpdateTree: 5";
       monitor.Start("BuildHist");
       this->BuildHistLeftRight(filtered_expand_set, tree);
       monitor.Stop("BuildHist");
-
+LOG(DEBUG) << "GPUHist UpdateTree: 6";
       monitor.Start("EvaluateSplits");
       this->EvaluateSplits(filtered_expand_set, *p_tree, new_candidates);
+      LOG(DEBUG) << "GPUHist UpdateTree: 7";
       monitor.Stop("EvaluateSplits");
       dh::DefaultStream().Sync();
       driver.Push(new_candidates.begin(), new_candidates.end());
@@ -706,8 +709,10 @@ struct GPUHistMakerDevice {
     }
 
     monitor.Start("FinalisePosition");
+    LOG(DEBUG) << "GPUHist UpdateTree: 8";
     this->FinalisePosition(p_tree, p_fmat, *task, p_out_position);
     monitor.Stop("FinalisePosition");
+    LOG(DEBUG) << "GPUHist UpdateTree: 9";
   }
 };
 
@@ -742,7 +747,7 @@ class GPUHistMaker : public TreeUpdater {
               common::Span<HostDeviceVector<bst_node_t>> out_position,
               const std::vector<RegTree*>& trees) override {
     monitor_.Start("Update");
-
+    LOG(DEBUG) << "GPUHist Update: 1";
     CHECK_EQ(gpair->Shape(1), 1) << MTNotImplemented();
     auto gpair_hdv = gpair->Data();
     // build tree
@@ -791,7 +796,9 @@ class GPUHistMaker : public TreeUpdater {
   void UpdateTree(TrainParam const* param, HostDeviceVector<GradientPair>* gpair, DMatrix* p_fmat,
                   RegTree* p_tree, HostDeviceVector<bst_node_t>* p_out_position) {
     monitor_.Start("InitData");
+    LOG(DEBUG) << "GPUHist Update: 2";
     this->InitData(param, p_fmat, p_tree);
+    LOG(DEBUG) << "GPUHist Update: 3";
     monitor_.Stop("InitData");
 
     gpair->SetDevice(ctx_->Device());

@@ -207,16 +207,17 @@ void GBTree::DoBoost(DMatrix* p_fmat, linalg::Matrix<GradientPair>* in_gpair,
            "leaf.";
     CHECK(ctx_->IsCPU()) << "GPU is not yet supported for vector leaf.";
   }
+  LOG(DEBUG) << "GBTree DoBoost: 1";
 
   TreesOneIter new_trees;
   bst_target_t const n_groups = model_.learner_model_param->OutputLength();
   monitor_.Start("BoostNewTrees");
-
+LOG(DEBUG) << "GBTree DoBoost: 2";
   predt->predictions.SetDevice(ctx_->Device());
   auto out = linalg::MakeTensorView(ctx_, &predt->predictions, p_fmat->Info().num_row_,
                                     model_.learner_model_param->OutputLength());
   CHECK_NE(n_groups, 0);
-
+LOG(DEBUG) << "GBTree DoBoost: 3";
   if (!p_fmat->SingleColBlock() && obj->Task().UpdateTreeLeaf()) {
     LOG(FATAL) << "Current objective doesn't support external memory.";
   }
@@ -224,7 +225,7 @@ void GBTree::DoBoost(DMatrix* p_fmat, linalg::Matrix<GradientPair>* in_gpair,
   // The node position for each row, 1 HDV for each tree in the forest.  Note that the
   // position is negated if the row is sampled out.
   std::vector<HostDeviceVector<bst_node_t>> node_position;
-
+LOG(DEBUG) << "GBTree DoBoost: 5";
   if (model_.learner_model_param->IsVectorLeaf()) {
     TreesOneGroup ret;
     BoostNewTrees(in_gpair, p_fmat, 0, &node_position, &ret);
@@ -249,6 +250,7 @@ void GBTree::DoBoost(DMatrix* p_fmat, linalg::Matrix<GradientPair>* in_gpair,
     CHECK_EQ(in_gpair->Size() % n_groups, 0U) << "must have exactly ngroup * nrow gpairs";
     linalg::Matrix<GradientPair> tmp{{in_gpair->Shape(0), static_cast<std::size_t>(1ul)},
                                      ctx_->Device()};
+    LOG(DEBUG) << "GBTree DoBoost: 6";
     bool update_predict = true;
     for (bst_target_t gid = 0; gid < n_groups; ++gid) {
       node_position.clear();
@@ -276,6 +278,7 @@ void GBTree::DoBoost(DMatrix* p_fmat, linalg::Matrix<GradientPair>* in_gpair,
 void GBTree::BoostNewTrees(linalg::Matrix<GradientPair>* gpair, DMatrix* p_fmat, int bst_group,
                            std::vector<HostDeviceVector<bst_node_t>>* out_position,
                            TreesOneGroup* ret) {
+  LOG(DEBUG) << "GBTree BoostNewTrees: 1";
   std::vector<RegTree*> new_trees;
   ret->clear();
   // create the trees
