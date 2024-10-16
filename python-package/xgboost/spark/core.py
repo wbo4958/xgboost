@@ -1026,6 +1026,11 @@ class _SparkXGBEstimator(Estimator, _SparkXGBParams, MLReadable, MLWritable):
             from pyspark import BarrierTaskContext
 
             context = BarrierTaskContext.get()
+            get_logger(_LOG_TAG, log_level).info("before entering barrier.")
+            print("before entering barrier.")
+            context.barrier()
+            get_logger(_LOG_TAG, log_level).info("after entering barrier.")
+            print("after entering barrier.")
 
             dev_ordinal = None
             use_qdm = _can_use_qdm(
