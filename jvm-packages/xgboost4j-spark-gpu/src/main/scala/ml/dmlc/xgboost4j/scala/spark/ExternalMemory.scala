@@ -61,10 +61,20 @@ private[spark] trait ExternalMemory[T] extends Iterator[Table] with AutoCloseabl
 }
 
 case class HostMemoryBufferInfo(hostMemoryBuffer: HostMemoryBuffer, size: Long)
+  extends AutoCloseable {
+
+  var isClosed = false
+
+  override def close(): Unit = {
+    if (!isClosed) {
+      isClosed = true
+      hostMemoryBuffer.close()
+    }
+  }
+}
 
 // The data will be cached into host memory
-private[spark] class HostExternalMemoryIterator()
-  extends ExternalMemory[HostMemoryBufferInfo] {
+private[spark] class HostExternalMemoryIterator extends ExternalMemory[HostMemoryBufferInfo] {
   private lazy val allocator = DefaultHostMemoryAllocator.get()
 
   class XGBoostHostBufferConsumer extends HostBufferConsumer {
@@ -125,7 +135,7 @@ private[spark] class HostExternalMemoryIterator()
     }
 
     override def close(): Unit = {
-      //      bufferInfo.hostMemoryBuffer.close()
+      bufferInfo.close()
     }
   }
 
@@ -155,6 +165,10 @@ private[spark] class HostExternalMemoryIterator()
         }
       }
     }
+  }
+
+  override def close(): Unit = {
+    buffers.foreach(_.close())
   }
 }
 
