@@ -140,7 +140,7 @@ class GpuXGBoostPlugin extends XGBoostPlugin {
 //            batch.select(indices.groupId.getOrElse(-1)));
 //        }
 //      }
-      val externalMemoryIter = new ExternalMemoryIterator(iter, indices)
+      val externalMemoryIter = new ExternalMemoryIterator(iter, indices, Some("/tmp/"))
       ref.map(r => new QuantileDMatrix(externalMemoryIter, r, missing, maxBin, nthread))
         .getOrElse(new QuantileDMatrix(externalMemoryIter, missing, maxBin, nthread)
       )

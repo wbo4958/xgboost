@@ -169,6 +169,7 @@ private[spark] class HostExternalMemoryIterator extends ExternalMemory[HostMemor
 
   override def close(): Unit = {
     buffers.foreach(_.close())
+    buffers.clear()
   }
 }
 
@@ -224,37 +225,46 @@ private[spark] class DiskExternalMemoryIterator(val path: String) extends Extern
   /**
    * Load the path from disk to the Table
    *
-   * @param content to be loaded
+   * @param name to be loaded
    * @return Table
    */
-  override def loadTable(content: String): Table = {
-
-    withResource(Table.readArrowIPCChunked(new File(content))) { reader =>
-      val tables = ArrayBuffer.empty[Table]
-      closeOnExcept(tables) { tables =>
-        var table = Option(reader.getNextIfAvailable())
-        while (table.isDefined) {
-          tables.append(table.get)
-          table = Option(reader.getNextIfAvailable())
-        }
-      }
-      if (tables.size > 1) {
+  override def loadTable(name: String): Table = {
+    val file = new File(name)
+    if (!file.exists()) {
+      throw new RuntimeException(s"The cached file ${name} not exist" )
+    }
+    try {
+      withResource(Table.readArrowIPCChunked(file)) { reader =>
+        val tables = ArrayBuffer.empty[Table]
         closeOnExcept(tables) { tables =>
-          Table.concatenate(tables.toArray: _*)
+          var table = Option(reader.getNextIfAvailable())
+          while (table.isDefined) {
+            tables.append(table.get)
+            table = Option(reader.getNextIfAvailable())
+          }
         }
-      } else {
-        tables(0)
+        if (tables.size > 1) {
+          closeOnExcept(tables) { tables =>
+            Table.concatenate(tables.toArray: _*)
+          }
+        } else {
+          tables(0)
+        }
       }
+    } finally {
+      file.delete()
     }
   }
 
   override def close(): Unit = {
+    println("------------------------------------------ DiskExternalMemoryIterator close")
     buffers.foreach { path =>
       val file = new File(path)
       if (file.exists()) {
         file.delete()
       }
     }
+    buffers.clear()
   }
 }
 
@@ -278,7 +288,7 @@ private[spark] object ExternalMemory {
 private[spark] class ExternalMemoryIterator(val input: Iterator[Table],
                                             val indices: ColumnIndices,
                                             val path: Option[String] = None)
-  extends Iterator[ColumnBatch] with AutoCloseable {
+  extends Iterator[ColumnBatch] {
 
   private var iter = input
 
@@ -295,6 +305,9 @@ private[spark] class ExternalMemoryIterator(val input: Iterator[Table],
     if (!inputIsConsumed && !value && inputNextIsValid) {
       inputIsConsumed = true
       iter = externalMemory
+    }
+    if (!value) {
+      externalMemory.close()
     }
     value
   }
@@ -314,5 +327,4 @@ private[spark] class ExternalMemoryIterator(val input: Iterator[Table],
     }
   }
 
-  override def close(): Unit = externalMemory.close()
 }
