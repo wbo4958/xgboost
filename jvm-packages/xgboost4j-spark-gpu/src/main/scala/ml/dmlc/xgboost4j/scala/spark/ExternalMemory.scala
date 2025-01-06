@@ -251,8 +251,14 @@ private[spark] class DiskExternalMemoryIterator(val path: String) extends Extern
           tables(0)
         }
       }
+    } catch {
+      case e: Throwable =>
+        close()
+        throw e
     } finally {
-      file.delete()
+      if (file.exists()) {
+        file.delete()
+      }
     }
   }
 
@@ -295,25 +301,25 @@ private[spark] class ExternalMemoryIterator(val input: Iterator[Table],
   // Flag to indicate the input has been consumed.
   private var inputIsConsumed = false
   // Flag to indicate the input.next has been called which is valid
-  private var inputNextIsValid = false
+  private var inputNextIsCalled = false
 
   // visible for testing
   private[spark] val externalMemory = ExternalMemory(path)
 
   override def hasNext: Boolean = {
     val value = iter.hasNext
-    if (!inputIsConsumed && !value && inputNextIsValid) {
+    if (!value && inputIsConsumed && inputNextIsCalled) {
+      externalMemory.close()
+    }
+    if (!inputIsConsumed && !value && inputNextIsCalled) {
       inputIsConsumed = true
       iter = externalMemory
-    }
-    if (!value) {
-      externalMemory.close()
     }
     value
   }
 
   override def next(): ColumnBatch = {
-    inputNextIsValid = true
+    inputNextIsCalled = true
     withResource(new GpuColumnBatch(iter.next())) { batch =>
       if (iter == input) {
         externalMemory.cacheTable(batch.table)
