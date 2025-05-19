@@ -22,6 +22,7 @@ import java.nio.file.{Files, Paths}
 import scala.collection.mutable.ArrayBuffer
 
 import ai.rapids.cudf._
+import org.apache.commons.logging.LogFactory
 
 import ml.dmlc.xgboost4j.java.{ColumnBatch, CudfColumnBatch}
 import ml.dmlc.xgboost4j.scala.spark.Utils.withResource
@@ -63,13 +64,19 @@ private[spark] trait ExternalMemory[T] extends Iterator[Table] with AutoCloseabl
 // The data will be cached into disk.
 private[spark] class DiskExternalMemoryIterator(val path: String) extends ExternalMemory[String] {
 
+  private val logger = LogFactory.getLog("XGBoostSparkGpuPlugin")
+
   private lazy val root = {
     val tmp = path + "/xgboost"
+
+    logger.info(s"00000 >>>>>> DiskExternalMemoryIterator: createDirectory: $path")
     createDirectory(tmp)
     tmp
   }
 
   private var counter = 0
+  private var cacheTimeTotal = 0.0f
+  private var loadTimeTotal = 0.0f
 
   private def createDirectory(dirPath: String): Unit = {
     val path = Paths.get(dirPath)
@@ -87,11 +94,20 @@ private[spark] class DiskExternalMemoryIterator(val path: String) extends Extern
   override def convertTable(table: Table): String = {
     val names = (1 to table.getNumberOfColumns).map(_.toString)
     val options = ArrowIPCWriterOptions.builder().withColumnNames(names: _*).build()
-    val path = root + "/table_" + counter + "_" + System.nanoTime();
+    val path = root + "/table_" + counter + "_" + System.nanoTime()
+
+    val start = System.currentTimeMillis()
     counter += 1
     withResource(Table.writeArrowIPCChunked(options, new File(path))) { writer =>
       writer.write(table)
     }
+    val duration = (System.currentTimeMillis - start).toFloat / 1000
+    val rows = table.getRowCount
+    val size = rows * 27 * 4 / 1024 / 1024
+    cacheTimeTotal += duration
+    logger.info(s"bobby Total loading time: $cacheTimeTotal >> takes ${duration}s to " +
+      s"cache Table (rows:$rows, " +
+      s"size:${size}M) into the disk $path")
     path
   }
 
@@ -117,7 +133,8 @@ private[spark] class DiskExternalMemoryIterator(val path: String) extends Extern
     if (!file.exists()) {
       throw new RuntimeException(s"The cache file ${name} doesn't exist" )
     }
-    try {
+    val start = System.currentTimeMillis()
+    val resultTable = try {
       withResource(Table.readArrowIPCChunked(file)) { reader =>
         val tables = ArrayBuffer.empty[Table]
         closeOnExcept(tables) { tables =>
@@ -129,6 +146,7 @@ private[spark] class DiskExternalMemoryIterator(val path: String) extends Extern
         }
         if (tables.size > 1) {
           closeOnExcept(tables) { tables =>
+            logger.warn(">>>>>> ==== Concatenate the tables ... ==== <<<<<<")
             Table.concatenate(tables.toArray: _*)
           }
         } else {
@@ -144,6 +162,14 @@ private[spark] class DiskExternalMemoryIterator(val path: String) extends Extern
         file.delete()
       }
     }
+    val duration = (System.currentTimeMillis - start).toFloat / 1000
+    val rows = resultTable.getRowCount
+    val size = rows * 27 * 4 / 1024 / 1024
+    loadTimeTotal += duration
+    logger.info(s"bobby Total loading time: $loadTimeTotal >> takes ${duration}s to " +
+      s"load Table (rows:$rows, " +
+      s"size:${size}M) into the disk $path")
+    resultTable
   }
 
   override def close(): Unit = {

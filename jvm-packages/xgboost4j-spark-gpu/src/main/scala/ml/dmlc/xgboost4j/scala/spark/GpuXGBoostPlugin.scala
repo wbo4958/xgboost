@@ -132,6 +132,8 @@ class GpuXGBoostPlugin extends XGBoostPlugin {
       Some(dataset.sparkSession.conf.get("spark.local.dir", "/tmp"))
     } else None
 
+    logger.info(s"===================> extMemPath: $extMemPath =====================>")
+
     val maxQuantileBatches = estimator.getMaxQuantileBatches
     val minCachePageBytes = estimator.getMinCachePageBytes
     val maxNumDevicePages = estimator.getMaxNumDevicePages

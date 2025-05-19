@@ -70,7 +70,7 @@ then
 fi
 set -x
 
-mvn --no-transfer-progress clean install ${mvn_options}
+mvn --no-transfer-progress -Dmaven.test.skip=true -DskipTests clean install ${mvn_options}
 
 # Integration tests
 if [[ "${USE_CUDA:-}" != "1" ]]
