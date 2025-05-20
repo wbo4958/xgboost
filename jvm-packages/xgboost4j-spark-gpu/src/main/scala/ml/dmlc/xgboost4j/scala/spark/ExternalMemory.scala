@@ -127,6 +127,11 @@ private[spark] class DiskExternalMemoryIterator(val parent: String) extends Exte
    */
   override def convertTable(table: Table): String = {
     val path = root + "/table_" + counter + "_" + System.nanoTime()
+    val rows = table.getRowCount
+    val size = rows * table.getNumberOfColumns * 4 / 1024 / 1024
+    logger.info(s"bobby convertTable " +
+      s"cache Table (rows:$rows, " +
+      s"size:${size}M) into the disk $path")
     counter += 1
     val newTable = new Table((0 until table.getNumberOfColumns).map(table.getColumn): _*)
     val future = cacheTableThread(newTable, path)
@@ -174,7 +179,6 @@ private[spark] class DiskExternalMemoryIterator(val parent: String) extends Exte
 
     logger.info(s"00000 >>>>>> checkAndWaitCachingDone to table from $path")
     checkAndWaitCachingDone(path)
-    logger.info(s"00000 >>>>>> checkAndWaitCachingDone to table from $path Done Done Done")
 
     val start = System.currentTimeMillis()
     val resultTable = try {
