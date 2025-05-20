@@ -168,7 +168,7 @@ private[spark] class DiskExternalMemoryIterator(val parent: String) extends Exte
   /**
    * Load the path from disk to the Table
    *
-   * @param name to be loaded
+   * @param path to be loaded
    * @return Table
    */
   override def loadTable(path: String): Table = {
@@ -177,7 +177,6 @@ private[spark] class DiskExternalMemoryIterator(val parent: String) extends Exte
       throw new RuntimeException(s"The cache file ${path} doesn't exist" )
     }
 
-    logger.info(s"00000 >>>>>> checkAndWaitCachingDone to table from $path")
     checkAndWaitCachingDone(path)
 
     val start = System.currentTimeMillis()
@@ -211,11 +210,11 @@ private[spark] class DiskExternalMemoryIterator(val parent: String) extends Exte
     }
     val duration = (System.currentTimeMillis - start).toFloat / 1000
     val rows = resultTable.getRowCount
-    val size = rows * 27 * 4 / 1024 / 1024
+    val size = rows * resultTable.getNumberOfColumns * 4 / 1024 / 1024
     loadTimeTotal += duration
     logger.info(s"bobby Total loading time: $loadTimeTotal >> takes ${duration}s to " +
       s"load Table (rows:$rows, " +
-      s"size:${size}M) into the disk $parent")
+      s"size:${size}M) from disk $path")
     resultTable
   }
 
