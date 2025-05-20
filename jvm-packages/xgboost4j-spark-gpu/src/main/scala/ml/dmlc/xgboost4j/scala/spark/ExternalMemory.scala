@@ -112,7 +112,10 @@ private[spark] class DiskExternalMemoryIterator(val parent: String) extends Exte
           }
           true
         } catch {
-          case _: Throwable => false
+          case e: Throwable => {
+            throw e
+            false
+          }
         }
       }
     }
