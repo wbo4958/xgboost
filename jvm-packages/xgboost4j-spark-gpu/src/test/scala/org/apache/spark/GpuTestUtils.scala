@@ -21,7 +21,7 @@ import org.apache.spark.sql.SparkSession
 object GpuTestUtils {
 
   def cleanupAnyExistingSession(): Unit = {
-    SparkSession.cleanupAnyExistingSession()
+//    SparkSession.cleanupAnyExistingSession()
   }
 
 }
