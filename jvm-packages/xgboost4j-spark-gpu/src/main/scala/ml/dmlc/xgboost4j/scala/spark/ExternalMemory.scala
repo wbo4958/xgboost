@@ -74,13 +74,14 @@ private[spark] class DiskExternalMemoryIterator(val parent: String) extends Exte
     val tmp = parent + "/xgboost"
 
     logger.info(s"00000 >>>>>> DiskExternalMemoryIterator: createDirectory: $parent")
+    println(s"00000 >>>>>> DiskExternalMemoryIterator: createDirectory: $parent")
     createDirectory(tmp)
     tmp
   }
 
   // Tasks mapping the path to the Future of caching table
   private val taskFutures: mutable.HashMap[String, Future[Boolean]] = mutable.HashMap.empty
-  private val executor = Executors.newFixedThreadPool(3)
+  private val executor = Executors.newFixedThreadPool(1)
   implicit val ec = ExecutionContext.fromExecutor(executor)
 
   private var counter = 0
@@ -102,17 +103,20 @@ private[spark] class DiskExternalMemoryIterator(val parent: String) extends Exte
    */
   private def cacheTableThread(table: Table, path: String): Future[Boolean] = {
     Future {
-      try {
-        val names = (1 to table.getNumberOfColumns).map(_.toString)
-        val options = ArrowIPCWriterOptions.builder().withColumnNames(names: _*).build()
-        withResource(Table.writeArrowIPCChunked(options, new File(path))) { writer =>
-          writer.write(table)
+      withResource(table) { _ =>
+        try {
+          val names = (1 to table.getNumberOfColumns).map(_.toString)
+          val options = ArrowIPCWriterOptions.builder().withColumnNames(names: _*).build()
+          withResource(Table.writeArrowIPCChunked(options, new File(path))) { writer =>
+            writer.write(table)
+          }
+          true
+        } catch {
+          case _: Throwable => false
         }
-        true
-      } catch {
-        case _: Throwable => false
       }
     }
+
   }
 
   /**
@@ -168,7 +172,9 @@ private[spark] class DiskExternalMemoryIterator(val parent: String) extends Exte
       throw new RuntimeException(s"The cache file ${path} doesn't exist" )
     }
 
+    logger.info(s"00000 >>>>>> checkAndWaitCachingDone to table from $path")
     checkAndWaitCachingDone(path)
+    logger.info(s"00000 >>>>>> checkAndWaitCachingDone to table from $path Done Done Done")
 
     val start = System.currentTimeMillis()
     val resultTable = try {
