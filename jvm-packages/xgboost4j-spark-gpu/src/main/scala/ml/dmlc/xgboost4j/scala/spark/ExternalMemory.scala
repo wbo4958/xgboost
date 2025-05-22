@@ -238,8 +238,8 @@ private[spark] class DiskExternalMemoryIterator(val parent: String,
 
 private[spark] object ExternalMemory {
   def apply(path: Option[String] = None,
-            setCacheBatchNumber: Int = 1): ExternalMemory[_] = {
-    path.map(new DiskExternalMemoryIterator(_, setCacheBatchNumber))
+            cacheBatchNumber: Int = 1): ExternalMemory[_] = {
+    path.map(new DiskExternalMemoryIterator(_, cacheBatchNumber))
       .getOrElse(throw new RuntimeException("No disk path provided"))
   }
 }
@@ -258,7 +258,7 @@ private[spark] object ExternalMemory {
 private[scala] class ExternalMemoryIterator(val input: Iterator[Table],
                                             val indices: ColumnIndices,
                                             val path: Option[String] = None,
-                                            val setCacheBatchNumber: Int = 1)
+                                            val cacheBatchNumber: Int = 1)
   extends Iterator[ColumnBatch] {
 
   private var iter = input
@@ -269,7 +269,7 @@ private[scala] class ExternalMemoryIterator(val input: Iterator[Table],
   private var inputNextIsCalled = false
 
   // visible for testing
-  private[spark] val externalMemory = ExternalMemory(path)
+  private[spark] val externalMemory = ExternalMemory(path, cacheBatchNumber)
 
   override def hasNext: Boolean = {
     val value = iter.hasNext
