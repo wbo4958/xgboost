@@ -66,7 +66,9 @@ private[spark] trait ExternalMemory[T] extends Iterator[Table] with AutoCloseabl
 }
 
 // The data will be cached into disk.
-private[spark] class DiskExternalMemoryIterator(val parent: String) extends ExternalMemory[String] {
+private[spark] class DiskExternalMemoryIterator(val parent: String,
+                                                val cacheBatchNumber: Int = 1)
+  extends ExternalMemory[String] {
 
   private val logger = LogFactory.getLog("XGBoostSparkGpuPlugin")
 
@@ -131,6 +133,12 @@ private[spark] class DiskExternalMemoryIterator(val parent: String) extends Exte
    * @return the content
    */
   override def convertTable(table: Table): String = {
+    val index = counter - cacheBatchNumber
+    if (index >= 0 && index < buffers.length) {
+      checkAndWaitCachingDone(buffers(index))
+      logger.info(s"Waiting for ${buffers(index)} done")
+    }
+
     val path = root + "/table_" + counter + "_" + System.nanoTime()
     counter += 1
 
@@ -229,8 +237,9 @@ private[spark] class DiskExternalMemoryIterator(val parent: String) extends Exte
 }
 
 private[spark] object ExternalMemory {
-  def apply(path: Option[String] = None): ExternalMemory[_] = {
-    path.map(new DiskExternalMemoryIterator(_))
+  def apply(path: Option[String] = None,
+            setCacheBatchNumber: Int = 1): ExternalMemory[_] = {
+    path.map(new DiskExternalMemoryIterator(_, setCacheBatchNumber))
       .getOrElse(throw new RuntimeException("No disk path provided"))
   }
 }
@@ -248,7 +257,8 @@ private[spark] object ExternalMemory {
  */
 private[scala] class ExternalMemoryIterator(val input: Iterator[Table],
                                             val indices: ColumnIndices,
-                                            val path: Option[String] = None)
+                                            val path: Option[String] = None,
+                                            val setCacheBatchNumber: Int = 1)
   extends Iterator[ColumnBatch] {
 
   private var iter = input
