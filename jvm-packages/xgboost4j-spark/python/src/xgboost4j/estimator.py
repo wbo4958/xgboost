@@ -29,6 +29,7 @@ class XGBoostClassifier(_JavaProbabilisticClassifier["XGBoostClassificationModel
         maxNumDevicePages: Optional[int] = None,
         maxQuantileBatches: Optional[int] = None,
         minCachePageBytes: Optional[int] = None,
+        cacheBatchNumber: Optional[int] = None,
         feature_names: Optional[List[str]] = None,
         feature_types: Optional[List[str]] = None,
         # RabitParams

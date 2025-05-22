@@ -866,6 +866,19 @@ class SparkParams(Params):
         """Gets the value of minCachePageBytes or its default value."""
         return int(self.getOrDefault(self.minCachePageBytes))
 
+    cacheBatchNumber = Param(
+        Params._dummy(),
+        "cacheBatchNumber",
+        "Maximum batches to be allowed to be cached. When enabling ExternalMemory, to overlap"
+        "the caching time, we put the caching process run in the backgroud, this number is to"
+        "limit how many batches must be cached before continuing to handling the current batch.",
+        typeConverter=TypeConverters.toInt
+    )
+
+    def getCacheBatchNumber(self) -> int:
+        """Gets the value of cacheBatchNumber or its default value."""
+        return int(self.getOrDefault(self.cacheBatchNumber))
+
     # Assuming featuresCols is defined elsewhere but referenced in the defaults
     featuresCols = Param(
         Params._dummy(),
@@ -889,7 +902,8 @@ class SparkParams(Params):
             useExternalMemory=False,
             maxNumDevicePages=-1,
             maxQuantileBatches=-1,
-            minCachePageBytes=-1
+            minCachePageBytes=-1,
+            cacheBatchNumber=1,
         )
 
 
