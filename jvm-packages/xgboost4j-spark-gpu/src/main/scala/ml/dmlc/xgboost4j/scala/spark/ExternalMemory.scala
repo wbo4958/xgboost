@@ -235,8 +235,7 @@ private[spark] class DiskExternalMemoryIterator(val parent: String,
       if (!cachingDone) {
         // Caching is not done. check it again.
         cachingDone = (counter - cacheBatchNumber + 1 until counter).forall { i =>
-          val futureOpt = preloadFutures.get(buffers(i))
-          futureOpt.exists(fu => fu.isCompleted)
+          taskFutures.get(buffers(i)).exists(fu => fu.isCompleted)
         }
       }
 
