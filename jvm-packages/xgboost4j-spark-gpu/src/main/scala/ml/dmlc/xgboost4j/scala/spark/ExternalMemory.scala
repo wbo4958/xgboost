@@ -101,12 +101,19 @@ private[spark] class DiskExternalMemoryIterator(val parent: String) extends Exte
   private def cacheTableThread(table: Table, path: String): Future[Boolean] = {
     Future {
       withResource(table) { _ =>
+
         try {
+          val rows = table.getRowCount
+          val size = rows * table.getNumberOfColumns * 4 / 1024 / 1024
+          logger.info(s"cacheTableThread begin to cache table (rows: $rows, " +
+            s"size: ${size}M) to $path")
           val names = (1 to table.getNumberOfColumns).map(_.toString)
           val options = ArrowIPCWriterOptions.builder().withColumnNames(names: _*).build()
           withResource(Table.writeArrowIPCChunked(options, new File(path))) { writer =>
             writer.write(table)
           }
+          logger.info(s"cacheTableThread Finished caching table (rows: $rows, " +
+            s"size: ${size}M) to $path ================> Done")
           true
         } catch {
           case e: Throwable =>
@@ -126,6 +133,11 @@ private[spark] class DiskExternalMemoryIterator(val parent: String) extends Exte
   override def convertTable(table: Table): String = {
     val path = root + "/table_" + counter + "_" + System.nanoTime()
     counter += 1
+
+    val rows = table.getRowCount
+    val size = rows * table.getNumberOfColumns * 4 / 1024 / 1024
+    logger.info(s"Intend to cache table (rows: $rows, " +
+      s"size: ${size}M) to $path")
 
     // Increase the reference count of columnars to avoid being recycled
     val newTable = new Table((0 until table.getNumberOfColumns).map(table.getColumn): _*)
@@ -168,10 +180,11 @@ private[spark] class DiskExternalMemoryIterator(val parent: String) extends Exte
   override def loadTable(path: String): Table = {
     val file = new File(path)
 
+    logger.info(s"loadTable to table from to $path")
     try {
       checkAndWaitCachingDone(path)
 
-      withResource(Table.readArrowIPCChunked(file)) { reader =>
+      val t = withResource(Table.readArrowIPCChunked(file)) { reader =>
         val tables = ArrayBuffer.empty[Table]
         closeOnExcept(tables) { tables =>
           var table = Option(reader.getNextIfAvailable())
@@ -188,6 +201,10 @@ private[spark] class DiskExternalMemoryIterator(val parent: String) extends Exte
           tables(0)
         }
       }
+      val rows = t.getRowCount
+      val size = rows * t.getNumberOfColumns * 4 / 1024 / 1024
+      logger.info(s"loadTable done to load to table (rows: $rows, size: $size) from to $path")
+      t
     } catch {
       case e: Throwable =>
         close()
