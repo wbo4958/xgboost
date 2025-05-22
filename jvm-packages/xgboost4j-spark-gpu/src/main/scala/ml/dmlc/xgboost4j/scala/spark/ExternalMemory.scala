@@ -84,9 +84,12 @@ private[spark] class DiskExternalMemoryIterator(val parent: String,
   private val taskFutures: mutable.HashMap[String, Future[Boolean]] = mutable.HashMap.empty
   private val executor = Executors.newFixedThreadPool(2)
   implicit val ec = ExecutionContext.fromExecutor(executor)
+  private var cachingDone = false
+  private var loadedCounter = 0
+  private val preloadFutures: mutable.HashMap[String, Future[Table]] = mutable.HashMap.empty
+
 
   private var counter = 0
-  private var loadingIsStarted = false
 
   private def createDirectory(dirPath: String): Unit = {
     val path = Paths.get(dirPath)
@@ -180,6 +183,28 @@ private[spark] class DiskExternalMemoryIterator(val parent: String,
     }
   }
 
+  def loadTableFromDisk(path: String): Table = {
+    val file = new File(path)
+    val t = withResource(Table.readArrowIPCChunked(file)) { reader =>
+      val tables = ArrayBuffer.empty[Table]
+      closeOnExcept(tables) { tables =>
+        var table = Option(reader.getNextIfAvailable())
+        while (table.isDefined) {
+          tables.append(table.get)
+          table = Option(reader.getNextIfAvailable())
+        }
+      }
+      if (tables.size > 1) {
+        closeOnExcept(tables) { tables =>
+          Table.concatenate(tables.toArray: _*)
+        }
+      } else {
+        tables(0)
+      }
+    }
+    t
+  }
+
   /**
    * Load the path from disk to the Table
    *
@@ -187,39 +212,41 @@ private[spark] class DiskExternalMemoryIterator(val parent: String,
    * @return Table
    */
   override def loadTable(path: String): Table = {
-
-    if (!loadingIsStarted) {
-      (counter - cacheBatchNumber + 1 until counter).foreach(i =>
-        checkAndWaitCachingDone(buffers(i)))
-      loadingIsStarted = true
-    }
-
     val file = new File(path)
-
     logger.info(s"loadTable to table from to $path")
-    try {
-      checkAndWaitCachingDone(path)
 
-      val t = withResource(Table.readArrowIPCChunked(file)) { reader =>
-        val tables = ArrayBuffer.empty[Table]
-        closeOnExcept(tables) { tables =>
-          var table = Option(reader.getNextIfAvailable())
-          while (table.isDefined) {
-            tables.append(table.get)
-            table = Option(reader.getNextIfAvailable())
-          }
-        }
-        if (tables.size > 1) {
-          closeOnExcept(tables) { tables =>
-            Table.concatenate(tables.toArray: _*)
-          }
-        } else {
-          tables(0)
-        }
+    try {
+      val t = if (!preloadFutures.contains(path)) {
+        // Ensure the file has been cached.
+        checkAndWaitCachingDone(path)
+        loadTableFromDisk(path) // load it from disk directly since the cache is not hit
+      } else {
+        val preloadFuture = preloadFutures(path) // cache is hit
+        Await.result(preloadFuture, 6.seconds) // wait and get it from preloaded table
       }
+
       val rows = t.getRowCount
       val size = rows * t.getNumberOfColumns * 4 / 1024 / 1024
       logger.info(s"loadTable done to load to table (rows: $rows, size: $size) from to $path")
+
+      loadedCounter += 1
+
+      if (!cachingDone) {
+        // Caching is not done. check it again.
+        cachingDone = (counter - cacheBatchNumber + 1 until counter).forall { i =>
+          val futureOpt = taskFutures.get(buffers(i))
+          futureOpt.exists(fu => fu.isCompleted)
+        }
+      }
+
+      if (cachingDone) {
+        // Caching is done, we can pre-load next when building DMatrix
+        val index = loadedCounter
+        if (index < counter) {
+          logger.info(s"Preload Preload begins to preload from ${buffers(index)}")
+          taskFutures += (path -> Future {loadTableFromDisk(buffers(index))})
+        }
+      }
       t
     } catch {
       case e: Throwable =>
