@@ -83,7 +83,10 @@ private[spark] class DiskExternalMemoryIterator(val parent: String,
   // Tasks mapping the path to the Future of caching table
   private val taskFutures: mutable.HashMap[String, Future[Boolean]] = mutable.HashMap.empty
   private val executor = Executors.newFixedThreadPool(2)
-  private val ec = ExecutionContext.fromExecutor(executor)
+  private val cacheEc = ExecutionContext.fromExecutor(executor)
+  private val executor1 = Executors.newFixedThreadPool(2)
+  private val preloadEc = ExecutionContext.fromExecutor(executor1)
+
   private var cachingDone = false
   private var loadedCounter = 0
   private val preloadFutures: mutable.HashMap[String, Future[Table]] = mutable.HashMap.empty
@@ -127,7 +130,7 @@ private[spark] class DiskExternalMemoryIterator(val parent: String,
             false
         }
       }
-    }(ec)
+    }(cacheEc)
   }
 
   /**
@@ -244,7 +247,7 @@ private[spark] class DiskExternalMemoryIterator(val parent: String,
         val index = loadedCounter
         if (index < counter) {
           logger.info(s"Preload Preload begins to preload from ${buffers(index)}")
-          taskFutures += (path -> Future {loadTableFromDisk(buffers(index))}(ec))
+          taskFutures += (path -> Future {loadTableFromDisk(buffers(index))}(preloadEc))
         }
       }
       t
