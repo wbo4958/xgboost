@@ -86,6 +86,7 @@ private[spark] class DiskExternalMemoryIterator(val parent: String,
   implicit val ec = ExecutionContext.fromExecutor(executor)
 
   private var counter = 0
+  private var loadingIsStarted = false
 
   private def createDirectory(dirPath: String): Unit = {
     val path = Paths.get(dirPath)
@@ -186,6 +187,13 @@ private[spark] class DiskExternalMemoryIterator(val parent: String,
    * @return Table
    */
   override def loadTable(path: String): Table = {
+
+    if (!loadingIsStarted) {
+      (counter - cacheBatchNumber + 1 until counter).foreach(i =>
+        checkAndWaitCachingDone(buffers(i)))
+      loadingIsStarted = true
+    }
+
     val file = new File(path)
 
     logger.info(s"loadTable to table from to $path")
