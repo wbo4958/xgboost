@@ -35,6 +35,8 @@
 #include "../../../../src/c_api/c_api_error.h"
 #include "../../../../src/c_api/c_api_utils.h"
 #include "../../../../src/data/array_interface.h"  // for ArrayInterface
+#include <cuda_runtime_api.h>
+
 
 // helper functions
 // set handle
@@ -1577,4 +1579,17 @@ Java_ml_dmlc_xgboost4j_java_XGBoostJNI_XGBGetGlobalConfig(JNIEnv *jenv, jclass, 
   jstring jret = jenv->NewStringUTF(args);
   jenv->SetObjectArrayElement(jout, 0, jret);
   return 0;
+}
+
+/*
+ * Class:     ml_dmlc_xgboost4j_java_XGBoostJNI
+ * Method:    CudaSetDevice
+ * Signature: (I)I
+ */
+JNIEXPORT jint JNICALL Java_ml_dmlc_xgboost4j_java_XGBoostJNI_CudaSetDevice(JNIEnv *, jclass,
+                                                                            jint device_id) {
+  API_BEGIN();
+  // xgboost::curt::SetDevice(static_cast<std::int32_t>(device_id));
+  cudaSetDevice(static_cast<std::int32_t>(device_id));
+  API_END();
 }

@@ -17,16 +17,4 @@ int QdmFromCallback(JNIEnv *, jobject, jlongArray, char const *, bool, jlongArra
 }
 }  // namespace xgboost::jni
 
-/*
- * Class:     ml_dmlc_xgboost4j_java_XGBoostJNI
- * Method:    CudaSetDevice
- * Signature: (I)I
- */
-JNIEXPORT jint JNICALL Java_ml_dmlc_xgboost4j_java_XGBoostJNI_CudaSetDevice(JNIEnv *, jclass,
-                                                                            jint) {
-  API_BEGIN();
-  xgboost::common::AssertGPUSupport();
-  API_END();
-}
-
 #endif  // XGBOOST_USE_CUDA
